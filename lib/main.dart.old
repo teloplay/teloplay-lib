@@ -1,0 +1,81 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'core/config/env_config.dart';
+import 'core/error/error_handler.dart';
+import 'core/theme/app_theme.dart';
+import 'providers/app_router.dart';
+
+// ⚠️ TEMPORARY ROLLBACK (checkpoint note): audio_service bootstrap এখান
+// থেকে সাময়িকভাবে সরানো হয়েছে। কারণ: `dart.library.io` conditional
+// import দিয়ে Android/Windows আলাদা করা যায় না (এটা দুই platform-এই
+// true — শুধু web বনাম native আলাদা করে, Dart SDK-এর known limitation,
+// dart-lang/language#2133)। এই ভুল approach-এর কারণে Windows build
+// আবার ভেঙে যাচ্ছিল ("Constant evaluation error" / CMake
+// flutter_assemble ব্যর্থ)।
+//
+// পরের ধাপে সঠিক সমাধান বসবে (যেকোনো একটা):
+//   (ক) pubspec.yaml-এ audio_service platform-restrict করা যায় কিনা
+//       যাচাই (package নিজে federated plugin কিনা, Windows-এ স্বয়ংক্রিয়
+//       বাদ পড়ার কথা — কেন পড়ছে না সেটা flutter pub get -v/flutter
+//       build windows-এর পূর্ণ log দেখে ডায়াগনোজ করতে হবে)।
+//   (খ) build flavor আলাদা করা (android/ ও windows/ এর জন্য আলাদা
+//       entry point main_android.dart / main_windows.dart, প্রতিটা
+//       নিজের platform-এর জন্যই compile হবে — এটাই সবচেয়ে নিরাপদ ও
+//       প্রমাণিত প্যাটার্ন platform-exclusive প্যাকেজের জন্য)।
+//
+// এই ফাইলগুলো আগের কাজেই তৈরি আছে, রোলব্যাক হয়নি:
+//   - lib/core/audio/telo_play_audio_handler.dart (Android handler, অক্ষত)
+//   - lib/core/audio/audio_handler_registry.dart (global handler var, অক্ষত)
+//   - lib/core/audio/windows_media_service.dart (SMTC wrapper, অক্ষত)
+// এই তিনটা ফাইল কোনো পরিবর্তন লাগবে না — শুধু main.dart-এ এদের wire করার
+// পদ্ধতিটা (dart.library.io approach) ভুল ছিল, সেটাই next step-এ ঠিক
+// হবে।
+//
+// music_player_provider.dart-এও globalAudioHandler.attachRepository()
+// কল আছে (Android branch-এ) — এটাও অক্ষত আছে, কারণ ওই কল main.dart-এর
+// bootstrap সঠিকভাবে সেট হলে তবেই কার্যকর হবে; bootstrap ছাড়া
+// globalAudioHandler null থাকবে আর সেই branch নিজে থেকেই null-check
+// করে গ্রেসফুলি স্কিপ করবে (crash করবে না), শুধু Android-এ background
+// audio notification এখনো active হবে না যতক্ষণ না bootstrap ঠিক হয়।
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  ErrorHandler.init();
+
+  if (!kIsWeb) {
+    MediaKit.ensureInitialized();
+  }
+
+  await EnvConfig.load();
+
+  await Supabase.initialize(
+    url: EnvConfig.supabaseUrl,
+    anonKey: EnvConfig.supabaseAnonKey,
+  );
+
+  runApp(
+    const ProviderScope(
+      child: TeloPlayApp(),
+    ),
+  );
+}
+
+class TeloPlayApp extends ConsumerWidget {
+  const TeloPlayApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(appRouterProvider);
+
+    return MaterialApp.router(
+      title: 'TeloPlay',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.dark,
+      routerConfig: router,
+    );
+  }
+}
