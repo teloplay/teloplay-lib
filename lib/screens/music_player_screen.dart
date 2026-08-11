@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/playback/playback_engine.dart';
 import '../models/now_playing_model.dart';
-
+import '../providers/album_accent_provider.dart';
 import '../providers/library_provider.dart';
 import '../providers/music_player_provider.dart';
 import '../providers/playlist_provider.dart';
