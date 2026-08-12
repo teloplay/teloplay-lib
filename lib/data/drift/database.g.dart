@@ -3034,6 +3034,11 @@ class $SyncQueueItemsTable extends SyncQueueItems
   late final GeneratedColumn<String> id = GeneratedColumn<String>(
       'id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+      'user_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
   static const VerificationMeta _entityTypeMeta =
       const VerificationMeta('entityType');
   @override
@@ -3089,6 +3094,7 @@ class $SyncQueueItemsTable extends SyncQueueItems
   @override
   List<GeneratedColumn> get $columns => [
         id,
+        userId,
         entityType,
         entityId,
         action,
@@ -3112,6 +3118,12 @@ class $SyncQueueItemsTable extends SyncQueueItems
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(_userIdMeta,
+          userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta));
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
     }
     if (data.containsKey('entity_type')) {
       context.handle(
@@ -3168,6 +3180,8 @@ class $SyncQueueItemsTable extends SyncQueueItems
     return SyncQueueItem(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      userId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}user_id'])!,
       entityType: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}entity_type'])!,
       entityId: attachedDatabase.typeMapping
@@ -3196,6 +3210,10 @@ class $SyncQueueItemsTable extends SyncQueueItems
 class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
   final String id;
 
+  /// Sync queue entry-টা কোন user-এর — cross-user leak প্রতিরোধে non-nullable।
+  /// Migration-এ existing row গুলো current logged-in user দিয়ে backfill হয়।
+  final String userId;
+
   /// 'favorite' | 'playlist' | 'history' | 'settings' ইত্যাদি
   final String entityType;
   final String entityId;
@@ -3213,6 +3231,7 @@ class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
   final String? lastError;
   const SyncQueueItem(
       {required this.id,
+      required this.userId,
       required this.entityType,
       required this.entityId,
       required this.action,
@@ -3225,6 +3244,7 @@ class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
     map['entity_type'] = Variable<String>(entityType);
     map['entity_id'] = Variable<String>(entityId);
     map['action'] = Variable<String>(action);
@@ -3241,6 +3261,7 @@ class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
   SyncQueueItemsCompanion toCompanion(bool nullToAbsent) {
     return SyncQueueItemsCompanion(
       id: Value(id),
+      userId: Value(userId),
       entityType: Value(entityType),
       entityId: Value(entityId),
       action: Value(action),
@@ -3259,6 +3280,7 @@ class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return SyncQueueItem(
       id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
       entityType: serializer.fromJson<String>(json['entityType']),
       entityId: serializer.fromJson<String>(json['entityId']),
       action: serializer.fromJson<String>(json['action']),
@@ -3274,6 +3296,7 @@ class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
       'entityType': serializer.toJson<String>(entityType),
       'entityId': serializer.toJson<String>(entityId),
       'action': serializer.toJson<String>(action),
@@ -3287,6 +3310,7 @@ class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
 
   SyncQueueItem copyWith(
           {String? id,
+          String? userId,
           String? entityType,
           String? entityId,
           String? action,
@@ -3297,6 +3321,7 @@ class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
           Value<String?> lastError = const Value.absent()}) =>
       SyncQueueItem(
         id: id ?? this.id,
+        userId: userId ?? this.userId,
         entityType: entityType ?? this.entityType,
         entityId: entityId ?? this.entityId,
         action: action ?? this.action,
@@ -3309,6 +3334,7 @@ class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
   SyncQueueItem copyWithCompanion(SyncQueueItemsCompanion data) {
     return SyncQueueItem(
       id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
       entityType:
           data.entityType.present ? data.entityType.value : this.entityType,
       entityId: data.entityId.present ? data.entityId.value : this.entityId,
@@ -3326,6 +3352,7 @@ class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
   String toString() {
     return (StringBuffer('SyncQueueItem(')
           ..write('id: $id, ')
+          ..write('userId: $userId, ')
           ..write('entityType: $entityType, ')
           ..write('entityId: $entityId, ')
           ..write('action: $action, ')
@@ -3339,13 +3366,14 @@ class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
   }
 
   @override
-  int get hashCode => Object.hash(id, entityType, entityId, action, payload,
-      createdAt, retryCount, status, lastError);
+  int get hashCode => Object.hash(id, userId, entityType, entityId, action,
+      payload, createdAt, retryCount, status, lastError);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is SyncQueueItem &&
           other.id == this.id &&
+          other.userId == this.userId &&
           other.entityType == this.entityType &&
           other.entityId == this.entityId &&
           other.action == this.action &&
@@ -3358,6 +3386,7 @@ class SyncQueueItem extends DataClass implements Insertable<SyncQueueItem> {
 
 class SyncQueueItemsCompanion extends UpdateCompanion<SyncQueueItem> {
   final Value<String> id;
+  final Value<String> userId;
   final Value<String> entityType;
   final Value<String> entityId;
   final Value<String> action;
@@ -3369,6 +3398,7 @@ class SyncQueueItemsCompanion extends UpdateCompanion<SyncQueueItem> {
   final Value<int> rowid;
   const SyncQueueItemsCompanion({
     this.id = const Value.absent(),
+    this.userId = const Value.absent(),
     this.entityType = const Value.absent(),
     this.entityId = const Value.absent(),
     this.action = const Value.absent(),
@@ -3381,6 +3411,7 @@ class SyncQueueItemsCompanion extends UpdateCompanion<SyncQueueItem> {
   });
   SyncQueueItemsCompanion.insert({
     required String id,
+    required String userId,
     required String entityType,
     required String entityId,
     required String action,
@@ -3391,12 +3422,14 @@ class SyncQueueItemsCompanion extends UpdateCompanion<SyncQueueItem> {
     this.lastError = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
+        userId = Value(userId),
         entityType = Value(entityType),
         entityId = Value(entityId),
         action = Value(action),
         payload = Value(payload);
   static Insertable<SyncQueueItem> custom({
     Expression<String>? id,
+    Expression<String>? userId,
     Expression<String>? entityType,
     Expression<String>? entityId,
     Expression<String>? action,
@@ -3409,6 +3442,7 @@ class SyncQueueItemsCompanion extends UpdateCompanion<SyncQueueItem> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
       if (entityType != null) 'entity_type': entityType,
       if (entityId != null) 'entity_id': entityId,
       if (action != null) 'action': action,
@@ -3423,6 +3457,7 @@ class SyncQueueItemsCompanion extends UpdateCompanion<SyncQueueItem> {
 
   SyncQueueItemsCompanion copyWith(
       {Value<String>? id,
+      Value<String>? userId,
       Value<String>? entityType,
       Value<String>? entityId,
       Value<String>? action,
@@ -3434,6 +3469,7 @@ class SyncQueueItemsCompanion extends UpdateCompanion<SyncQueueItem> {
       Value<int>? rowid}) {
     return SyncQueueItemsCompanion(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       entityType: entityType ?? this.entityType,
       entityId: entityId ?? this.entityId,
       action: action ?? this.action,
@@ -3451,6 +3487,9 @@ class SyncQueueItemsCompanion extends UpdateCompanion<SyncQueueItem> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
     }
     if (entityType.present) {
       map['entity_type'] = Variable<String>(entityType.value);
@@ -3486,6 +3525,7 @@ class SyncQueueItemsCompanion extends UpdateCompanion<SyncQueueItem> {
   String toString() {
     return (StringBuffer('SyncQueueItemsCompanion(')
           ..write('id: $id, ')
+          ..write('userId: $userId, ')
           ..write('entityType: $entityType, ')
           ..write('entityId: $entityId, ')
           ..write('action: $action, ')
@@ -3494,6 +3534,775 @@ class SyncQueueItemsCompanion extends UpdateCompanion<SyncQueueItem> {
           ..write('retryCount: $retryCount, ')
           ..write('status: $status, ')
           ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MetadataCacheTable extends MetadataCache
+    with TableInfo<$MetadataCacheTable, MetadataCacheData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MetadataCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+      'source', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+      'type', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _dataMeta = const VerificationMeta('data');
+  @override
+  late final GeneratedColumn<String> data = GeneratedColumn<String>(
+      'data', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _cachedAtMeta =
+      const VerificationMeta('cachedAt');
+  @override
+  late final GeneratedColumn<DateTime> cachedAt = GeneratedColumn<DateTime>(
+      'cached_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _expiresAtMeta =
+      const VerificationMeta('expiresAt');
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+      'expires_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [source, type, id, data, cachedAt, expiresAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'metadata_cache';
+  @override
+  VerificationContext validateIntegrity(Insertable<MetadataCacheData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('source')) {
+      context.handle(_sourceMeta,
+          source.isAcceptableOrUnknown(data['source']!, _sourceMeta));
+    } else if (isInserting) {
+      context.missing(_sourceMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+          _typeMeta, type.isAcceptableOrUnknown(data['type']!, _typeMeta));
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('data')) {
+      context.handle(
+          _dataMeta, this.data.isAcceptableOrUnknown(data['data']!, _dataMeta));
+    } else if (isInserting) {
+      context.missing(_dataMeta);
+    }
+    if (data.containsKey('cached_at')) {
+      context.handle(_cachedAtMeta,
+          cachedAt.isAcceptableOrUnknown(data['cached_at']!, _cachedAtMeta));
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(_expiresAtMeta,
+          expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta));
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {source, type, id};
+  @override
+  MetadataCacheData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MetadataCacheData(
+      source: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}source'])!,
+      type: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}type'])!,
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      data: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}data'])!,
+      cachedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}cached_at'])!,
+      expiresAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}expires_at'])!,
+    );
+  }
+
+  @override
+  $MetadataCacheTable createAlias(String alias) {
+    return $MetadataCacheTable(attachedDatabase, alias);
+  }
+}
+
+class MetadataCacheData extends DataClass
+    implements Insertable<MetadataCacheData> {
+  /// 'deezer' | 'lastfm' | 'musicbrainz' | 'youtube'
+  final String source;
+
+  /// 'track' | 'artist' | 'album' | 'search'
+  final String type;
+
+  /// External API ID (Deezer track id, MBID, etc.)
+  final String id;
+
+  /// JSON blob of the cached response
+  final String data;
+  final DateTime cachedAt;
+  final DateTime expiresAt;
+  const MetadataCacheData(
+      {required this.source,
+      required this.type,
+      required this.id,
+      required this.data,
+      required this.cachedAt,
+      required this.expiresAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['source'] = Variable<String>(source);
+    map['type'] = Variable<String>(type);
+    map['id'] = Variable<String>(id);
+    map['data'] = Variable<String>(data);
+    map['cached_at'] = Variable<DateTime>(cachedAt);
+    map['expires_at'] = Variable<DateTime>(expiresAt);
+    return map;
+  }
+
+  MetadataCacheCompanion toCompanion(bool nullToAbsent) {
+    return MetadataCacheCompanion(
+      source: Value(source),
+      type: Value(type),
+      id: Value(id),
+      data: Value(data),
+      cachedAt: Value(cachedAt),
+      expiresAt: Value(expiresAt),
+    );
+  }
+
+  factory MetadataCacheData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MetadataCacheData(
+      source: serializer.fromJson<String>(json['source']),
+      type: serializer.fromJson<String>(json['type']),
+      id: serializer.fromJson<String>(json['id']),
+      data: serializer.fromJson<String>(json['data']),
+      cachedAt: serializer.fromJson<DateTime>(json['cachedAt']),
+      expiresAt: serializer.fromJson<DateTime>(json['expiresAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'source': serializer.toJson<String>(source),
+      'type': serializer.toJson<String>(type),
+      'id': serializer.toJson<String>(id),
+      'data': serializer.toJson<String>(data),
+      'cachedAt': serializer.toJson<DateTime>(cachedAt),
+      'expiresAt': serializer.toJson<DateTime>(expiresAt),
+    };
+  }
+
+  MetadataCacheData copyWith(
+          {String? source,
+          String? type,
+          String? id,
+          String? data,
+          DateTime? cachedAt,
+          DateTime? expiresAt}) =>
+      MetadataCacheData(
+        source: source ?? this.source,
+        type: type ?? this.type,
+        id: id ?? this.id,
+        data: data ?? this.data,
+        cachedAt: cachedAt ?? this.cachedAt,
+        expiresAt: expiresAt ?? this.expiresAt,
+      );
+  MetadataCacheData copyWithCompanion(MetadataCacheCompanion data) {
+    return MetadataCacheData(
+      source: data.source.present ? data.source.value : this.source,
+      type: data.type.present ? data.type.value : this.type,
+      id: data.id.present ? data.id.value : this.id,
+      data: data.data.present ? data.data.value : this.data,
+      cachedAt: data.cachedAt.present ? data.cachedAt.value : this.cachedAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MetadataCacheData(')
+          ..write('source: $source, ')
+          ..write('type: $type, ')
+          ..write('id: $id, ')
+          ..write('data: $data, ')
+          ..write('cachedAt: $cachedAt, ')
+          ..write('expiresAt: $expiresAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(source, type, id, data, cachedAt, expiresAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MetadataCacheData &&
+          other.source == this.source &&
+          other.type == this.type &&
+          other.id == this.id &&
+          other.data == this.data &&
+          other.cachedAt == this.cachedAt &&
+          other.expiresAt == this.expiresAt);
+}
+
+class MetadataCacheCompanion extends UpdateCompanion<MetadataCacheData> {
+  final Value<String> source;
+  final Value<String> type;
+  final Value<String> id;
+  final Value<String> data;
+  final Value<DateTime> cachedAt;
+  final Value<DateTime> expiresAt;
+  final Value<int> rowid;
+  const MetadataCacheCompanion({
+    this.source = const Value.absent(),
+    this.type = const Value.absent(),
+    this.id = const Value.absent(),
+    this.data = const Value.absent(),
+    this.cachedAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MetadataCacheCompanion.insert({
+    required String source,
+    required String type,
+    required String id,
+    required String data,
+    this.cachedAt = const Value.absent(),
+    required DateTime expiresAt,
+    this.rowid = const Value.absent(),
+  })  : source = Value(source),
+        type = Value(type),
+        id = Value(id),
+        data = Value(data),
+        expiresAt = Value(expiresAt);
+  static Insertable<MetadataCacheData> custom({
+    Expression<String>? source,
+    Expression<String>? type,
+    Expression<String>? id,
+    Expression<String>? data,
+    Expression<DateTime>? cachedAt,
+    Expression<DateTime>? expiresAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (source != null) 'source': source,
+      if (type != null) 'type': type,
+      if (id != null) 'id': id,
+      if (data != null) 'data': data,
+      if (cachedAt != null) 'cached_at': cachedAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MetadataCacheCompanion copyWith(
+      {Value<String>? source,
+      Value<String>? type,
+      Value<String>? id,
+      Value<String>? data,
+      Value<DateTime>? cachedAt,
+      Value<DateTime>? expiresAt,
+      Value<int>? rowid}) {
+    return MetadataCacheCompanion(
+      source: source ?? this.source,
+      type: type ?? this.type,
+      id: id ?? this.id,
+      data: data ?? this.data,
+      cachedAt: cachedAt ?? this.cachedAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (data.present) {
+      map['data'] = Variable<String>(data.value);
+    }
+    if (cachedAt.present) {
+      map['cached_at'] = Variable<DateTime>(cachedAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MetadataCacheCompanion(')
+          ..write('source: $source, ')
+          ..write('type: $type, ')
+          ..write('id: $id, ')
+          ..write('data: $data, ')
+          ..write('cachedAt: $cachedAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ContinueSessionsTable extends ContinueSessions
+    with TableInfo<$ContinueSessionsTable, ContinueSession> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ContinueSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _currentSongIdMeta =
+      const VerificationMeta('currentSongId');
+  @override
+  late final GeneratedColumn<String> currentSongId = GeneratedColumn<String>(
+      'current_song_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _currentPositionMsMeta =
+      const VerificationMeta('currentPositionMs');
+  @override
+  late final GeneratedColumn<int> currentPositionMs = GeneratedColumn<int>(
+      'current_position_ms', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _queueSnapshotMeta =
+      const VerificationMeta('queueSnapshot');
+  @override
+  late final GeneratedColumn<String> queueSnapshot = GeneratedColumn<String>(
+      'queue_snapshot', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _currentIndexMeta =
+      const VerificationMeta('currentIndex');
+  @override
+  late final GeneratedColumn<int> currentIndex = GeneratedColumn<int>(
+      'current_index', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _sourceRailMeta =
+      const VerificationMeta('sourceRail');
+  @override
+  late final GeneratedColumn<String> sourceRail = GeneratedColumn<String>(
+      'source_rail', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _lastPlayedAtMeta =
+      const VerificationMeta('lastPlayedAt');
+  @override
+  late final GeneratedColumn<DateTime> lastPlayedAt = GeneratedColumn<DateTime>(
+      'last_played_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        currentSongId,
+        currentPositionMs,
+        queueSnapshot,
+        currentIndex,
+        sourceRail,
+        lastPlayedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'continue_sessions';
+  @override
+  VerificationContext validateIntegrity(Insertable<ContinueSession> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('current_song_id')) {
+      context.handle(
+          _currentSongIdMeta,
+          currentSongId.isAcceptableOrUnknown(
+              data['current_song_id']!, _currentSongIdMeta));
+    } else if (isInserting) {
+      context.missing(_currentSongIdMeta);
+    }
+    if (data.containsKey('current_position_ms')) {
+      context.handle(
+          _currentPositionMsMeta,
+          currentPositionMs.isAcceptableOrUnknown(
+              data['current_position_ms']!, _currentPositionMsMeta));
+    } else if (isInserting) {
+      context.missing(_currentPositionMsMeta);
+    }
+    if (data.containsKey('queue_snapshot')) {
+      context.handle(
+          _queueSnapshotMeta,
+          queueSnapshot.isAcceptableOrUnknown(
+              data['queue_snapshot']!, _queueSnapshotMeta));
+    } else if (isInserting) {
+      context.missing(_queueSnapshotMeta);
+    }
+    if (data.containsKey('current_index')) {
+      context.handle(
+          _currentIndexMeta,
+          currentIndex.isAcceptableOrUnknown(
+              data['current_index']!, _currentIndexMeta));
+    } else if (isInserting) {
+      context.missing(_currentIndexMeta);
+    }
+    if (data.containsKey('source_rail')) {
+      context.handle(
+          _sourceRailMeta,
+          sourceRail.isAcceptableOrUnknown(
+              data['source_rail']!, _sourceRailMeta));
+    } else if (isInserting) {
+      context.missing(_sourceRailMeta);
+    }
+    if (data.containsKey('last_played_at')) {
+      context.handle(
+          _lastPlayedAtMeta,
+          lastPlayedAt.isAcceptableOrUnknown(
+              data['last_played_at']!, _lastPlayedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ContinueSession map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ContinueSession(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      currentSongId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}current_song_id'])!,
+      currentPositionMs: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}current_position_ms'])!,
+      queueSnapshot: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}queue_snapshot'])!,
+      currentIndex: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}current_index'])!,
+      sourceRail: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}source_rail'])!,
+      lastPlayedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}last_played_at'])!,
+    );
+  }
+
+  @override
+  $ContinueSessionsTable createAlias(String alias) {
+    return $ContinueSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class ContinueSession extends DataClass implements Insertable<ContinueSession> {
+  final String id;
+
+  /// YouTube videoId of the song that was playing (Songs.id / SearchResult.videoId)
+  final String currentSongId;
+  final int currentPositionMs;
+
+  /// JSON-encoded List<SearchResult> (see searchResultToJson/FromJson)
+  final String queueSnapshot;
+  final int currentIndex;
+
+  /// e.g. "Daily Mix", a playlist name, etc.
+  final String sourceRail;
+  final DateTime lastPlayedAt;
+  const ContinueSession(
+      {required this.id,
+      required this.currentSongId,
+      required this.currentPositionMs,
+      required this.queueSnapshot,
+      required this.currentIndex,
+      required this.sourceRail,
+      required this.lastPlayedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['current_song_id'] = Variable<String>(currentSongId);
+    map['current_position_ms'] = Variable<int>(currentPositionMs);
+    map['queue_snapshot'] = Variable<String>(queueSnapshot);
+    map['current_index'] = Variable<int>(currentIndex);
+    map['source_rail'] = Variable<String>(sourceRail);
+    map['last_played_at'] = Variable<DateTime>(lastPlayedAt);
+    return map;
+  }
+
+  ContinueSessionsCompanion toCompanion(bool nullToAbsent) {
+    return ContinueSessionsCompanion(
+      id: Value(id),
+      currentSongId: Value(currentSongId),
+      currentPositionMs: Value(currentPositionMs),
+      queueSnapshot: Value(queueSnapshot),
+      currentIndex: Value(currentIndex),
+      sourceRail: Value(sourceRail),
+      lastPlayedAt: Value(lastPlayedAt),
+    );
+  }
+
+  factory ContinueSession.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ContinueSession(
+      id: serializer.fromJson<String>(json['id']),
+      currentSongId: serializer.fromJson<String>(json['currentSongId']),
+      currentPositionMs: serializer.fromJson<int>(json['currentPositionMs']),
+      queueSnapshot: serializer.fromJson<String>(json['queueSnapshot']),
+      currentIndex: serializer.fromJson<int>(json['currentIndex']),
+      sourceRail: serializer.fromJson<String>(json['sourceRail']),
+      lastPlayedAt: serializer.fromJson<DateTime>(json['lastPlayedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'currentSongId': serializer.toJson<String>(currentSongId),
+      'currentPositionMs': serializer.toJson<int>(currentPositionMs),
+      'queueSnapshot': serializer.toJson<String>(queueSnapshot),
+      'currentIndex': serializer.toJson<int>(currentIndex),
+      'sourceRail': serializer.toJson<String>(sourceRail),
+      'lastPlayedAt': serializer.toJson<DateTime>(lastPlayedAt),
+    };
+  }
+
+  ContinueSession copyWith(
+          {String? id,
+          String? currentSongId,
+          int? currentPositionMs,
+          String? queueSnapshot,
+          int? currentIndex,
+          String? sourceRail,
+          DateTime? lastPlayedAt}) =>
+      ContinueSession(
+        id: id ?? this.id,
+        currentSongId: currentSongId ?? this.currentSongId,
+        currentPositionMs: currentPositionMs ?? this.currentPositionMs,
+        queueSnapshot: queueSnapshot ?? this.queueSnapshot,
+        currentIndex: currentIndex ?? this.currentIndex,
+        sourceRail: sourceRail ?? this.sourceRail,
+        lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
+      );
+  ContinueSession copyWithCompanion(ContinueSessionsCompanion data) {
+    return ContinueSession(
+      id: data.id.present ? data.id.value : this.id,
+      currentSongId: data.currentSongId.present
+          ? data.currentSongId.value
+          : this.currentSongId,
+      currentPositionMs: data.currentPositionMs.present
+          ? data.currentPositionMs.value
+          : this.currentPositionMs,
+      queueSnapshot: data.queueSnapshot.present
+          ? data.queueSnapshot.value
+          : this.queueSnapshot,
+      currentIndex: data.currentIndex.present
+          ? data.currentIndex.value
+          : this.currentIndex,
+      sourceRail:
+          data.sourceRail.present ? data.sourceRail.value : this.sourceRail,
+      lastPlayedAt: data.lastPlayedAt.present
+          ? data.lastPlayedAt.value
+          : this.lastPlayedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ContinueSession(')
+          ..write('id: $id, ')
+          ..write('currentSongId: $currentSongId, ')
+          ..write('currentPositionMs: $currentPositionMs, ')
+          ..write('queueSnapshot: $queueSnapshot, ')
+          ..write('currentIndex: $currentIndex, ')
+          ..write('sourceRail: $sourceRail, ')
+          ..write('lastPlayedAt: $lastPlayedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, currentSongId, currentPositionMs,
+      queueSnapshot, currentIndex, sourceRail, lastPlayedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ContinueSession &&
+          other.id == this.id &&
+          other.currentSongId == this.currentSongId &&
+          other.currentPositionMs == this.currentPositionMs &&
+          other.queueSnapshot == this.queueSnapshot &&
+          other.currentIndex == this.currentIndex &&
+          other.sourceRail == this.sourceRail &&
+          other.lastPlayedAt == this.lastPlayedAt);
+}
+
+class ContinueSessionsCompanion extends UpdateCompanion<ContinueSession> {
+  final Value<String> id;
+  final Value<String> currentSongId;
+  final Value<int> currentPositionMs;
+  final Value<String> queueSnapshot;
+  final Value<int> currentIndex;
+  final Value<String> sourceRail;
+  final Value<DateTime> lastPlayedAt;
+  final Value<int> rowid;
+  const ContinueSessionsCompanion({
+    this.id = const Value.absent(),
+    this.currentSongId = const Value.absent(),
+    this.currentPositionMs = const Value.absent(),
+    this.queueSnapshot = const Value.absent(),
+    this.currentIndex = const Value.absent(),
+    this.sourceRail = const Value.absent(),
+    this.lastPlayedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ContinueSessionsCompanion.insert({
+    required String id,
+    required String currentSongId,
+    required int currentPositionMs,
+    required String queueSnapshot,
+    required int currentIndex,
+    required String sourceRail,
+    this.lastPlayedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        currentSongId = Value(currentSongId),
+        currentPositionMs = Value(currentPositionMs),
+        queueSnapshot = Value(queueSnapshot),
+        currentIndex = Value(currentIndex),
+        sourceRail = Value(sourceRail);
+  static Insertable<ContinueSession> custom({
+    Expression<String>? id,
+    Expression<String>? currentSongId,
+    Expression<int>? currentPositionMs,
+    Expression<String>? queueSnapshot,
+    Expression<int>? currentIndex,
+    Expression<String>? sourceRail,
+    Expression<DateTime>? lastPlayedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (currentSongId != null) 'current_song_id': currentSongId,
+      if (currentPositionMs != null) 'current_position_ms': currentPositionMs,
+      if (queueSnapshot != null) 'queue_snapshot': queueSnapshot,
+      if (currentIndex != null) 'current_index': currentIndex,
+      if (sourceRail != null) 'source_rail': sourceRail,
+      if (lastPlayedAt != null) 'last_played_at': lastPlayedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ContinueSessionsCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? currentSongId,
+      Value<int>? currentPositionMs,
+      Value<String>? queueSnapshot,
+      Value<int>? currentIndex,
+      Value<String>? sourceRail,
+      Value<DateTime>? lastPlayedAt,
+      Value<int>? rowid}) {
+    return ContinueSessionsCompanion(
+      id: id ?? this.id,
+      currentSongId: currentSongId ?? this.currentSongId,
+      currentPositionMs: currentPositionMs ?? this.currentPositionMs,
+      queueSnapshot: queueSnapshot ?? this.queueSnapshot,
+      currentIndex: currentIndex ?? this.currentIndex,
+      sourceRail: sourceRail ?? this.sourceRail,
+      lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (currentSongId.present) {
+      map['current_song_id'] = Variable<String>(currentSongId.value);
+    }
+    if (currentPositionMs.present) {
+      map['current_position_ms'] = Variable<int>(currentPositionMs.value);
+    }
+    if (queueSnapshot.present) {
+      map['queue_snapshot'] = Variable<String>(queueSnapshot.value);
+    }
+    if (currentIndex.present) {
+      map['current_index'] = Variable<int>(currentIndex.value);
+    }
+    if (sourceRail.present) {
+      map['source_rail'] = Variable<String>(sourceRail.value);
+    }
+    if (lastPlayedAt.present) {
+      map['last_played_at'] = Variable<DateTime>(lastPlayedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ContinueSessionsCompanion(')
+          ..write('id: $id, ')
+          ..write('currentSongId: $currentSongId, ')
+          ..write('currentPositionMs: $currentPositionMs, ')
+          ..write('queueSnapshot: $queueSnapshot, ')
+          ..write('currentIndex: $currentIndex, ')
+          ..write('sourceRail: $sourceRail, ')
+          ..write('lastPlayedAt: $lastPlayedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3514,6 +4323,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SettingsEntriesTable settingsEntries =
       $SettingsEntriesTable(this);
   late final $SyncQueueItemsTable syncQueueItems = $SyncQueueItemsTable(this);
+  late final $MetadataCacheTable metadataCache = $MetadataCacheTable(this);
+  late final $ContinueSessionsTable continueSessions =
+      $ContinueSessionsTable(this);
   late final Index idxQueueUser = Index(
       'idx_queue_user', 'CREATE INDEX idx_queue_user ON queue_items (user_id)');
   late final Index idxHistoryUser = Index('idx_history_user',
@@ -3538,6 +4350,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         favorites,
         settingsEntries,
         syncQueueItems,
+        metadataCache,
+        continueSessions,
         idxQueueUser,
         idxHistoryUser,
         idxHistorySongId,
@@ -6005,6 +6819,7 @@ typedef $$SettingsEntriesTableProcessedTableManager = ProcessedTableManager<
 typedef $$SyncQueueItemsTableCreateCompanionBuilder = SyncQueueItemsCompanion
     Function({
   required String id,
+  required String userId,
   required String entityType,
   required String entityId,
   required String action,
@@ -6018,6 +6833,7 @@ typedef $$SyncQueueItemsTableCreateCompanionBuilder = SyncQueueItemsCompanion
 typedef $$SyncQueueItemsTableUpdateCompanionBuilder = SyncQueueItemsCompanion
     Function({
   Value<String> id,
+  Value<String> userId,
   Value<String> entityType,
   Value<String> entityId,
   Value<String> action,
@@ -6040,6 +6856,9 @@ class $$SyncQueueItemsTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get userId => $composableBuilder(
+      column: $table.userId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get entityType => $composableBuilder(
       column: $table.entityType, builder: (column) => ColumnFilters(column));
@@ -6078,6 +6897,9 @@ class $$SyncQueueItemsTableOrderingComposer
   ColumnOrderings<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+      column: $table.userId, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get entityType => $composableBuilder(
       column: $table.entityType, builder: (column) => ColumnOrderings(column));
 
@@ -6114,6 +6936,9 @@ class $$SyncQueueItemsTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
 
   GeneratedColumn<String> get entityType => $composableBuilder(
       column: $table.entityType, builder: (column) => column);
@@ -6168,6 +6993,7 @@ class $$SyncQueueItemsTableTableManager extends RootTableManager<
               $$SyncQueueItemsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
             Value<String> id = const Value.absent(),
+            Value<String> userId = const Value.absent(),
             Value<String> entityType = const Value.absent(),
             Value<String> entityId = const Value.absent(),
             Value<String> action = const Value.absent(),
@@ -6180,6 +7006,7 @@ class $$SyncQueueItemsTableTableManager extends RootTableManager<
           }) =>
               SyncQueueItemsCompanion(
             id: id,
+            userId: userId,
             entityType: entityType,
             entityId: entityId,
             action: action,
@@ -6192,6 +7019,7 @@ class $$SyncQueueItemsTableTableManager extends RootTableManager<
           ),
           createCompanionCallback: ({
             required String id,
+            required String userId,
             required String entityType,
             required String entityId,
             required String action,
@@ -6204,6 +7032,7 @@ class $$SyncQueueItemsTableTableManager extends RootTableManager<
           }) =>
               SyncQueueItemsCompanion.insert(
             id: id,
+            userId: userId,
             entityType: entityType,
             entityId: entityId,
             action: action,
@@ -6236,6 +7065,404 @@ typedef $$SyncQueueItemsTableProcessedTableManager = ProcessedTableManager<
     ),
     SyncQueueItem,
     PrefetchHooks Function()>;
+typedef $$MetadataCacheTableCreateCompanionBuilder = MetadataCacheCompanion
+    Function({
+  required String source,
+  required String type,
+  required String id,
+  required String data,
+  Value<DateTime> cachedAt,
+  required DateTime expiresAt,
+  Value<int> rowid,
+});
+typedef $$MetadataCacheTableUpdateCompanionBuilder = MetadataCacheCompanion
+    Function({
+  Value<String> source,
+  Value<String> type,
+  Value<String> id,
+  Value<String> data,
+  Value<DateTime> cachedAt,
+  Value<DateTime> expiresAt,
+  Value<int> rowid,
+});
+
+class $$MetadataCacheTableFilterComposer
+    extends Composer<_$AppDatabase, $MetadataCacheTable> {
+  $$MetadataCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get source => $composableBuilder(
+      column: $table.source, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get type => $composableBuilder(
+      column: $table.type, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get data => $composableBuilder(
+      column: $table.data, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get cachedAt => $composableBuilder(
+      column: $table.cachedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+      column: $table.expiresAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$MetadataCacheTableOrderingComposer
+    extends Composer<_$AppDatabase, $MetadataCacheTable> {
+  $$MetadataCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get source => $composableBuilder(
+      column: $table.source, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get type => $composableBuilder(
+      column: $table.type, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get data => $composableBuilder(
+      column: $table.data, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get cachedAt => $composableBuilder(
+      column: $table.cachedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+      column: $table.expiresAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$MetadataCacheTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MetadataCacheTable> {
+  $$MetadataCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get data =>
+      $composableBuilder(column: $table.data, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get cachedAt =>
+      $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+}
+
+class $$MetadataCacheTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $MetadataCacheTable,
+    MetadataCacheData,
+    $$MetadataCacheTableFilterComposer,
+    $$MetadataCacheTableOrderingComposer,
+    $$MetadataCacheTableAnnotationComposer,
+    $$MetadataCacheTableCreateCompanionBuilder,
+    $$MetadataCacheTableUpdateCompanionBuilder,
+    (
+      MetadataCacheData,
+      BaseReferences<_$AppDatabase, $MetadataCacheTable, MetadataCacheData>
+    ),
+    MetadataCacheData,
+    PrefetchHooks Function()> {
+  $$MetadataCacheTableTableManager(_$AppDatabase db, $MetadataCacheTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MetadataCacheTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MetadataCacheTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MetadataCacheTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> source = const Value.absent(),
+            Value<String> type = const Value.absent(),
+            Value<String> id = const Value.absent(),
+            Value<String> data = const Value.absent(),
+            Value<DateTime> cachedAt = const Value.absent(),
+            Value<DateTime> expiresAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              MetadataCacheCompanion(
+            source: source,
+            type: type,
+            id: id,
+            data: data,
+            cachedAt: cachedAt,
+            expiresAt: expiresAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String source,
+            required String type,
+            required String id,
+            required String data,
+            Value<DateTime> cachedAt = const Value.absent(),
+            required DateTime expiresAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              MetadataCacheCompanion.insert(
+            source: source,
+            type: type,
+            id: id,
+            data: data,
+            cachedAt: cachedAt,
+            expiresAt: expiresAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$MetadataCacheTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $MetadataCacheTable,
+    MetadataCacheData,
+    $$MetadataCacheTableFilterComposer,
+    $$MetadataCacheTableOrderingComposer,
+    $$MetadataCacheTableAnnotationComposer,
+    $$MetadataCacheTableCreateCompanionBuilder,
+    $$MetadataCacheTableUpdateCompanionBuilder,
+    (
+      MetadataCacheData,
+      BaseReferences<_$AppDatabase, $MetadataCacheTable, MetadataCacheData>
+    ),
+    MetadataCacheData,
+    PrefetchHooks Function()>;
+typedef $$ContinueSessionsTableCreateCompanionBuilder
+    = ContinueSessionsCompanion Function({
+  required String id,
+  required String currentSongId,
+  required int currentPositionMs,
+  required String queueSnapshot,
+  required int currentIndex,
+  required String sourceRail,
+  Value<DateTime> lastPlayedAt,
+  Value<int> rowid,
+});
+typedef $$ContinueSessionsTableUpdateCompanionBuilder
+    = ContinueSessionsCompanion Function({
+  Value<String> id,
+  Value<String> currentSongId,
+  Value<int> currentPositionMs,
+  Value<String> queueSnapshot,
+  Value<int> currentIndex,
+  Value<String> sourceRail,
+  Value<DateTime> lastPlayedAt,
+  Value<int> rowid,
+});
+
+class $$ContinueSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $ContinueSessionsTable> {
+  $$ContinueSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get currentSongId => $composableBuilder(
+      column: $table.currentSongId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get currentPositionMs => $composableBuilder(
+      column: $table.currentPositionMs,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get queueSnapshot => $composableBuilder(
+      column: $table.queueSnapshot, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get currentIndex => $composableBuilder(
+      column: $table.currentIndex, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get sourceRail => $composableBuilder(
+      column: $table.sourceRail, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get lastPlayedAt => $composableBuilder(
+      column: $table.lastPlayedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$ContinueSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ContinueSessionsTable> {
+  $$ContinueSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get currentSongId => $composableBuilder(
+      column: $table.currentSongId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get currentPositionMs => $composableBuilder(
+      column: $table.currentPositionMs,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get queueSnapshot => $composableBuilder(
+      column: $table.queueSnapshot,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get currentIndex => $composableBuilder(
+      column: $table.currentIndex,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get sourceRail => $composableBuilder(
+      column: $table.sourceRail, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get lastPlayedAt => $composableBuilder(
+      column: $table.lastPlayedAt,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$ContinueSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ContinueSessionsTable> {
+  $$ContinueSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get currentSongId => $composableBuilder(
+      column: $table.currentSongId, builder: (column) => column);
+
+  GeneratedColumn<int> get currentPositionMs => $composableBuilder(
+      column: $table.currentPositionMs, builder: (column) => column);
+
+  GeneratedColumn<String> get queueSnapshot => $composableBuilder(
+      column: $table.queueSnapshot, builder: (column) => column);
+
+  GeneratedColumn<int> get currentIndex => $composableBuilder(
+      column: $table.currentIndex, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceRail => $composableBuilder(
+      column: $table.sourceRail, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastPlayedAt => $composableBuilder(
+      column: $table.lastPlayedAt, builder: (column) => column);
+}
+
+class $$ContinueSessionsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $ContinueSessionsTable,
+    ContinueSession,
+    $$ContinueSessionsTableFilterComposer,
+    $$ContinueSessionsTableOrderingComposer,
+    $$ContinueSessionsTableAnnotationComposer,
+    $$ContinueSessionsTableCreateCompanionBuilder,
+    $$ContinueSessionsTableUpdateCompanionBuilder,
+    (
+      ContinueSession,
+      BaseReferences<_$AppDatabase, $ContinueSessionsTable, ContinueSession>
+    ),
+    ContinueSession,
+    PrefetchHooks Function()> {
+  $$ContinueSessionsTableTableManager(
+      _$AppDatabase db, $ContinueSessionsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ContinueSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ContinueSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ContinueSessionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> currentSongId = const Value.absent(),
+            Value<int> currentPositionMs = const Value.absent(),
+            Value<String> queueSnapshot = const Value.absent(),
+            Value<int> currentIndex = const Value.absent(),
+            Value<String> sourceRail = const Value.absent(),
+            Value<DateTime> lastPlayedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ContinueSessionsCompanion(
+            id: id,
+            currentSongId: currentSongId,
+            currentPositionMs: currentPositionMs,
+            queueSnapshot: queueSnapshot,
+            currentIndex: currentIndex,
+            sourceRail: sourceRail,
+            lastPlayedAt: lastPlayedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String currentSongId,
+            required int currentPositionMs,
+            required String queueSnapshot,
+            required int currentIndex,
+            required String sourceRail,
+            Value<DateTime> lastPlayedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ContinueSessionsCompanion.insert(
+            id: id,
+            currentSongId: currentSongId,
+            currentPositionMs: currentPositionMs,
+            queueSnapshot: queueSnapshot,
+            currentIndex: currentIndex,
+            sourceRail: sourceRail,
+            lastPlayedAt: lastPlayedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$ContinueSessionsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $ContinueSessionsTable,
+    ContinueSession,
+    $$ContinueSessionsTableFilterComposer,
+    $$ContinueSessionsTableOrderingComposer,
+    $$ContinueSessionsTableAnnotationComposer,
+    $$ContinueSessionsTableCreateCompanionBuilder,
+    $$ContinueSessionsTableUpdateCompanionBuilder,
+    (
+      ContinueSession,
+      BaseReferences<_$AppDatabase, $ContinueSessionsTable, ContinueSession>
+    ),
+    ContinueSession,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6258,4 +7485,8 @@ class $AppDatabaseManager {
       $$SettingsEntriesTableTableManager(_db, _db.settingsEntries);
   $$SyncQueueItemsTableTableManager get syncQueueItems =>
       $$SyncQueueItemsTableTableManager(_db, _db.syncQueueItems);
+  $$MetadataCacheTableTableManager get metadataCache =>
+      $$MetadataCacheTableTableManager(_db, _db.metadataCache);
+  $$ContinueSessionsTableTableManager get continueSessions =>
+      $$ContinueSessionsTableTableManager(_db, _db.continueSessions);
 }

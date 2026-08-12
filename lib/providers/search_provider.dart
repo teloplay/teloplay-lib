@@ -2,62 +2,89 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/config/env_config.dart';
 import '../core/logging/app_logger.dart';
 import '../core/playback/playback_engine.dart';
+import '../data/repositories/music_player_repository.dart' show MusicPlayerRepository;
 import '../data/repositories/search_history_repository.dart';
 import '../models/search_models.dart';
+import '../services/cache/metadata_cache_service.dart';
+import '../services/metadata/deezer_client.dart';
+import '../services/search/stream_matcher.dart';
 import 'database_provider.dart';
 import 'library_provider.dart';
 import 'music_player_provider.dart';
 import 'playlist_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────
-// Search Orchestrator (NEW — your addition for preview + paginated search)
+// Search Orchestrator — v11 Metadata Architecture (real implementation)
 // ─────────────────────────────────────────────────────────────────────────
+//
+// ⚠️ Fix (Phase 0 v11 stabilization): this used to be a `dynamic`-typed
+// stub with TODO bodies, while a completely separate, broken
+// search_orchestrator.dart file defined a *second*, incompatible
+// SearchOrchestrator with fabricated dependencies (a nonexistent
+// InnertubeService, a wrong import path, duplicate DeezerTrack/SearchResult
+// classes). That file has been removed — this is the one real
+// implementation, wired to the app's actual services:
+// [MusicPlayerRepository.search] (YouTube/Innertube, always authoritative)
+// + [DeezerClient.searchTracks] (400ms timeout, never blocks) +
+// [StreamMatcher] (Phase 0 simple title+duration matching).
+//
+// Per roadmap Section A: search results always come from YouTube/Innertube
+// — Deezer only supplies clean title/artist/thumbnail enrichment on top,
+// never replaces the stream source.
 
-/// Search orchestrator with preview + paginated category search.
-/// Wired into the existing SearchController for preview functionality.
-class SearchOrchestrator {
-  final dynamic innertube;
-  final dynamic deezer;
-  final dynamic cache;
+/// Unified search result enriched with Deezer metadata where a match was
+/// found; falls back to raw YouTube data otherwise. `isEnriched` tells the
+/// UI which case it is (Section B: "Search Result Display Rule").
+class EnrichedSearchResult {
+  final String videoId;
+  final String title;
+  final String artist;
+  final String? album;
+  final String thumbnail;
+  final Duration? duration;
+  final bool isEnriched;
 
-  const SearchOrchestrator({
-    required this.innertube,
-    required this.deezer,
-    required this.cache,
+  const EnrichedSearchResult({
+    required this.videoId,
+    required this.title,
+    required this.artist,
+    this.album,
+    required this.thumbnail,
+    this.duration,
+    required this.isEnriched,
   });
 
-  /// Live preview for mobile overlay — 3-4 items per category.
-  Future<SearchPreview> searchPreview(String query) async {
-    // TODO: Implement actual preview logic using innertube/deezer/cache
-    // This is a stub — wire to actual services as needed.
-    return SearchPreview(
-      songs: [],
-      albums: [],
-      artists: [],
-      playlists: [],
-    );
-  }
+  factory EnrichedSearchResult.fromYoutubeOnly(SearchResult yt) =>
+      EnrichedSearchResult(
+        videoId: yt.videoId,
+        title: yt.title,
+        artist: yt.author,
+        thumbnail: yt.thumbnail,
+        duration: yt.duration,
+        isEnriched: false,
+      );
 
-  /// Paginated category search for dedicated screens.
-  Future<List<EnrichedSearchResult>> searchCategory(
-    String query,
-    SearchCategory category, {
-    int page = 0,
-  }) async {
-    // TODO: Implement actual paginated category search
-    // This is a stub — wire to actual services as needed.
-    return [];
-  }
+  factory EnrichedSearchResult.fromMatch(SearchResult yt, DeezerTrack dz) =>
+      EnrichedSearchResult(
+        videoId: yt.videoId, // stream always comes from the YouTube side
+        title: dz.title,
+        artist: dz.artistName,
+        album: dz.albumName,
+        thumbnail: dz.albumCover ?? yt.thumbnail,
+        duration: dz.duration ?? yt.duration,
+        isEnriched: true,
+      );
 }
 
-/// Preview result bundle for mobile overlay.
+/// Preview result bundle for mobile overlay — 3-4 items per category.
 class SearchPreview {
-  final List<dynamic> songs;
-  final List<dynamic> albums;
-  final List<dynamic> artists;
-  final List<dynamic> playlists;
+  final List<EnrichedSearchResult> songs;
+  final List<AlbumSearchResult> albums;
+  final List<ArtistSearchResult> artists;
+  final List<PlaylistSearchResult> playlists;
 
   const SearchPreview({
     this.songs = const [],
@@ -67,51 +94,137 @@ class SearchPreview {
   });
 }
 
-/// Category enum for paginated search.
+/// Category enum for paginated "See All" search.
 enum SearchCategory { songs, albums, artists, playlists }
 
-/// Enriched search result with metadata.
-class EnrichedSearchResult {
-  final String id;
-  final String title;
-  final String? subtitle;
-  final String? thumbnail;
-  final SearchCategory category;
+/// Orchestrates YouTube (always, authoritative) + Deezer (400ms timeout,
+/// non-blocking enrichment) search, per roadmap Section B (Layer 1: SEARCH).
+class SearchOrchestrator {
+  final Ref _ref;
+  final DeezerClient? _deezer;
 
-  const EnrichedSearchResult({
-    required this.id,
-    required this.title,
-    this.subtitle,
-    this.thumbnail,
-    required this.category,
-  });
+  SearchOrchestrator(this._ref, this._deezer);
+
+  /// Live preview for mobile overlay — 3-4 items per category.
+  Future<SearchPreview> searchPreview(String query) async {
+    if (query.trim().isEmpty) return const SearchPreview();
+
+    final musicRepo = _ref.read(musicPlayerRepositoryProvider);
+    final libraryRepo = _ref.read(libraryRepositoryProvider);
+    final playlistRepo = _ref.read(playlistRepositoryProvider);
+
+    final results = await Future.wait([
+      _enrichedSongs(query, limit: 4, musicRepo: musicRepo),
+      libraryRepo.searchAlbums(query).catchError((_) => <AlbumSearchResult>[]),
+      libraryRepo.searchArtists(query).catchError((_) => <ArtistSearchResult>[]),
+      playlistRepo.searchPlaylists(query).catchError((_) => <PlaylistSearchResult>[]),
+    ]);
+
+    return SearchPreview(
+      songs: (results[0] as List<EnrichedSearchResult>).take(4).toList(),
+      albums: (results[1] as List<AlbumSearchResult>).take(4).toList(),
+      artists: (results[2] as List<ArtistSearchResult>).take(4).toList(),
+      playlists: (results[3] as List<PlaylistSearchResult>).take(4).toList(),
+    );
+  }
+
+  /// Paginated category search for "See All" dedicated screens.
+  ///
+  /// NOTE: songs are the only category with real pagination today — the
+  /// underlying MusicPlayerRepository.search / LibraryRepository search
+  /// methods don't currently accept a page/offset for albums/artists/
+  /// playlists (Fix-First List #4 only scoped the *songs* hard-limit
+  /// removal). Those three fall back to a single larger page; wiring true
+  /// pagination for them is separate follow-up work, not silently faked
+  /// here.
+  Future<List<EnrichedSearchResult>> searchCategory(
+    String query,
+    SearchCategory category, {
+    int page = 0,
+    int pageSize = 20,
+  }) async {
+    if (category != SearchCategory.songs) {
+      // Non-song categories: not yet paginated — see NOTE above.
+      return const [];
+    }
+
+    final musicRepo = _ref.read(musicPlayerRepositoryProvider);
+    final all = await _enrichedSongs(
+      query,
+      limit: pageSize * (page + 1),
+      musicRepo: musicRepo,
+    );
+    return all.skip(page * pageSize).take(pageSize).toList();
+  }
+
+  /// YouTube search (always) + Deezer enrichment (400ms timeout, never
+  /// blocks). Returns enriched results where a Deezer match was found,
+  /// raw YouTube results otherwise — YouTube result is never dropped.
+  Future<List<EnrichedSearchResult>> _enrichedSongs(
+    String query, {
+    required int limit,
+    required MusicPlayerRepository musicRepo,
+  }) async {
+    AppLogger.search('Orchestrator search: $query');
+
+    final List<SearchResult> ytResults =
+        await musicRepo.search(query, limit: limit).catchError((_) => <SearchResult>[]);
+
+    if (_deezer == null) {
+      // No Deezer credentials configured — YouTube-only is still a fully
+      // valid result set (roadmap Section B: "Never blocks on Deezer").
+      return ytResults.map(EnrichedSearchResult.fromYoutubeOnly).toList();
+    }
+
+    List<DeezerTrack> dzResults = const [];
+    try {
+      dzResults = await _deezer
+          .searchTracks(query, limit: limit)
+          .timeout(const Duration(milliseconds: 400), onTimeout: () => const []);
+    } catch (e) {
+      AppLogger.search('Deezer enrichment skipped: $e');
+    }
+
+    if (dzResults.isEmpty) {
+      return ytResults.map(EnrichedSearchResult.fromYoutubeOnly).toList();
+    }
+
+    return ytResults.map((yt) {
+      final match = StreamMatcher.findBestMatch(
+        deezerTracks: dzResults,
+        youtubeResult: yt,
+      );
+      return match != null
+          ? EnrichedSearchResult.fromMatch(yt, match)
+          : EnrichedSearchResult.fromYoutubeOnly(yt);
+    }).toList();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Service Providers (NEW — wired for SearchOrchestrator)
+// Service Providers
 // ─────────────────────────────────────────────────────────────────────────
 
-final innertubeServiceProvider = Provider<dynamic>((ref) {
-  // TODO: Wire to actual Innertube service
-  throw UnimplementedError('innertubeServiceProvider not wired');
+final metadataCacheServiceProvider = Provider<MetadataCacheService>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return MetadataCacheService(db: db);
 });
 
-final deezerClientProvider = Provider<dynamic>((ref) {
-  // TODO: Wire to actual Deezer client
-  throw UnimplementedError('deezerClientProvider not wired');
-});
-
-final metadataCacheServiceProvider = Provider<dynamic>((ref) {
-  // TODO: Wire to actual metadata cache service
-  throw UnimplementedError('metadataCacheServiceProvider not wired');
+/// Null when DEEZER_APP_ID isn't configured in .env — callers (see
+/// SearchOrchestrator) treat that as "enrichment unavailable", not an
+/// error, since Deezer is enrichment-only per roadmap Section A.
+final deezerClientProvider = Provider<DeezerClient?>((ref) {
+  final appId = EnvConfig.deezerAppId;
+  if (appId.isEmpty) return null;
+  return DeezerClient(
+    appId: appId,
+    secret: EnvConfig.deezerSecret,
+    cache: ref.watch(metadataCacheServiceProvider),
+  );
 });
 
 final searchOrchestratorProvider = Provider<SearchOrchestrator>((ref) {
-  return SearchOrchestrator(
-    innertube: ref.watch(innertubeServiceProvider),
-    deezer: ref.watch(deezerClientProvider),
-    cache: ref.watch(metadataCacheServiceProvider),
-  );
+  return SearchOrchestrator(ref, ref.watch(deezerClientProvider));
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -126,8 +239,7 @@ final searchHistoryRepositoryProvider = Provider((ref) {
 final recentSearchesProvider =
     FutureProvider.autoDispose<List<String>>((ref) async {
   final repo = ref.watch(searchHistoryRepositoryProvider);
-  final recents = await repo.getRecentSearches();  // List<RecentSearch>
-  return recents.map((r) => r.query).toList();     // Extract String queries
+  return repo.getRecentSearches();
 });
 
 // ─────────────────────────────────────────────────────────────────────────

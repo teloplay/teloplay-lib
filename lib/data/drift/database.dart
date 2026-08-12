@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/logging/app_logger.dart';
 import 'tables/songs_table.dart';
 import 'tables/playlists_table.dart';
 import 'tables/playlist_items_table.dart';
@@ -10,6 +12,8 @@ import 'tables/search_history_table.dart';
 import 'tables/favorites_table.dart';
 import 'tables/settings_table.dart';
 import 'tables/sync_queue_table.dart';
+import 'tables/metadata_cache_table.dart';
+import 'tables/continue_sessions_table.dart';
 part 'database.g.dart';
 
 @DriftDatabase(
@@ -23,6 +27,8 @@ part 'database.g.dart';
     Favorites,
     SettingsEntries,
     SyncQueueItems,
+    MetadataCache, // ⚠️ v11 — Metadata/Discovery/Sync Architecture (L2 cache)
+    ContinueSessions, // ⚠️ v11 — Continue Session (multi-song resume)
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -58,8 +64,23 @@ class AppDatabase extends _$AppDatabase {
   // ⚠️ Phase 6.5B (Album/Artist navigation foundation) — schemaVersion
   // 4 → 5। নতুন Songs.albumId + Songs.albumName (দুটোই nullable
   // TextColumn), একই idempotent `_safeAddColumn` pattern ব্যবহার করে।
+  //
+  // ⚠️ v11 Fix-First #2 (Sync Queue user-scoping) — schemaVersion 5 → 6।
+  // SyncQueueItems.userId (non-nullable TextColumn) যোগ হলো। Existing
+  // sync queue entries cross-user leak প্রতিরোধে current logged-in
+  // user দিয়ে backfill করা হয় — user null থাকলে (guest/logged-out
+  // অবস্থায় পুরনো row) সেই entry গুলো নিরাপদে drop করা হয়, কারণ
+  // owner অজানা row sync করা নিজেই leak risk।
+  //
+  // ⚠️ v11 Metadata/Discovery/Sync Architecture — schemaVersion 6 → 7।
+  // নতুন MetadataCache টেবিল (Deezer/Last.fm/MusicBrainz/YouTube L2
+  // metadata cache, audio byte cache থেকে সম্পূর্ণ আলাদা)।
+  //
+  // ⚠️ v11 Continue Session (Section H) — schemaVersion 7 → 8। নতুন
+  // ContinueSessions টেবিল — single-song resume থেকে multi-song
+  // session snapshot model-এ upgrade।
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -90,8 +111,64 @@ class AppDatabase extends _$AppDatabase {
             await _safeAddColumn(m, songs, songs.albumId);
             await _safeAddColumn(m, songs, songs.albumName);
           }
+          if (from < 6) {
+            // v11 Fix-First #2 — Sync Queue user-scoping.
+            //
+            // SyncQueueItems.userId is declared NOT NULL (no default) in
+            // the table class — correct for fresh installs (onCreate), but
+            // SQLite's `ALTER TABLE ADD COLUMN NOT NULL` fails on a table
+            // that already has rows unless a default is supplied at
+            // ADD-COLUMN time. So the raw SQL below adds it as TEXT NOT
+            // NULL DEFAULT '' (matching the generated column's storage
+            // type), then _backfillOrDropOrphanSyncQueueItems() replaces
+            // that placeholder with a real userId or deletes the orphan
+            // row — no row is ever left with the '' placeholder.
+            try {
+              await customStatement(
+                "ALTER TABLE sync_queue_items ADD COLUMN user_id TEXT NOT NULL DEFAULT ''",
+              );
+            } catch (_) {
+              // column already exists — safe to ignore (idempotent, same
+              // pattern as _safeAddColumn).
+            }
+            await _backfillOrDropOrphanSyncQueueItems();
+          }
+          if (from < 7) {
+            // v11 Metadata/Discovery/Sync Architecture — L2 metadata cache.
+            await _safeCreateTable(m, metadataCache);
+          }
+          if (from < 8) {
+            // v11 Continue Session (Section H) — multi-song resume.
+            await _safeCreateTable(m, continueSessions);
+          }
         },
       );
+
+  /// [userId] non-nullable column যোগ করার পর, migration-এর আগে থেকে থাকা
+  /// row গুলোর owner অজানা (column-টাই ছিল না তখন)। Current logged-in
+  /// user থাকলে সেই user-এর ধরে backfill করা হয় (একক-user dev/production
+  /// অবস্থায় এটাই সঠিক ধারণা); logged-in user না থাকলে (guest/logged-out
+  /// অবস্থায় upgrade হচ্ছে) owner অজানা row গুলো নিরাপদে delete করা হয় —
+  /// অজানা owner-এর row sync-queue-তে রেখে দেওয়া নিজেই cross-user leak
+  /// risk, খালি queue থেকে শুরু করা নিরাপদ (sync queue rebuildable —
+  /// পরের write operation-এই আবার entry তৈরি হবে)।
+  Future<void> _backfillOrDropOrphanSyncQueueItems() async {
+    try {
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      if (currentUserId != null) {
+        await customStatement(
+          "UPDATE sync_queue_items SET user_id = ? WHERE user_id IS NULL OR user_id = ''",
+          [currentUserId],
+        );
+      } else {
+        await customStatement(
+          "DELETE FROM sync_queue_items WHERE user_id IS NULL OR user_id = ''",
+        );
+      }
+    } catch (e) {
+      AppLogger.drift('Sync queue userId backfill skipped: $e');
+    }
+  }
 
   Future<void> _safeAddColumn<T extends Object>(
     Migrator m,

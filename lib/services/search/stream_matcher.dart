@@ -1,13 +1,22 @@
-import 'search_orchestrator.dart';
+import '../../core/playback/playback_engine.dart';
+import '../metadata/deezer_client.dart';
 
 /// Phase 0: Simple title + duration matching.
 /// Phase 6+ Future Addition: Weighted confidence scoring (preserved as comment).
+///
+/// ⚠️ Fix (Phase 0 v11 stabilization): originally depended on
+/// search_orchestrator.dart's fictional `YoutubeResult`/duplicate
+/// `DeezerTrack` classes (that file has been removed — see
+/// search_provider.dart, which now owns the real orchestration). This
+/// matches against the app's real types: [SearchResult]
+/// (core/playback/playback_engine.dart) for the YouTube side, and the
+/// real [DeezerTrack] (services/metadata/deezer_client.dart).
 class StreamMatcher {
   /// Find best Deezer match for a YouTube result.
   /// Returns null if no match within tolerance.
   static DeezerTrack? findBestMatch({
     required List<DeezerTrack> deezerTracks,
-    required YoutubeResult youtubeResult,
+    required SearchResult youtubeResult,
   }) {
     if (deezerTracks.isEmpty) return null;
 
@@ -27,7 +36,7 @@ class StreamMatcher {
   }
 
   /// Phase 0 scoring: binary match (1.0 = match, 0.0 = no match)
-  static double _calculateScore(DeezerTrack dz, YoutubeResult yt) {
+  static double _calculateScore(DeezerTrack dz, SearchResult yt) {
     final titleMatch = _normalize(dz.title) == _normalize(yt.title) ||
         _normalize(yt.title).contains(_normalize(dz.title));
 
@@ -60,14 +69,14 @@ class StreamMatcher {
    *
    * When Phase 6+ is reached, replace _calculateScore with:
    *
-   * static double _calculateScoreWeighted(DeezerTrack dz, YoutubeResult yt) {
+   * static double _calculateScoreWeighted(DeezerTrack dz, SearchResult yt) {
    *   // Title similarity — 40%
    *   final titleSim = _levenshteinSimilarity(_normalize(dz.title), _normalize(yt.title));
    *
    *   // Artist match — 30%
    *   final artistSim = _levenshteinSimilarity(
    *     _normalize(dz.artistName),
-   *     _normalize(yt.channelName),
+   *     _normalize(yt.author),
    *   );
    *
    *   // Duration match — 20%
@@ -79,9 +88,9 @@ class StreamMatcher {
    *     else durationScore = 0;
    *   }
    *
-   *   // Channel verification — 10%
+   *   // Channel verification — 10% (needs channel metadata TeloPlay
+   *   // doesn't currently fetch — placeholder until available)
    *   double channelScore = 0;
-   *   if (yt.isOfficialChannel || yt.isVerifiedChannel) channelScore = 1.0;
    *
    *   final total = (titleSim * 0.40) + (artistSim * 0.30) +
    *                 (durationScore * 0.20) + (channelScore * 0.10);
@@ -95,7 +104,7 @@ class StreamMatcher {
    *
    * Files to modify:
    * - stream_matcher.dart — Replace simple matching with weighted scoring
-   * - search_orchestrator.dart — Add confidence tier handling
+   * - search_provider.dart (SearchOrchestrator) — Add confidence tier handling
    * - search_screen.dart — Add "May be different version" badge UI
    * ═══════════════════════════════════════════════════════════════ */
 }

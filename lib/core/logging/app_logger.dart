@@ -56,4 +56,37 @@ class AppLogger {
   static void performance(String message) {
     _logger.d('⚡ [Perf] $message');
   }
+
+  /// ⚠️ v11 Fix (stabilization) — Metadata cache (L2, Deezer/Last.fm/
+  /// MusicBrainz/YouTube) hit/miss/expiry log. This shorthand was already
+  /// called from metadata_cache_service.dart but never defined here —
+  /// added to match the existing playback/performance pattern rather than
+  /// stripping the call sites.
+  static void cache(String message) {
+    _logger.d('💾 [Cache] $message');
+  }
+
+  /// ⚠️ v11 Fix — Discovery queue (Last.fm/MusicBrainz background
+  /// enrichment, rate-limited batch processing) log.
+  static void discovery(String message) {
+    _logger.d('🔭 [Discovery] $message');
+  }
+
+  /// ⚠️ v11 Fix — Search orchestrator (parallel YouTube+Deezer fetch,
+  /// stream matching) log.
+  static void search(String message) {
+    _logger.d('🔍 [Search] $message');
+  }
+
+  /// ⚠️ v11 Fix — Continue Session (multi-song resume save/restore) log.
+  static void session(String message) {
+    _logger.d('▶️ [Session] $message');
+  }
+
+  /// ⚠️ v11 Fix — Drift schema migration log (schema bump / safe column
+  /// add / table create skip-on-already-exists). Was called from
+  /// database.dart's migration helpers but never defined.
+  static void drift(String message) {
+    _logger.d('🗄️ [Drift] $message');
+  }
 }

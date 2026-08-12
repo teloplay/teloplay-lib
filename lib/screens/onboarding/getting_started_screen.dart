@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/theme_extensions.dart';
+import '../../core/theme/app_theme_extension.dart';
 import '../../data/repositories/settings_repository.dart';
 
 /// Onboarding checklist screen — shown on first app open.
