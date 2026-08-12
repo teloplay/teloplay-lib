@@ -1,0 +1,92 @@
+name: teloplay
+description: "TeloPlay - YouTube Music Stream"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  
+  # 🎵 Audio Playback
+  media_kit: ^1.1.9
+  media_kit_libs_windows_audio: ^1.0.9
+
+  media_kit_libs_android_audio: ^1.0.5
+  
+  # 🔗 HTTP + Future Sync Prep
+  http: ^1.2.2
+  web_socket_channel: ^3.0.1
+
+  # 🖥️ System Tray (minimize to tray)
+  system_tray: ^2.0.3
+  window_manager: ^0.4.3
+
+  audio_session: ^0.1.21
+  # 🎧 Background Playback / OS Media Integration
+  # Android: foreground service + MediaSession + notification + lock screen
+  # + Bluetooth/headset button support (TeloPlayAudioHandler wraps
+  # MusicPlayerRepository — playback logic repository-তেই থাকে)
+  audio_service: ^0.18.17
+  # Windows: System Media Transport Controls (SMTC) — media flyout,
+  # keyboard media keys, Bluetooth headset controls। audio_service-এর
+  # অফিসিয়াল Windows platform-interface নেই, তাই এটা স্বতন্ত্রভাবে
+  # ব্যবহার করা হচ্ছে (WindowsMediaService নিজে থেকে wire করবে)।
+  # ⚠️ বিল্ডের জন্য rustup ইনস্টল থাকতে হবে (flutter_rust_bridge/cargokit)।
+  smtc_windows: ^1.1.0
+    # ... existing deps
+  permission_handler: ^11.3.1
+
+  # 🖼️ Image Caching (Phase 1 — Smart Performance Foundation)
+  # Disk + in-memory cache সহ network image loading। শুধু
+  # lib/widgets/cached_artwork.dart এই package সরাসরি ব্যবহার করে —
+  # বাকি সব artwork/thumbnail সেই একটা wrapper widget-এর মাধ্যমেই।
+  crypto: ^3.0.5
+
+  # 🎨 Dynamic Album Accent (Phase 6 — Smart Player UI & Theme Polish)
+  # Album artwork থেকে dominant color extract করার জন্য। শুধু
+  # lib/core/theme/color_extractor.dart এই package সরাসরি ব্যবহার করে —
+  # extracted color কখনো সরাসরি UI-তে যায় না, curated palette-এ map
+  # হয়ে তারপর যায় (দেখো color_extractor.dart-এর নোট)।
+  palette_generator: ^0.3.3
+
+  # 🔐 Auth (Supabase prep)
+  supabase_flutter: ^2.8.3
+  flutter_riverpod: ^3.3.1
+  riverpod_annotation: ^4.0.2
+  drift: ^2.34.2
+  path_provider: ^2.1.6
+  path: ^1.9.1
+  flutter_secure_storage: ^10.3.1
+  drift_flutter: ^0.3.1
+  flutter_dotenv: ^6.0.1
+  go_router: ^17.3.0
+  google_sign_in: ^7.2.0
+  logger: ^2.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  riverpod_generator: ^4.0.3
+  build_runner: ^2.15.1
+  drift_dev: ^2.34.0
+
+# smtc_windows চায় uuid ^4.5.1, system_tray আটকে আছে uuid ^3.0.6-এ —
+# দুটো transitive constraint সরাসরি সংঘর্ষে পড়ে (version solving fail)।
+# system_tray internally uuid শুধু ছোট/internal id generation-এ ব্যবহার
+# করে (API v3→v4-এ compatible রাখা হয়েছে), তাই newer uuid-এ override
+# করা নিরাপদ। এই override ছাড়া `flutter pub get` fail করবে।
+dependency_overrides:
+  uuid: ^4.5.1
+  flutter_rust_bridge: 2.11.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
+    - assets/app_icon.ico
