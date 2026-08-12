@@ -299,6 +299,71 @@ class InnertubeWindowsPlaybackEngine implements PlaybackEngine {
     }
   }
 
+  // ========== NEW COMMANDS (Extended Version) ==========
+
+  /// Video details (title, author, thumbnail, duration, explicit)
+  Future<Map<String, dynamic>> getVideoDetails(String videoId) async {
+    await initialize();
+    final response = await _sendRequest('details', {'videoId': videoId});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException('details failed: ${response['error']}');
+    }
+    return response;
+  }
+
+  /// Album tracks (albumName, artistName, year, trackCount, tracks[])
+  Future<Map<String, dynamic>> getAlbumTracks(String albumId) async {
+    await initialize();
+    final response = await _sendRequest('album', {'albumId': albumId});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException('album failed: ${response['error']}');
+    }
+    return response;
+  }
+
+  /// Artist songs (artistName, thumbnail, songCount, songs[])
+  /// limit <= 0 means no cap
+  Future<Map<String, dynamic>> getArtistSongs(String artistId, {int limit = 0}) async {
+    await initialize();
+    final response = await _sendRequest('artist', {'artistId': artistId, 'limit': limit});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException('artist failed: ${response['error']}');
+    }
+    return response;
+  }
+
+  /// Related songs / Watch Next (videoId, relatedCount, songs[])
+  /// limit <= 0 means no cap
+  Future<Map<String, dynamic>> getRelatedSongs(String videoId, {int limit = 0}) async {
+    await initialize();
+    final response = await _sendRequest('related', {'videoId': videoId, 'limit': limit});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException('related failed: ${response['error']}');
+    }
+    return response;
+  }
+
+  /// Playlist tracks (playlistName, author, thumbnail, trackCount, tracks[])
+  /// limit <= 0 means no cap
+  Future<Map<String, dynamic>> getPlaylistTracks(String playlistId, {int limit = 0}) async {
+    await initialize();
+    final response = await _sendRequest('playlist', {'playlistId': playlistId, 'limit': limit});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException('playlist failed: ${response['error']}');
+    }
+    return response;
+  }
+
+  /// Lyrics (lyrics text, source, isSynced)
+  Future<Map<String, dynamic>> getLyrics(String videoId) async {
+    await initialize();
+    final response = await _sendRequest('lyrics', {'videoId': videoId});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException('lyrics failed: ${response['error']}');
+    }
+    return response;
+  }
+
   String _findJava() {
     if (_cachedJavaPath != null) return _cachedJavaPath!;
 
