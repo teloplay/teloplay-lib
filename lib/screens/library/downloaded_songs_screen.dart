@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme_extension.dart';
 import '../../core/playback/playback_engine.dart';
 import '../../models/history_entry_model.dart';
 import '../../providers/cache_service_provider.dart';
@@ -10,22 +11,11 @@ import '../../widgets/cached_artwork.dart';
 
 /// Library-র "Downloaded Songs" (Phase 3 — Smart Cache) full screen —
 /// cachedLocally=true সব track, cache size অনুযায়ী descending।
-///
-/// ⚠️ HistoryScreen-এর optimistic-removal প্যাটার্ন অনুসরণ করা হয়েছে
-/// (ConsumerStatefulWidget + local `_removedIds` Set) — কারণ delete
-/// এখানে filesystem I/O সহ (CacheService.evictTrack()), DB-only delete
-/// (deleteHistoryEntry()) থেকে ধীর হতে পারে। optimistic removal ছাড়া
-/// delete button চাপার পর UI কিছুক্ষণ পুরনো state দেখাত।
-///
-/// ⚠️ evictTrack() `false` রিটার্ন করলে (currently-playing guard hit) —
-/// optimistic removal revert করা হয় (row ফিরিয়ে আনা), কারণ delete
-/// আসলে হয়নি, UI থেকে চিরতরে সরিয়ে দেওয়া ভুল হতো। SnackBar দিয়ে কারণ
-/// জানানো হয়।
 class DownloadedSongsScreen extends ConsumerStatefulWidget {
   const DownloadedSongsScreen({super.key});
 
   @override
-  ConsumerState<DownloadedSongsScreen> createState() =>
+  ConsumerState<DownloadedSongsScreen> createState =>
       _DownloadedSongsScreenState();
 }
 
@@ -33,10 +23,6 @@ class _DownloadedSongsScreenState
     extends ConsumerState<DownloadedSongsScreen> {
   final Set<String> _removedIds = {};
 
-  // ⚠️ Context-based Queue (Phase 1 fix) — এখন পুরো visible list (already
-  // _removedIds filtered) queue হিসেবে সেট হয়, tap করা entry থেকে শুরু
-  // করে। entries/index দুটোই caller (itemBuilder)-এ already আছে, তাই
-  // আলাদা lookup লাগছে না।
   Future<void> _play(List<CachedSongEntry> entries, int index) async {
     final tracks = entries
         .map((e) => SearchResult(
@@ -55,8 +41,6 @@ class _DownloadedSongsScreenState
   }
 
   Future<void> _delete(CachedSongEntry entry) async {
-    // সাথে সাথে optimistic removal — filesystem delete শেষ হওয়ার
-    // অপেক্ষা না করে UI থেকে বাদ।
     setState(() {
       _removedIds.add(entry.songId);
     });
@@ -65,7 +49,6 @@ class _DownloadedSongsScreenState
     final evicted = await cacheService.evictTrack(entry.songId);
 
     if (!evicted) {
-      // currently-playing guard hit — revert।
       if (mounted) {
         setState(() {
           _removedIds.remove(entry.songId);
@@ -85,31 +68,31 @@ class _DownloadedSongsScreenState
   }
 
   void _confirmDelete(BuildContext context, CachedSongEntry entry) {
+    final theme = context.aurora;
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text(
+        backgroundColor: theme.surface,
+        title: Text(
           'Remove download?',
-          style: TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: theme.textPrimary, fontSize: 16),
         ),
         content: Text(
           '${entry.title} (${entry.formattedSize}) will be removed from '
           'local storage.',
-          style: const TextStyle(color: Colors.grey),
+          style: TextStyle(color: theme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancel', style: TextStyle(color: theme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(dialogContext);
               _delete(entry);
             },
-            child:
-                const Text('Remove', style: TextStyle(color: Colors.redAccent)),
+            child: Text('Remove', style: TextStyle(color: theme.error)),
           ),
         ],
       ),
@@ -118,15 +101,16 @@ class _DownloadedSongsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.aurora;
     final cachedAsync = ref.watch(cachedSongsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
-        title: const Text('Downloaded Songs',
-            style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: theme.background,
+        title: Text('Downloaded Songs',
+            style: TextStyle(color: theme.textPrimary)),
+        iconTheme: IconThemeData(color: theme.textPrimary),
       ),
       body: cachedAsync.when(
         data: (allEntries) {
@@ -138,7 +122,7 @@ class _DownloadedSongsScreenState
             return Center(
               child: Text(
                 'No downloaded songs yet',
-                style: TextStyle(color: Colors.grey[600]),
+                style: TextStyle(color: theme.textDisabled),
               ),
             );
           }
@@ -156,7 +140,7 @@ class _DownloadedSongsScreenState
                   alignment: Alignment.centerLeft,
                   child: Text(
                     '${entries.length} songs · ${totalMb.toStringAsFixed(1)} MB',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    style: TextStyle(color: theme.textSecondary, fontSize: 12),
                   ),
                 ),
               ),
@@ -178,20 +162,19 @@ class _DownloadedSongsScreenState
                       ),
                       title: Text(
                         entry.title,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 14),
+                        style: TextStyle(color: theme.textPrimary, fontSize: 14),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       subtitle: Text(
                         '${entry.author} · ${entry.formattedSize}',
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        style: TextStyle(color: theme.textSecondary, fontSize: 12),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline,
-                            color: Colors.grey, size: 20),
+                        icon: Icon(Icons.delete_outline,
+                            color: theme.textSecondary, size: 20),
                         tooltip: 'Remove download',
                         onPressed: () => _confirmDelete(context, entry),
                       ),
@@ -202,13 +185,13 @@ class _DownloadedSongsScreenState
             ],
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: Colors.greenAccent),
+        loading: () => Center(
+          child: CircularProgressIndicator(color: theme.primary),
         ),
         error: (e, _) => Center(
           child: Text(
             'Failed to load downloaded songs',
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: theme.textDisabled),
           ),
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme_extension.dart';
 import '../../core/playback/playback_engine.dart';
 import '../../models/history_entry_model.dart';
 import '../../providers/library_provider.dart';
@@ -9,21 +10,6 @@ import '../../widgets/cached_artwork.dart';
 
 /// পূর্ণ, raw play-History — নতুন থেকে পুরনো ক্রমে, প্রতিটা play event
 /// আলাদা row (একই গান একাধিকবার শোনা হলে একাধিক entry)।
-///
-/// ⚠️ Recently Played (distinct, track-level) থেকে ইচ্ছাকৃতভাবে আলাদা
-/// screen — দেখো history_entry_model.dart-এর top-level নোট।
-///
-/// ⚠️ Bug fix ১ — "A dismissed Dismissible widget is still part of the
-/// tree"। ConsumerStatefulWidget + local `_removedIds` Set দিয়ে
-/// optimistic-removal (দেখো নিচে build()/onDismissed())।
-///
-/// ⚠️ Bug fix ২ — ট্যাপ করলে play হতো না (ListTile-এ onTap মিসিং ছিল)।
-/// এখন onTap যোগ করা হয়েছে, MusicPlayerRepository.playVideoId() কল
-/// করে (FavoritesScreen-এর play-button-এর মতোই SearchResult বানিয়ে)।
-///
-/// ⚠️ সব UI-facing string ইংরেজিতে করা হলো (roadmap নীতি: "ব্যাখ্যা
-/// বাংলায়, কোড/কমেন্ট/ডকুমেন্টেশন ইংরেজিতে" — এটা code comment-এর
-/// কথা বলে, কিন্তু UI string-ও ভুলবশত বাংলায় লেখা হয়েছিল, এখন সংশোধন)।
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
 
@@ -32,8 +18,6 @@ class HistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _HistoryScreenState extends ConsumerState<HistoryScreen> {
-  // অপ্টিমিস্টিকভাবে সরিয়ে ফেলা HistoryEntries.id-গুলো — DB delete
-  // ব্যাকগ্রাউন্ডে চলাকালীন UI থেকে সাথে সাথে বাদ দেওয়ার জন্য।
   final Set<String> _removedIds = {};
 
   String _formatPlayedAt(DateTime playedAt) {
@@ -53,10 +37,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Icons.error_outline;
   }
 
-  Color _outcomeColor(HistoryLogEntry entry) {
-    if (entry.completed) return Colors.greenAccent;
-    if (entry.skipped) return Colors.orangeAccent;
-    return Colors.grey;
+  Color _outcomeColor(HistoryLogEntry entry, AuroraColors theme) {
+    if (entry.completed) return theme.success;
+    if (entry.skipped) return theme.secondary;
+    return theme.textDisabled;
   }
 
   Future<void> _play(HistoryLogEntry entry) async {
@@ -72,22 +56,23 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   void _confirmClearAll(BuildContext context, WidgetRef ref) {
+    final theme = context.aurora;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text(
+        backgroundColor: theme.surface,
+        title: Text(
           'Clear all History?',
-          style: TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: theme.textPrimary, fontSize: 16),
         ),
-        content: const Text(
+        content: Text(
           'This action cannot be undone.',
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(color: theme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancel', style: TextStyle(color: theme.textSecondary)),
           ),
           TextButton(
             onPressed: () async {
@@ -95,8 +80,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               await ref.read(libraryRepositoryProvider).clearHistory();
               ref.invalidate(historyProvider);
             },
-            child: const Text('Clear all',
-                style: TextStyle(color: Colors.redAccent)),
+            child: Text('Clear all', style: TextStyle(color: theme.error)),
           ),
         ],
       ),
@@ -105,17 +89,18 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.aurora;
     final historyAsync = ref.watch(historyProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
-        title: const Text('History', style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: theme.background,
+        title: Text('History', style: TextStyle(color: theme.textPrimary)),
+        iconTheme: IconThemeData(color: theme.textPrimary),
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_sweep_outlined, color: Colors.grey),
+            icon: Icon(Icons.delete_sweep_outlined, color: theme.textSecondary),
             tooltip: 'Clear all',
             onPressed: () => _confirmClearAll(context, ref),
           ),
@@ -123,9 +108,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       ),
       body: historyAsync.when(
         data: (allEntries) {
-          // অপ্টিমিস্টিকভাবে সরানো entry-গুলো এখানেই filter করে বাদ
-          // দেওয়া হচ্ছে — provider এখনো পুরনো data থাকলেও UI-তে সাথে
-          // সাথে বাদ পড়ে যাবে।
           final entries =
               allEntries.where((e) => !_removedIds.contains(e.id)).toList();
 
@@ -133,7 +115,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             return Center(
               child: Text(
                 'No History yet',
-                style: TextStyle(color: Colors.grey[600]),
+                style: TextStyle(color: theme.textDisabled),
               ),
             );
           }
@@ -146,21 +128,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 key: ValueKey(entry.id),
                 direction: DismissDirection.endToStart,
                 background: Container(
-                  color: Colors.red.shade900,
+                  color: theme.error.withOpacity(0.8),
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 20),
-                  child: const Icon(Icons.delete, color: Colors.white),
+                  child: Icon(Icons.delete, color: theme.background),
                 ),
                 onDismissed: (_) {
-                  // সাথে সাথে (synchronously) local state আপডেট —
-                  // Dismissible widget-টা পরের rebuild-এই tree থেকে
-                  // বাদ পড়ে যাবে, DB delete-এর অপেক্ষা করতে হয় না।
                   setState(() {
                     _removedIds.add(entry.id);
                   });
 
-                  // ব্যাকগ্রাউন্ডে আসল delete + provider refresh —
-                  // fire-and-forget, UI-কে block করে না।
                   ref
                       .read(libraryRepositoryProvider)
                       .deleteHistoryEntry(entry.id)
@@ -181,19 +158,19 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   ),
                   title: Text(
                     entry.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    style: TextStyle(color: theme.textPrimary, fontSize: 14),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Row(
                     children: [
                       Icon(_outcomeIcon(entry),
-                          size: 12, color: _outcomeColor(entry)),
+                          size: 12, color: _outcomeColor(entry, theme)),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           '${entry.author} · ${_formatPlayedAt(entry.playedAt)}',
-                          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                          style: TextStyle(color: theme.textSecondary, fontSize: 12),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -201,8 +178,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     ],
                   ),
                   trailing: IconButton(
-                    icon: const Icon(Icons.play_arrow,
-                        color: Colors.greenAccent, size: 20),
+                    icon: Icon(Icons.play_arrow,
+                        color: theme.primary, size: 20),
                     onPressed: () => _play(entry),
                   ),
                 ),
@@ -210,13 +187,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             },
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: Colors.greenAccent),
+        loading: () => Center(
+          child: CircularProgressIndicator(color: theme.primary),
         ),
         error: (e, _) => Center(
           child: Text(
             'Failed to load History',
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: theme.textDisabled),
           ),
         ),
       ),

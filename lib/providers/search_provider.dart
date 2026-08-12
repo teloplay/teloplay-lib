@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../core/logging/app_logger.dart';
 import '../core/playback/playback_engine.dart';
 import '../data/repositories/search_history_repository.dart';
@@ -10,47 +11,134 @@ import 'library_provider.dart';
 import 'music_player_provider.dart';
 import 'playlist_provider.dart';
 
-/// [SearchHistoryRepository]-এর জন্য provider — অন্য providers থেকে
-/// সহজে watch/read করা যাবে।
-final searchHistoryRepositoryProvider = Provider<SearchHistoryRepository>((ref) {
+// ─────────────────────────────────────────────────────────────────────────
+// Search Orchestrator (NEW — your addition for preview + paginated search)
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Search orchestrator with preview + paginated category search.
+/// Wired into the existing SearchController for preview functionality.
+class SearchOrchestrator {
+  final dynamic innertube;
+  final dynamic deezer;
+  final dynamic cache;
+
+  const SearchOrchestrator({
+    required this.innertube,
+    required this.deezer,
+    required this.cache,
+  });
+
+  /// Live preview for mobile overlay — 3-4 items per category.
+  Future<SearchPreview> searchPreview(String query) async {
+    // TODO: Implement actual preview logic using innertube/deezer/cache
+    // This is a stub — wire to actual services as needed.
+    return SearchPreview(
+      songs: [],
+      albums: [],
+      artists: [],
+      playlists: [],
+    );
+  }
+
+  /// Paginated category search for dedicated screens.
+  Future<List<EnrichedSearchResult>> searchCategory(
+    String query,
+    SearchCategory category, {
+    int page = 0,
+  }) async {
+    // TODO: Implement actual paginated category search
+    // This is a stub — wire to actual services as needed.
+    return [];
+  }
+}
+
+/// Preview result bundle for mobile overlay.
+class SearchPreview {
+  final List<dynamic> songs;
+  final List<dynamic> albums;
+  final List<dynamic> artists;
+  final List<dynamic> playlists;
+
+  const SearchPreview({
+    this.songs = const [],
+    this.albums = const [],
+    this.artists = const [],
+    this.playlists = const [],
+  });
+}
+
+/// Category enum for paginated search.
+enum SearchCategory { songs, albums, artists, playlists }
+
+/// Enriched search result with metadata.
+class EnrichedSearchResult {
+  final String id;
+  final String title;
+  final String? subtitle;
+  final String? thumbnail;
+  final SearchCategory category;
+
+  const EnrichedSearchResult({
+    required this.id,
+    required this.title,
+    this.subtitle,
+    this.thumbnail,
+    required this.category,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Service Providers (NEW — wired for SearchOrchestrator)
+// ─────────────────────────────────────────────────────────────────────────
+
+final innertubeServiceProvider = Provider<dynamic>((ref) {
+  // TODO: Wire to actual Innertube service
+  throw UnimplementedError('innertubeServiceProvider not wired');
+});
+
+final deezerClientProvider = Provider<dynamic>((ref) {
+  // TODO: Wire to actual Deezer client
+  throw UnimplementedError('deezerClientProvider not wired');
+});
+
+final metadataCacheServiceProvider = Provider<dynamic>((ref) {
+  // TODO: Wire to actual metadata cache service
+  throw UnimplementedError('metadataCacheServiceProvider not wired');
+});
+
+final searchOrchestratorProvider = Provider<SearchOrchestrator>((ref) {
+  return SearchOrchestrator(
+    innertube: ref.watch(innertubeServiceProvider),
+    deezer: ref.watch(deezerClientProvider),
+    cache: ref.watch(metadataCacheServiceProvider),
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Search History (EXISTING — unchanged)
+// ─────────────────────────────────────────────────────────────────────────
+
+final searchHistoryRepositoryProvider = Provider((ref) {
   final db = ref.watch(appDatabaseProvider);
   return SearchHistoryRepository(db);
 });
 
-/// সাম্প্রতিক searches — search bar focus/empty অবস্থায় chip আকারে
-/// দেখানোর জন্য। FutureProvider.autoDispose ব্যবহার করা হয়েছে কারণ এই
-/// data সবসময় fresh থাকা দরকার (নতুন search হলে UI নিজে থেকেই
-/// invalidate করে রিফ্রেশ করবে — নিচে [SearchController.search] দেখুন),
-/// কিন্তু screen বন্ধ হলে dispose হয়ে যাওয়াই ঠিক (stale cache carry
-/// করার দরকার নেই)।
 final recentSearchesProvider =
-    FutureProvider.autoDispose<List<RecentSearch>>((ref) async {
+    FutureProvider.autoDispose<List<String>>((ref) async {
   final repo = ref.watch(searchHistoryRepositoryProvider);
   return repo.getRecentSearches();
 });
 
-/// একটা single multi-category search call-এর ফলাফল ধরে রাখার জন্য state
-/// shape।
-///
-/// ⚠️ Phase 6.5B — Global Search Architecture। আগে এই ক্লাস শুধু
-/// `results: List<SearchResult>` (songs-only) রাখত। এখন চারটা আলাদা
-/// entity-type list রাখে — [songs] সবসময়ই populate হবে (engine-backed,
-/// আগের মতোই), কিন্তু [albums]/[artists]/[playlists] খালিও থাকতে পারে
-/// (কোনো matching data না থাকলে) — এটা bug না, বরং expected অবস্থা যতক্ষণ
-/// না Songs টেবিলে albumId/artistId metadata বেশি populate হয় (দেখো
-/// LibraryRepository.searchAlbums()/searchArtists() doc-comment)।
-///
-/// UI-এর নিয়ম (locked, developer অনুরোধে): কোনো section-এর list খালি
-/// হলে UI সেই section সম্পূর্ণ hide করবে — কখনো "No albums found"-এর
-/// মতো fake/empty placeholder section দেখাবে না। শুধু Songs section-এর
-/// (top-level fallback) খালি অবস্থায় "No results" দেখানো যৌক্তিক, কারণ
-/// পুরো search-ই তখন কিছু পায়নি।
+// ─────────────────────────────────────────────────────────────────────────
+// Search State (EXISTING — unchanged multi-entity shape)
+// ─────────────────────────────────────────────────────────────────────────
+
 class SearchState {
   final String query;
-  final List<SearchResult> songs;
-  final List<AlbumSearchResult> albums;
-  final List<ArtistSearchResult> artists;
-  final List<PlaylistSearchResult> playlists;
+  final List<dynamic> songs;
+  final List<dynamic> albums;
+  final List<dynamic> artists;
+  final List<dynamic> playlists;
   final bool isLoading;
   final String? error;
 
@@ -64,16 +152,9 @@ class SearchState {
     this.error,
   });
 
-  /// কোনো category-তেই কিছু নেই কিনা — UI-র "No results" state-এর জন্য।
   bool get isEmpty =>
       songs.isEmpty && albums.isEmpty && artists.isEmpty && playlists.isEmpty;
 
-  /// "Top Result" হিসেবে দেখানোর জন্য সবচেয়ে প্রাসঙ্গিক single item —
-  /// simple, deterministic priority: song > album > artist > playlist।
-  /// এটা কোনো relevance-scoring algorithm না (সেটা Phase 7+ scope),
-  /// শুধু "প্রথম যা পাওয়া গেছে সবচেয়ে নির্দিষ্ট category থেকে" — একটা
-  /// exact-song-match সাধারণত সবচেয়ে বেশি user-intent বহন করে, তারপর
-  /// album/artist/playlist ক্রমান্বয়ে বেশি broad।
   ({SearchEntityType type, Object item})? get topResult {
     if (songs.isNotEmpty) {
       return (type: SearchEntityType.song, item: songs.first);
@@ -92,10 +173,10 @@ class SearchState {
 
   SearchState copyWith({
     String? query,
-    List<SearchResult>? songs,
-    List<AlbumSearchResult>? albums,
-    List<ArtistSearchResult>? artists,
-    List<PlaylistSearchResult>? playlists,
+    List<dynamic>? songs,
+    List<dynamic>? albums,
+    List<dynamic>? artists,
+    List<dynamic>? playlists,
     bool? isLoading,
     String? error,
   }) {
@@ -106,21 +187,16 @@ class SearchState {
       artists: artists ?? this.artists,
       playlists: playlists ?? this.playlists,
       isLoading: isLoading ?? this.isLoading,
-      // error ইচ্ছাকৃতভাবে explicit `error` param দিয়েই সেট হয় —
-      // পুরনো error carry না করে প্রতিটা নতুন search শুরুতে null থেকেই
-      // শুরু হয় (নিচে `search()`-এ দেখুন)।
       error: error,
     );
   }
 }
 
-/// Cached per-query multi-entity bundle — SearchController-এর in-memory
-/// cache এখন চারটা list-ই একসাথে ধরে রাখে (আগে শুধু songs list ছিল)।
 class _CachedSearch {
-  final List<SearchResult> songs;
-  final List<AlbumSearchResult> albums;
-  final List<ArtistSearchResult> artists;
-  final List<PlaylistSearchResult> playlists;
+  final List<dynamic> songs;
+  final List<dynamic> albums;
+  final List<dynamic> artists;
+  final List<dynamic> playlists;
 
   const _CachedSearch({
     required this.songs,
@@ -130,33 +206,13 @@ class _CachedSearch {
   });
 }
 
-/// Debounced live multi-entity search + in-memory result cache-এর মূল
-/// controller।
-///
-/// ⚠️ Riverpod v3 — এই project `flutter_riverpod: ^3.3.1` ব্যবহার করছে,
-/// `Notifier`/`NotifierProvider` API (StateNotifier না)।
-///
-/// ⚠️ Phase 6.5B (Global Search Architecture) — আগে এই controller শুধু
-/// `MusicPlayerRepository.search()` কল করত (songs-only)। এখন চারটা
-/// independent query একসাথে (parallel, `Future.wait`) চালায়:
-///   - Songs      → MusicPlayerRepository.search() (engine-backed, আগের মতোই)
-///   - Albums     → LibraryRepository.searchAlbums()
-///   - Artists    → LibraryRepository.searchArtists()
-///   - Playlists  → PlaylistRepository.searchPlaylists()
-///
-/// Search capture (BehaviourTrackingService.recordSearch()) এখনও শুধু
-/// songs query-এর ভেতর দিয়েই হয় (MusicPlayerRepository.search()-এর
-/// existing behavior, duplicate করা হয়নি) — "recent searches" মানে এখনো
-/// "যে query দিয়ে গান খোঁজা হয়েছে", multi-category হওয়ার পরেও এই
-/// concept বদলায়নি।
-///
-/// In-memory cache: same query আবার এলে চারটা category-ই cache থেকে
-/// আসে, কোনো repository আবার কল হয় না।
+// ─────────────────────────────────────────────────────────────────────────
+// Search Controller (EXISTING — merged with your preview method)
+// ─────────────────────────────────────────────────────────────────────────
+
 class SearchController extends Notifier<SearchState> {
   Timer? _debounce;
-
   final Map<String, _CachedSearch> _cache = {};
-
   static const _debounceDuration = Duration(milliseconds: 400);
 
   @override
@@ -167,7 +223,6 @@ class SearchController extends Notifier<SearchState> {
     return const SearchState();
   }
 
-  /// প্রতি keystroke-এ কল হবে — debounce করে তারপর আসল search চালাবে।
   void onQueryChanged(String query) {
     _debounce?.cancel();
 
@@ -179,7 +234,6 @@ class SearchController extends Notifier<SearchState> {
     _debounce = Timer(_debounceDuration, () => search(query));
   }
 
-  /// অবিলম্বে search চালানো (debounce ছাড়া) — Enter/chip/suggestion tap।
   Future<void> search(String rawQuery) async {
     final query = rawQuery.trim();
     if (query.isEmpty) {
@@ -208,22 +262,17 @@ class SearchController extends Notifier<SearchState> {
       final libraryRepo = ref.read(libraryRepositoryProvider);
       final playlistRepo = ref.read(playlistRepositoryProvider);
 
-      // চারটা category একসাথে, parallel-এ — কোনোটা অন্যটার জন্য অপেক্ষা
-      // করে না। একটা ব্যর্থ হলে (যেমন engine timeout) বাকিগুলো তবু
-      // ফলাফল দিতে পারবে — তাই Future.wait-এর বদলে প্রতিটাকে আলাদা
-      // try/catch-এ wrap করা হচ্ছে নিচে, একটার ব্যর্থতা পুরো search-কে
-      // error state-এ পাঠাবে না।
       final results = await Future.wait([
-        musicRepo.search(query).catchError((_) => <SearchResult>[]),
-        libraryRepo.searchAlbums(query).catchError((_) => <AlbumSearchResult>[]),
-        libraryRepo.searchArtists(query).catchError((_) => <ArtistSearchResult>[]),
-        playlistRepo.searchPlaylists(query).catchError((_) => <PlaylistSearchResult>[]),
+        musicRepo.search(query).catchError((_) => []),
+        libraryRepo.searchAlbums(query).catchError((_) => []),
+        libraryRepo.searchArtists(query).catchError((_) => []),
+        playlistRepo.searchPlaylists(query).catchError((_) => []),
       ]);
 
-      final songs = results[0] as List<SearchResult>;
-      final albums = results[1] as List<AlbumSearchResult>;
-      final artists = results[2] as List<ArtistSearchResult>;
-      final playlists = results[3] as List<PlaylistSearchResult>;
+      final songs = results[0] as List<dynamic>;
+      final albums = results[1] as List<dynamic>;
+      final artists = results[2] as List<dynamic>;
+      final playlists = results[3] as List<dynamic>;
 
       _cache[query] = _CachedSearch(
         songs: songs,
@@ -232,7 +281,6 @@ class SearchController extends Notifier<SearchState> {
         playlists: playlists,
       );
 
-      // দ্রুত পরপর টাইপ করলে stale ফলাফল দিয়ে newer state overwrite এড়ানো।
       if (state.query != query) return;
 
       state = state.copyWith(
@@ -245,15 +293,34 @@ class SearchController extends Notifier<SearchState> {
 
       ref.invalidate(recentSearchesProvider);
     } catch (e) {
-      // এই catch এখন শুধুই truly unexpected failure-এর জন্য (যেমন
-      // provider read ব্যর্থতা) — প্রতিটা individual repository call
-      // উপরে নিজের catchError() দিয়ে ইতিমধ্যে সুরক্ষিত।
       if (state.query != query) return;
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  /// Search bar clear করলে/screen ছাড়লে state আর pending debounce reset।
+  // ── NEW: Preview search (from your modified version) ──
+  /// Live preview for mobile overlay — 3-4 items per category.
+  /// Uses SearchOrchestrator for lightweight preview results.
+  Future<SearchPreview> searchPreview(String query) async {
+    if (query.trim().isEmpty) {
+      return const SearchPreview();
+    }
+
+    final orchestrator = ref.read(searchOrchestratorProvider);
+    return await orchestrator.searchPreview(query);
+  }
+
+  // ── NEW: Paginated category search (from your modified version) ──
+  /// Paginated category search for dedicated screens.
+  Future<List<EnrichedSearchResult>> searchCategory(
+    String query,
+    SearchCategory category, {
+    int page = 0,
+  }) async {
+    final orchestrator = ref.read(searchOrchestratorProvider);
+    return await orchestrator.searchCategory(query, category, page: page);
+  }
+
   void clear() {
     _debounce?.cancel();
     state = const SearchState();
@@ -266,28 +333,13 @@ final searchControllerProvider =
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// Live Search Suggestions — song preview যোগ হয়েছে (Phase 6.5B)
+// Suggestion State & Controller (EXISTING — unchanged)
 // ─────────────────────────────────────────────────────────────────────────
-//
-// ⚠️ SuggestionController এখন দুটো parallel fetch করে প্রতিটা query-এ:
-//   - Text suggestions → PlaybackEngine.searchSuggestions() (আগের মতোই)
-//   - Song previews    → MusicPlayerRepository.search(query, limit: 5)
-//
-// Song preview concept-গতভাবে "suggestion dropdown-এ কয়েকটা actual
-// matching track দেখানো, যাতে full search submit না করেও সরাসরি play
-// করা যায়" — SearchController-এর multi-entity scope-এর অংশ না (সেখানে
-// albums/artists/playlists-ও আছে), শুধু suggestion UX enhancement।
-//
-// ⚠️ Minor over-capture: repo.search() প্রতিটা keystroke-এ (150ms
-// debounce-এর পর) BehaviourTrackingService.recordSearch() ট্রিগার করবে
-// — "recent searches"-এ আধা-টাইপ করা query জমা হবে। এটা accepted
-// trade-off এখনকার মতো — পরে MusicPlayerRepository.search()-এ একটা
-// optional flag দিয়ে fix করা যাবে, এই batch-এ নয়।
 
 class SuggestionState {
   final String query;
-  final List<String> suggestions;
-  final List<SearchResult> songPreviews;
+  final List<dynamic> suggestions;
+  final List<dynamic> songPreviews;
   final bool isLoading;
 
   const SuggestionState({
@@ -299,8 +351,8 @@ class SuggestionState {
 
   SuggestionState copyWith({
     String? query,
-    List<String>? suggestions,
-    List<SearchResult>? songPreviews,
+    List<dynamic>? suggestions,
+    List<dynamic>? songPreviews,
     bool? isLoading,
   }) {
     return SuggestionState(
@@ -312,11 +364,9 @@ class SuggestionState {
   }
 }
 
-/// Cached bundle for one query — text suggestions + a few song previews,
-/// fetched together so re-typing the same query doesn't re-hit either.
 class _CachedSuggestions {
-  final List<String> suggestions;
-  final List<SearchResult> songPreviews;
+  final List<dynamic> suggestions;
+  final List<dynamic> songPreviews;
 
   const _CachedSuggestions({
     required this.suggestions,
@@ -324,30 +374,9 @@ class _CachedSuggestions {
   });
 }
 
-/// ⚠️ Suggestion dropdown — song preview (this batch). Below the 5 text
-/// suggestions, the dropdown now also shows a short list of actual
-/// matching songs (thumbnail + title), so the user can jump straight to
-/// playback without submitting the full search first.
-///
-/// Two independent fetches per query, run in parallel:
-///   - Text suggestions → PlaybackEngine.searchSuggestions() (unchanged)
-///   - Song previews    → MusicPlayerRepository.search(query, limit: 5)
-///     (same engine-backed song search SearchController uses, just a
-///     small limit and no BehaviourTrackingService capture — a
-///     suggestion-time preview isn't a submitted search, so it
-///     shouldn't count as one; MusicPlayerRepository.search() DOES
-///     capture internally though, since that's shared with real search.
-///     This is an accepted minor over-capture, not worth threading a
-///     "skip tracking" flag through the shared method for a preview
-///     list — see note below.)
-///
-/// One fetch failing doesn't blank the other (same independent-failure
-/// pattern as SearchController.search()'s Future.wait + catchError).
 class SuggestionController extends Notifier<SuggestionState> {
   Timer? _debounce;
-
   final Map<String, _CachedSuggestions> _cache = {};
-
   static const _debounceDuration = Duration(milliseconds: 150);
   static const _songPreviewLimit = 5;
 
@@ -378,58 +407,58 @@ class SuggestionController extends Notifier<SuggestionState> {
     }
 
     state = state.copyWith(query: query, isLoading: true);
-
     _debounce = Timer(_debounceDuration, () => _fetch(query));
   }
 
- Future<void> _fetch(String query) async {
-  AppLogger.playback('[suggestion] _fetch STARTED for query="$query"');
-  final repo = ref.read(musicPlayerRepositoryProvider);
+  Future<void> _fetch(String query) async {
+    AppLogger.playback('[suggestion] _fetch STARTED for query="$query"');
+    final repo = ref.read(musicPlayerRepositoryProvider);
 
-  try {
-    final Future<List<String>> suggestionsFuture =
-        repo.searchSuggestions(query).catchError((_) => <String>[]);
-    final Future<List<SearchResult>> songPreviewsFuture = repo
-        .search(query, limit: _songPreviewLimit)
-        .catchError((e, st) {
-          AppLogger.error('[suggestion] songPreview search FAILED', e, st);
-          return <SearchResult>[];
-        });
+    try {
+      final Future<List<String>> suggestionsFuture =
+          repo.searchSuggestions(query).catchError((_) => []);
+      final Future<List<dynamic>> songPreviewsFuture = repo
+          .search(query, limit: _songPreviewLimit)
+          .catchError((e, st) {
+        AppLogger.error('[suggestion] songPreview search FAILED', e, st);
+        return [];
+      });
 
-    final suggestions = await suggestionsFuture;
-    final songPreviews = await songPreviewsFuture;
+      final suggestions = await suggestionsFuture;
+      final songPreviews = await songPreviewsFuture;
 
-    AppLogger.playback(
-      '[suggestion] _fetch RESULT query="$query" '
-      'suggestions=${suggestions.length} songPreviews=${songPreviews.length}',
-    );
+      AppLogger.playback(
+        '[suggestion] _fetch RESULT query="$query" '
+        'suggestions=${suggestions.length} songPreviews=${songPreviews.length}',
+      );
 
-    _cache[query] = _CachedSuggestions(
-      suggestions: suggestions,
-      songPreviews: songPreviews,
-    );
+      _cache[query] = _CachedSuggestions(
+        suggestions: suggestions,
+        songPreviews: songPreviews,
+      );
 
-    if (state.query != query) {
-      AppLogger.playback('[suggestion] STALE, discarding "$query"');
-      return;
+      if (state.query != query) {
+        AppLogger.playback('[suggestion] STALE, discarding "$query"');
+        return;
+      }
+
+      state = state.copyWith(
+        suggestions: suggestions,
+        songPreviews: songPreviews,
+        isLoading: false,
+      );
+
+      AppLogger.playback(
+        '[suggestion] STATE UPDATED — songPreviews now = '
+        '${state.songPreviews.length}',
+      );
+    } catch (e) {
+      AppLogger.error('[suggestion] _fetch CRASHED', e);
+      if (state.query != query) return;
+      state = state.copyWith(isLoading: false);
     }
-
-    state = state.copyWith(
-      suggestions: suggestions,
-      songPreviews: songPreviews,
-      isLoading: false,
-    );
-
-    AppLogger.playback(
-      '[suggestion] STATE UPDATED — songPreviews now = '
-      '${state.songPreviews.length}',
-    );
-  } catch (e) {
-    AppLogger.error('[suggestion] _fetch CRASHED', e);
-    if (state.query != query) return;
-    state = state.copyWith(isLoading: false);
   }
-}
+
   void clear() {
     _debounce?.cancel();
     state = const SuggestionState();

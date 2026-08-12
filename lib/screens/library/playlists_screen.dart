@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme_extension.dart';
 import '../../models/playlist_model.dart';
 import '../../providers/playlist_provider.dart';
 import '../../widgets/cached_artwork.dart';
@@ -12,32 +13,33 @@ class PlaylistsScreen extends ConsumerWidget {
   const PlaylistsScreen({super.key});
 
   Future<void> _showCreateDialog(BuildContext context, WidgetRef ref) async {
+    final theme = context.aurora;
     final controller = TextEditingController();
 
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('New Playlist', style: TextStyle(color: Colors.white)),
+        backgroundColor: theme.surface,
+        title: Text('New Playlist', style: TextStyle(color: theme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: TextStyle(color: theme.textPrimary),
+          decoration: InputDecoration(
             hintText: 'Playlist name',
-            hintStyle: TextStyle(color: Colors.grey),
+            hintStyle: TextStyle(color: theme.textSecondary),
           ),
           onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancel', style: TextStyle(color: theme.textSecondary)),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Create', style: TextStyle(color: Colors.greenAccent)),
+            child: Text('Create', style: TextStyle(color: theme.primary)),
           ),
         ],
       ),
@@ -58,39 +60,34 @@ class PlaylistsScreen extends ConsumerWidget {
     );
   }
 
-  // ⚠️ নতুন — Rename dialog। playlists_screen.dart এবং
-  // playlist_detail_screen.dart দুই জায়গাতেই প্রায় একই rename dialog
-  // ছিল (detail screen-এ আগে থেকেই ছিল, এখানে নতুন) — দুটো ছোট, আলাদা
-  // widget tree বলে এখনো shared helper-এ extract করা হয়নি
-  // (over-engineering এড়াতে), কিন্তু ভবিষ্যতে চাইলে একটা common
-  // `showRenameDialog()` utility বানানো যেতে পারে।
   Future<void> _showRenameDialog(
     BuildContext context,
     WidgetRef ref,
     PlaylistSummary playlist,
   ) async {
+    final theme = context.aurora;
     final controller = TextEditingController(text: playlist.name);
 
     final newName = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Rename Playlist', style: TextStyle(color: Colors.white)),
+        backgroundColor: theme.surface,
+        title: Text('Rename Playlist', style: TextStyle(color: theme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: theme.textPrimary),
           onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancel', style: TextStyle(color: theme.textSecondary)),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Save', style: TextStyle(color: Colors.greenAccent)),
+            child: Text('Save', style: TextStyle(color: theme.primary)),
           ),
         ],
       ),
@@ -110,23 +107,24 @@ class PlaylistsScreen extends ConsumerWidget {
     WidgetRef ref,
     PlaylistSummary playlist,
   ) async {
+    final theme = context.aurora;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Delete Playlist?', style: TextStyle(color: Colors.white)),
+        backgroundColor: theme.surface,
+        title: Text('Delete Playlist?', style: TextStyle(color: theme.textPrimary)),
         content: Text(
-          '"${playlist.name}" স্থায়ীভাবে মুছে যাবে।',
-          style: const TextStyle(color: Colors.grey),
+          '"${playlist.name}" will be permanently deleted.',
+          style: TextStyle(color: theme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancel', style: TextStyle(color: theme.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+            child: Text('Delete', style: TextStyle(color: theme.error)),
           ),
         ],
       ),
@@ -136,31 +134,30 @@ class PlaylistsScreen extends ConsumerWidget {
     await ref.read(playlistRepositoryProvider).deletePlaylist(playlist.id);
   }
 
-  // ⚠️ নতুন — more_vert এখন শুধু delete-confirm খুলত, এখন Rename +
-  // Delete দুটো option-সহ একটা popup menu।
   void _showOptionsMenu(
     BuildContext context,
     WidgetRef ref,
     PlaylistSummary playlist,
     Offset tapPosition,
   ) async {
+    final theme = context.aurora;
     final selected = await showMenu<String>(
       context: context,
-      color: const Color(0xFF1E1E1E),
+      color: theme.surface,
       position: RelativeRect.fromLTRB(
         tapPosition.dx,
         tapPosition.dy,
         tapPosition.dx,
         tapPosition.dy,
       ),
-      items: const [
+      items: [
         PopupMenuItem(
           value: 'rename',
-          child: Text('Rename', style: TextStyle(color: Colors.white)),
+          child: Text('Rename', style: TextStyle(color: theme.textPrimary)),
         ),
         PopupMenuItem(
           value: 'delete',
-          child: Text('Delete', style: TextStyle(color: Colors.redAccent)),
+          child: Text('Delete', style: TextStyle(color: theme.error)),
         ),
       ],
     );
@@ -176,19 +173,20 @@ class PlaylistsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = context.aurora;
     final playlistsAsync = ref.watch(playlistsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
-        title: const Text('Playlists', style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: theme.background,
+        title: Text('Playlists', style: TextStyle(color: theme.textPrimary)),
+        iconTheme: IconThemeData(color: theme.textPrimary),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.greenAccent,
+        backgroundColor: theme.primary,
         onPressed: () => _showCreateDialog(context, ref),
-        child: const Icon(Icons.add, color: Colors.black),
+        child: Icon(Icons.add, color: theme.background),
       ),
       body: playlistsAsync.when(
         data: (playlists) {
@@ -197,11 +195,11 @@ class PlaylistsScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.playlist_play, color: Colors.grey[600], size: 48),
+                  Icon(Icons.playlist_play, color: theme.textDisabled, size: 48),
                   const SizedBox(height: 12),
                   Text(
                     'No Playlists yet',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                    style: TextStyle(color: theme.textSecondary, fontSize: 14),
                   ),
                 ],
               ),
@@ -227,20 +225,16 @@ class PlaylistsScreen extends ConsumerWidget {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
+                          color: theme.surfaceRaised,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Icon(Icons.playlist_play, color: Colors.grey[600]),
+                        child: Icon(Icons.playlist_play, color: theme.textDisabled),
                       ),
-                title: Text(playlist.name, style: const TextStyle(color: Colors.white)),
+                title: Text(playlist.name, style: TextStyle(color: theme.textPrimary)),
                 subtitle: Text(
                   '${playlist.itemCount} songs',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  style: TextStyle(color: theme.textSecondary, fontSize: 12),
                 ),
-                // ⚠️ GestureDetector দিয়ে tap-position (globalPosition)
-                // capture করা হচ্ছে — showMenu()-এর জন্য screen-coordinate
-                // লাগে, IconButton.onPressed-এ position পাওয়া যায় না
-                // বলে GestureDetector.onTapDown ব্যবহার করা হলো।
                 trailing: GestureDetector(
                   onTapDown: (details) {
                     _showOptionsMenu(
@@ -250,9 +244,9 @@ class PlaylistsScreen extends ConsumerWidget {
                       details.globalPosition,
                     );
                   },
-                  child: const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Icon(Icons.more_vert, color: Colors.grey),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(Icons.more_vert, color: theme.textSecondary),
                   ),
                 ),
                 onTap: () {
@@ -267,13 +261,13 @@ class PlaylistsScreen extends ConsumerWidget {
             },
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: Colors.greenAccent),
+        loading: () => Center(
+          child: CircularProgressIndicator(color: theme.primary),
         ),
         error: (e, _) => Center(
           child: Text(
-            'Playlist load করা যায়নি',
-            style: TextStyle(color: Colors.grey[500]),
+            'Failed to load playlists',
+            style: TextStyle(color: theme.textDisabled),
           ),
         ),
       ),

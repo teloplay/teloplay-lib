@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme_extension.dart';
 import '../../core/playback/playback_engine.dart';
 import '../../models/playlist_model.dart';
 import '../../providers/music_player_provider.dart';
@@ -20,28 +21,29 @@ class PlaylistDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     String currentName,
   ) async {
+    final theme = context.aurora;
     final controller = TextEditingController(text: currentName);
 
     final newName = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Rename Playlist', style: TextStyle(color: Colors.white)),
+        backgroundColor: theme.surface,
+        title: Text('Rename Playlist', style: TextStyle(color: theme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: theme.textPrimary),
           onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancel', style: TextStyle(color: theme.textSecondary)),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Save', style: TextStyle(color: Colors.greenAccent)),
+            child: Text('Save', style: TextStyle(color: theme.primary)),
           ),
         ],
       ),
@@ -62,9 +64,6 @@ class PlaylistDetailScreen extends ConsumerWidget {
     int oldIndex,
     int newIndex,
   ) {
-    // ⚠️ ReorderableListView-এর নিজস্ব quirk — item নিচের দিকে সরালে
-    // newIndex ১ বেশি আসে (Flutter-এর documented আচরণ), তাই adjust
-    // করা হচ্ছে।
     if (newIndex > oldIndex) newIndex -= 1;
 
     final reordered = List<PlaylistItemEntry>.from(items);
@@ -73,9 +72,6 @@ class PlaylistDetailScreen extends ConsumerWidget {
 
     final orderedItemIds = reordered.map((e) => e.itemId).toList();
 
-    // Optimistic-এর দরকার নেই — playlistDetailProvider Stream-based,
-    // reorderItems() persist হওয়া মাত্র UI নিজে থেকেই নতুন ক্রম দেখাবে।
-    // fire-and-forget: reorder UI-blocking হওয়া উচিত না।
     ref.read(playlistRepositoryProvider).reorderItems(
           playlistId: playlistId,
           orderedItemIds: orderedItemIds,
@@ -84,13 +80,14 @@ class PlaylistDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = context.aurora;
     final detailAsync = ref.watch(playlistDetailProvider(playlistId));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: theme.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: theme.background,
+        iconTheme: IconThemeData(color: theme.textPrimary),
         title: detailAsync.maybeWhen(
           data: (detail) => GestureDetector(
             onTap: detail != null
@@ -98,21 +95,19 @@ class PlaylistDetailScreen extends ConsumerWidget {
                 : null,
             child: Text(
               detail?.name ?? 'Playlist',
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: theme.textPrimary),
             ),
           ),
-          orElse: () => const Text('Playlist', style: TextStyle(color: Colors.white)),
+          orElse: () => Text('Playlist', style: TextStyle(color: theme.textPrimary)),
         ),
       ),
       body: detailAsync.when(
         data: (detail) {
           if (detail == null) {
-            // Playlist delete হয়ে গেছে (অন্য কোনো জায়গা থেকে) এই
-            // screen খোলা অবস্থাতেই — graceful fallback।
             return Center(
               child: Text(
-                'এই playlist আর নেই',
-                style: TextStyle(color: Colors.grey[500]),
+                'This playlist no longer exists',
+                style: TextStyle(color: theme.textSecondary),
               ),
             );
           }
@@ -122,11 +117,11 @@ class PlaylistDetailScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.music_off, color: Colors.grey[600], size: 48),
+                  Icon(Icons.music_off, color: theme.textDisabled, size: 48),
                   const SizedBox(height: 12),
                   Text(
-                    'এখনো কোনো গান নেই',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                    'No songs yet',
+                    style: TextStyle(color: theme.textSecondary, fontSize: 14),
                   ),
                 ],
               ),
@@ -143,10 +138,10 @@ class PlaylistDetailScreen extends ConsumerWidget {
                 key: ValueKey(item.itemId),
                 direction: DismissDirection.endToStart,
                 background: Container(
-                  color: Colors.redAccent,
+                  color: theme.error,
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 20),
-                  child: const Icon(Icons.delete, color: Colors.white),
+                  child: Icon(Icons.delete, color: theme.background),
                 ),
                 onDismissed: (_) {
                   ref.read(playlistRepositoryProvider).removeItem(
@@ -167,21 +162,17 @@ class PlaylistDetailScreen extends ConsumerWidget {
                   ),
                   title: Text(
                     item.title,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: theme.textPrimary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
                     item.author,
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    style: TextStyle(color: theme.textSecondary, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   onTap: () {
-                    // ⚠️ Context-based Queue (Phase 1 fix) — পুরো
-                    // playlist queue হিসেবে সেট হচ্ছে (এখনকার scale-এ
-                    // পুরো list-ই যথেষ্ট, windowing পরে দরকার হলে যোগ
-                    // হবে), tap করা track থেকে শুরু করে।
                     final tracks = detail.items
                         .map((i) => SearchResult(
                               videoId: i.songId,
@@ -199,20 +190,20 @@ class PlaylistDetailScreen extends ConsumerWidget {
                   },
                   trailing: ReorderableDragStartListener(
                     index: index,
-                    child: const Icon(Icons.drag_handle, color: Colors.grey),
+                    child: Icon(Icons.drag_handle, color: theme.textSecondary),
                   ),
                 ),
               );
             },
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: Colors.greenAccent),
+        loading: () => Center(
+          child: CircularProgressIndicator(color: theme.primary),
         ),
         error: (e, _) => Center(
           child: Text(
-            'Playlist load করা যায়নি',
-            style: TextStyle(color: Colors.grey[500]),
+            'Failed to load playlist',
+            style: TextStyle(color: theme.textSecondary),
           ),
         ),
       ),
