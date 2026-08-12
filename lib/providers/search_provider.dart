@@ -126,7 +126,8 @@ final searchHistoryRepositoryProvider = Provider((ref) {
 final recentSearchesProvider =
     FutureProvider.autoDispose<List<String>>((ref) async {
   final repo = ref.watch(searchHistoryRepositoryProvider);
-  return repo.getRecentSearches();
+  final recents = await repo.getRecentSearches();  // List<RecentSearch>
+  return recents.map((r) => r.query).toList();     // Extract String queries
 });
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -183,18 +183,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
-                              children: recent.map((r) {
-                                return _RecentChip(
-                                  query: r.query,
-                                  onTap: () => _selectQuery(r.query),
-                                  onDelete: () async {
-                                    await ref
-                                        .read(searchHistoryRepositoryProvider)
-                                        .removeSearch(r.query);
-                                    ref.invalidate(recentSearchesProvider);
-                                  },
-                                );
-                              }).toList(),
+                              children: recent.map((queryString) {
+  return _RecentChip(
+    query: queryString,        // ✅ Direct String use
+    onTap: () => _selectQuery(queryString),
+    onDelete: () async {
+      await ref.read(searchHistoryRepositoryProvider).removeSearch(queryString);
+      ref.invalidate(recentSearchesProvider);
+    },
+  );
+}).toList(),
                             ),
                           ],
                         );
@@ -350,16 +348,16 @@ class _MultiCategoryResults extends StatelessWidget {
         if (state.songs.isNotEmpty) ...[
           _SectionHeader(title: 'Songs'),
           ...state.songs.asMap().entries.map((entry) {
-            final index = entry.key;
-            final song = entry.value;
-            return _SongTile(
-              song: song,
-              repo: repo,
-              allSongs: state.songs,
-              index: index,
-              onTap: () => onOpenSong(song),
-            );
-          }),
+  final index = entry.key;
+  final song = entry.value as SearchResult;  // ✅ Cast
+  return _SongTile(
+    song: song,
+    repo: repo,
+    allSongs: state.songs.cast<SearchResult>(),  // ✅ Cast
+    index: index,
+    onTap: () => onOpenSong(song),
+  );
+}),
         ],
         if (state.albums.isNotEmpty) ...[
           _SectionHeader(title: 'Albums'),
