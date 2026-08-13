@@ -487,6 +487,7 @@ class _HorizontalTrackRow extends ConsumerWidget {
   }
 }
 
+// FIX: Added PlaylistModel generic type
 class _HorizontalPlaylistRow extends StatelessWidget {
   final List<PlaylistModel> playlists;
   final void Function(String playlistId) onTap;

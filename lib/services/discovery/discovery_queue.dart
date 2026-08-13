@@ -10,8 +10,8 @@ import '../cache/metadata_cache_service.dart';
 /// Rate-limited background batch processor for discovery enrichment.
 /// NEVER blocks UI thread. Uses queue + timer-based processing.
 class DiscoveryQueue {
-  final LastFmClient _lastFm;
-  final MusicBrainzClient _musicBrainz;
+  final LastFmClient? _lastFm;
+  final MusicBrainzClient? _musicBrainz;
   final DeezerClient _deezer;
   final MetadataCacheService _cache;
 
@@ -20,17 +20,17 @@ class DiscoveryQueue {
   bool _isProcessing = false;
 
   // Rate limits (requests per second)
-  static const _lastFmRate = 0.5;      // 1 req per 2 seconds
+  static const _lastFmRate = 0.5; // 1 req per 2 seconds
   static const _musicBrainzRate = 1.0; // 1 req per second
-  static const _deezerRate = 10.0;     // 10 req per second (well within 50/5s)
+  static const _deezerRate = 10.0; // 10 req per second (well within 50/5s)
 
   DateTime? _lastLastFmCall;
   DateTime? _lastMusicBrainzCall;
   DateTime? _lastDeezerCall;
 
   DiscoveryQueue({
-    required LastFmClient lastFm,
-    required MusicBrainzClient musicBrainz,
+    required LastFmClient? lastFm,
+    required MusicBrainzClient? musicBrainz,
     required DeezerClient deezer,
     required MetadataCacheService cache,
   })  : _lastFm = lastFm,
@@ -115,7 +115,7 @@ class DiscoveryQueue {
   }
 
   Future<void> _processSimilarArtists(_DiscoveryTask task) async {
-    if (!_canCall(_lastDeezerCall, _deezerRate)) return;
+    if (!await _canCall(_lastDeezerCall, _deezerRate)) return;
 
     // Try Deezer first (instant path)
     if (task.artistId != null) {
@@ -124,33 +124,39 @@ class DiscoveryQueue {
       AppLogger.discovery('Deezer similar artists: ${similar.length} for ${task.artistName}');
     }
 
-    // Last.fm enrichment (background)
-    if (_canCall(_lastLastFmCall, _lastFmRate)) {
+    // Last.fm enrichment (background) — only if client available AND artistName not null
+    if (_lastFm != null && task.artistName != null && await _canCall(_lastLastFmCall, _lastFmRate)) {
       _lastLastFmCall = DateTime.now();
-      final similar = await _lastFm.getSimilarArtists(task.artistName);
+      final similar = await _lastFm.getSimilarArtists(task.artistName!);
       AppLogger.discovery('Last.fm similar artists: ${similar.length} for ${task.artistName}');
     }
   }
 
   Future<void> _processArtistTags(_DiscoveryTask task) async {
-    if (!_canCall(_lastLastFmCall, _lastFmRate)) {
+    // FIX: Null check before calling _lastFm methods
+    if (_lastFm == null || task.artistName == null) return;
+    if (!await _canCall(_lastLastFmCall, _lastFmRate)) {
       _queue.addFirst(task); // Retry later
       return;
     }
     _lastLastFmCall = DateTime.now();
-    final tags = await _lastFm.getArtistTags(task.artistName);
+    final tags = await _lastFm.getArtistTags(task.artistName!);
     AppLogger.discovery('Last.fm tags: $tags for ${task.artistName}');
   }
 
   Future<void> _processTrending() async {
-    if (!_canCall(_lastLastFmCall, _lastFmRate)) return;
+    // FIX: Null check before calling _lastFm methods
+    if (_lastFm == null) return;
+    if (!await _canCall(_lastLastFmCall, _lastFmRate)) return;
     _lastLastFmCall = DateTime.now();
     final trending = await _lastFm.getTrendingTracks();
     AppLogger.discovery('Last.fm trending: ${trending.length} tracks');
   }
 
   Future<void> _processMbRelations(_DiscoveryTask task) async {
-    if (!_canCall(_lastMusicBrainzCall, _musicBrainzRate)) {
+    // FIX: Null check before calling _musicBrainz methods
+    if (_musicBrainz == null || task.mbid == null) return;
+    if (!await _canCall(_lastMusicBrainzCall, _musicBrainzRate)) {
       _queue.addFirst(task);
       return;
     }
@@ -160,7 +166,7 @@ class DiscoveryQueue {
   }
 
   /// Check if enough time has passed since last call.
-  bool _canCall(DateTime? lastCall, double ratePerSecond) {
+  Future<bool> _canCall(DateTime? lastCall, double ratePerSecond) async {
     if (lastCall == null) return true;
     final requiredGap = Duration(milliseconds: (1000 / ratePerSecond).round());
     return DateTime.now().difference(lastCall) >= requiredGap;

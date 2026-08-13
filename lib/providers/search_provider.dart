@@ -189,6 +189,7 @@ final searchHistoryRepositoryProvider = Provider((ref) {
   return SearchHistoryRepository(db);
 });
 
+// FIX: Changed from List<RecentSearch> to List<String> — getRecentSearches() returns List<String>
 final recentSearchesProvider =
     FutureProvider.autoDispose<List<String>>((ref) async {
   final repo = ref.watch(searchHistoryRepositoryProvider);
