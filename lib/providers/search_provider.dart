@@ -189,11 +189,13 @@ final searchHistoryRepositoryProvider = Provider((ref) {
   return SearchHistoryRepository(db);
 });
 
-// FIX: Changed from List<RecentSearch> to List<String> — getRecentSearches() returns List<String>
+// FIX: getRecentSearches() returns List<RecentSearch>, not List<String>
+// RecentSearch has a .query field (String). We map to extract queries.
 final recentSearchesProvider =
     FutureProvider.autoDispose<List<String>>((ref) async {
   final repo = ref.watch(searchHistoryRepositoryProvider);
-  return repo.getRecentSearches();
+  final recentSearches = await repo.getRecentSearches();
+  return recentSearches.map((r) => r.query).toList();
 });
 
 // ─────────────────────────────────────────────────────────────────────────

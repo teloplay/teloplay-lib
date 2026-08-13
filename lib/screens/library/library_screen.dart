@@ -487,9 +487,9 @@ class _HorizontalTrackRow extends ConsumerWidget {
   }
 }
 
-// FIX: Added PlaylistModel generic type
+// FIX: Changed PlaylistModel to PlaylistSummary (actual class name in playlist_model.dart)
 class _HorizontalPlaylistRow extends StatelessWidget {
-  final List<PlaylistModel> playlists;
+  final List<PlaylistSummary> playlists;
   final void Function(String playlistId) onTap;
 
   const _HorizontalPlaylistRow({
