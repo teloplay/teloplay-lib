@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../core/theme/theme_extensions.dart';
+import '../core/theme/app_theme_extension.dart';
 
 /// Context menu types with variant-aware item sets.
 enum ContextMenuType {

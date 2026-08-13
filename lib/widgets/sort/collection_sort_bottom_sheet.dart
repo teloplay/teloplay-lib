@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/theme_extensions.dart';
+import '../../core/theme/app_theme_extension.dart';
 
 /// Sort options for library sidebar/collections.
 enum CollectionSortOption {

@@ -3,18 +3,35 @@ import 'package:http/http.dart' as http;
 
 import '../../core/logging/app_logger.dart';
 import '../cache/metadata_cache_service.dart';
-import '../search/search_orchestrator.dart';
 
 /// Deezer API client using official public API.
 /// Rate limit: 50 req / 5 sec. Cache-first strategy.
+///
+/// ⚠️ Fix (Phase 0 v11 stabilization): this used to import
+/// DeezerTrack/DeezerAlbum/DeezerArtist from
+/// services/search/search_orchestrator.dart — that file has been
+/// deleted (it was a broken, duplicate SearchOrchestrator; the real one
+/// now lives in providers/search_provider.dart). Those three classes are
+/// genuinely this file's own data shapes, not the orchestrator's, so
+/// they're defined here now — their real home.
+///
+/// Also: `_appId` was stored but never actually used in any request, and
+/// `_secret` was sent as `access_token` — but every endpoint this client
+/// calls (search/track, search/album, search/artist, artist/:id/related)
+/// is a public, keyless Deezer endpoint (confirmed against Deezer's own
+/// API docs). `access_token` is only meaningful for the OAuth flow
+/// (reading/writing a specific user's account), which this app never
+/// does. Both fields are now optional and unused in requests — kept only
+/// so a future OAuth-requiring feature has somewhere to plug in, per
+/// roadmap Section J ("official public API, app registration/API key").
 class DeezerClient {
   static const _baseUrl = 'https://api.deezer.com';
-  final String _appId;
+  final String? _appId;
   final String? _secret;
   final MetadataCacheService _cache;
 
   DeezerClient({
-    required String appId,
+    String? appId,
     String? secret,
     required MetadataCacheService cache,
   })  : _appId = appId,
@@ -31,11 +48,9 @@ class DeezerClient {
     }
 
     try {
-      final uri = Uri.parse('$_baseUrl/search/track')
-          .replace(queryParameters: {
+      final uri = Uri.parse('$_baseUrl/search/track').replace(queryParameters: {
         'q': query,
         'limit': limit.toString(),
-        if (_secret != null) 'access_token': _secret,
       });
 
       final response = await http.get(uri).timeout(const Duration(milliseconds: 350));
@@ -46,7 +61,6 @@ class DeezerClient {
       final json = jsonDecode(response.body);
       final tracks = (json['data'] as List? ?? []).map((j) => _parseTrack(j)).toList();
 
-      // Cache result
       await _cache.set(
         source: 'deezer',
         type: 'search',
@@ -131,13 +145,57 @@ class DeezerClient {
   }
 
   DeezerTrack _parseTrack(dynamic json) => DeezerTrack(
-    id: json['id'].toString(),
-    title: json['title'] ?? '',
-    artistName: json['artist']?['name'] ?? '',
-    albumName: json['album']?['title'],
-    albumCover: json['album']?['cover_medium'] ?? json['album']?['cover'],
-    duration: json['duration'] != null
-        ? Duration(seconds: json['duration'] as int)
-        : null,
-  );
+        id: json['id'].toString(),
+        title: json['title'] ?? '',
+        artistName: json['artist']?['name'] ?? '',
+        albumName: json['album']?['title'],
+        albumCover: json['album']?['cover_medium'] ?? json['album']?['cover'],
+        duration: json['duration'] != null
+            ? Duration(seconds: json['duration'] as int)
+            : null,
+      );
+}
+
+class DeezerTrack {
+  final String id;
+  final String title;
+  final String artistName;
+  final String? albumName;
+  final String? albumCover;
+  final Duration? duration;
+
+  DeezerTrack({
+    required this.id,
+    required this.title,
+    required this.artistName,
+    this.albumName,
+    this.albumCover,
+    this.duration,
+  });
+}
+
+class DeezerAlbum {
+  final String id;
+  final String name;
+  final String artistName;
+  final String cover;
+
+  DeezerAlbum({
+    required this.id,
+    required this.name,
+    required this.artistName,
+    required this.cover,
+  });
+}
+
+class DeezerArtist {
+  final String id;
+  final String name;
+  final String picture;
+
+  DeezerArtist({
+    required this.id,
+    required this.name,
+    required this.picture,
+  });
 }

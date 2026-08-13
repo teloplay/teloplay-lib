@@ -101,7 +101,7 @@ enum SearchCategory { songs, albums, artists, playlists }
 /// non-blocking enrichment) search, per roadmap Section B (Layer 1: SEARCH).
 class SearchOrchestrator {
   final Ref _ref;
-  final DeezerClient? _deezer;
+  final DeezerClient _deezer;
 
   SearchOrchestrator(this._ref, this._deezer);
 
@@ -170,12 +170,6 @@ class SearchOrchestrator {
     final List<SearchResult> ytResults =
         await musicRepo.search(query, limit: limit).catchError((_) => <SearchResult>[]);
 
-    if (_deezer == null) {
-      // No Deezer credentials configured — YouTube-only is still a fully
-      // valid result set (roadmap Section B: "Never blocks on Deezer").
-      return ytResults.map(EnrichedSearchResult.fromYoutubeOnly).toList();
-    }
-
     List<DeezerTrack> dzResults = const [];
     try {
       dzResults = await _deezer
@@ -210,14 +204,17 @@ final metadataCacheServiceProvider = Provider<MetadataCacheService>((ref) {
   return MetadataCacheService(db: db);
 });
 
-/// Null when DEEZER_APP_ID isn't configured in .env — callers (see
-/// SearchOrchestrator) treat that as "enrichment unavailable", not an
-/// error, since Deezer is enrichment-only per roadmap Section A.
-final deezerClientProvider = Provider<DeezerClient?>((ref) {
-  final appId = EnvConfig.deezerAppId;
-  if (appId.isEmpty) return null;
+/// Deezer's search/track, search/album, search/artist, and
+/// artist/:id/related endpoints are all public and keyless (confirmed
+/// against Deezer's own API docs) — no App ID/Secret is required for the
+/// metadata enrichment this app does. DeezerClient is therefore always
+/// constructed; App ID/Secret are passed through only so a future
+/// OAuth-requiring feature has somewhere to plug in (Deezer's developer
+/// portal was also not accepting new app registrations at the time this
+/// was written — see roadmap Section J).
+final deezerClientProvider = Provider<DeezerClient>((ref) {
   return DeezerClient(
-    appId: appId,
+    appId: EnvConfig.deezerAppId.isEmpty ? null : EnvConfig.deezerAppId,
     secret: EnvConfig.deezerSecret,
     cache: ref.watch(metadataCacheServiceProvider),
   );
