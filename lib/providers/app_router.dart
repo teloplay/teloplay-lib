@@ -33,7 +33,6 @@ import '../screens/player/now_playing_screen.dart';
 
 part 'app_router.g.dart';
 
-
 /// GoRouter-এর redirect logic Stream থেকে চলে বলে Listenable দরকার।
 /// authStateChangesProvider-এর নতুন value এলেই এটা GoRouter-কে notify করবে,
 /// ফলে redirect আবার evaluate হবে (login/logout হলে auto-navigate)।
@@ -47,7 +46,7 @@ class _AuthRefreshNotifier extends ChangeNotifier {
 /// 3 Performance-aware UI flags (low RAM / reduce motion / battery
 /// saver): if any are active, falls back to an instant/near-instant
 /// fade instead of the full platform-specific animation.
-CustomTransitionPage<T> _platformAwarePage<T>({
+CustomTransitionPage _platformAwarePage({
   required Widget child,
   required LocalKey key,
 }) {
@@ -57,7 +56,7 @@ CustomTransitionPage<T> _platformAwarePage<T>({
       perf.isLowRamMode;
 
   if (reduceEffects) {
-    return CustomTransitionPage<T>(
+    return CustomTransitionPage(
       key: key,
       child: child,
       transitionDuration: const Duration(milliseconds: 120),
@@ -71,7 +70,7 @@ CustomTransitionPage<T> _platformAwarePage<T>({
 
   if (isDesktop) {
     // Windows/Desktop — FadeTransition + ScaleTransition, 180–220ms
-    return CustomTransitionPage<T>(
+    return CustomTransitionPage(
       key: key,
       child: child,
       transitionDuration: const Duration(milliseconds: 200),
@@ -89,7 +88,7 @@ CustomTransitionPage<T> _platformAwarePage<T>({
   }
 
   // Android/mobile — SlideTransition + CurvedAnimation, 250–300ms
-  return CustomTransitionPage<T>(
+  return CustomTransitionPage(
     key: key,
     child: child,
     transitionDuration: const Duration(milliseconds: 280),
@@ -105,11 +104,11 @@ CustomTransitionPage<T> _platformAwarePage<T>({
 
 /// Tab-navigation only — quick fade, no full route animation
 /// (per requirement: "Tab Navigation: Quick Fade Only").
-CustomTransitionPage<T> _tabFadePage<T>({
+CustomTransitionPage _tabFadePage({
   required Widget child,
   required LocalKey key,
 }) {
-  return CustomTransitionPage<T>(
+  return CustomTransitionPage(
     key: key,
     child: child,
     transitionDuration: const Duration(milliseconds: 100),
@@ -132,30 +131,28 @@ GoRouter appRouter(Ref ref) {
       final isAuthRoute = state.matchedLocation.startsWith('/welcome') ||
           state.matchedLocation.startsWith('/auth');
 
-      // debug route-গুলোকে auth redirect logic সম্পূর্ণ এড়িয়ে যেতে দাও —
-      // এগুলো শুধু engine/feature-testing-এর জন্য, session/login অবস্থা
-      // যাই হোক না কেন সরাসরি খোলা যাবে।
+      // debug route-গুলোকে auth redirect logic সম্পূর্ণ এড়িয়ে যেতে দাও
       if (state.matchedLocation == '/debug/player-test' ||
           state.matchedLocation == '/debug/cache-settings') {
         return null;
       }
 
-      // কোনো session না থাকলে (কখনো guest হিসেবেও ঢোকেনি) —
-      // auth route ছাড়া অন্য কোথাও যেতে দেওয়া হবে না
+      // Root path / → redirect to /home if logged in, /welcome if not
+      if (state.matchedLocation == '/') {
+        return isLoggedIn ? '/home' : '/welcome';
+      }
+
+      // কোনো session না থাকলে auth route ছাড়া অন্য কোথাও যেতে দেওয়া হবে না
       if (!isLoggedIn && !isAuthRoute) {
         return '/welcome';
       }
 
-      // Real (non-guest) login থাকলে এবং এখনো auth screen-এ থাকলে —
-      // home-এ পাঠিয়ে দাও। Guest-কে এখানে বাদ রাখা হয়েছে ইচ্ছাকৃতভাবে,
-      // কারণ guest অবস্থায় email link করার জন্য /auth/email-এ যেতে
-      // পারতে হবে, redirect তাকে আটকে দেবে না।
+      // Real login থাকলে auth screen-এ থাকলে home-এ পাঠাও
       if (isLoggedIn && !isGuest && isAuthRoute) {
         return '/home';
       }
 
       // Guest অবস্থায় /welcome-এ ফিরে গেলে home-এ পাঠাও
-      // (কারণ guest ইতিমধ্যে "logged in" — শুধু email/otp route allow করা হচ্ছে)
       if (isLoggedIn && isGuest && state.matchedLocation == '/welcome') {
         return '/home';
       }
@@ -163,6 +160,16 @@ GoRouter appRouter(Ref ref) {
       return null; // redirect দরকার নেই
     },
     routes: [
+      // ═══════════════════════════════════════════════════════════════
+      // ROOT ROUTE — redirects to /home or /welcome based on auth
+      // ═══════════════════════════════════════════════════════════════
+      GoRoute(
+        path: '/',
+        redirect: (context, state) {
+          final session = Supabase.instance.client.auth.currentSession;
+          return session != null ? '/home' : '/welcome';
+        },
+      ),
       GoRoute(
         path: '/welcome',
         builder: (context, state) => const WelcomeScreen(),
@@ -232,7 +239,7 @@ GoRouter appRouter(Ref ref) {
         },
       ),
 
-      /* ─── Legacy redirects — keep deep links / saved state alive ──── */
+      /* ─── Legacy redirects ───────────────────────────────────────── */
       GoRoute(
         path: '/favorites',
         redirect: (context, state) => '/library/favorites',
@@ -251,7 +258,7 @@ GoRouter appRouter(Ref ref) {
             '/library/playlists/${state.pathParameters['id']}',
       ),
 
-      /* ─── NEW — Detail routes (Song / Album / Artist / Playlist) ──── */
+      /* ─── Detail routes ──────────────────────────────────────────── */
       GoRoute(
         path: '/song/:id',
         pageBuilder: (context, state) {
@@ -332,10 +339,6 @@ GoRouter appRouter(Ref ref) {
           child: const SettingsScreen(),
         ),
       ),
-      // ⚠️ v11 Fix — GettingStartedScreen (roadmap Section 15) was
-      // created but never registered in the router; ChecklistBadge
-      // opens it via showDialog directly, but a real route also lets it
-      // be deep-linked / opened from Settings ("Show tips again").
       GoRoute(
         path: '/onboarding',
         pageBuilder: (context, state) => _platformAwarePage(
@@ -343,12 +346,6 @@ GoRouter appRouter(Ref ref) {
           child: const GettingStartedScreen(),
         ),
       ),
-      // ⚠️ v11 Fix-First List #4 — "See All" pathway for search
-      // categories. `category` comes as a query param (?category=songs)
-      // since GoRoute path params can't carry an enum directly; `q` is
-      // the query text. Unknown/missing category defaults to songs
-      // (the only category SearchOrchestrator paginates today — see
-      // search_provider.dart doc-comment).
       GoRoute(
         path: '/search/category',
         pageBuilder: (context, state) {
