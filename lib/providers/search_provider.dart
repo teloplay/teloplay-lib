@@ -19,25 +19,7 @@ import 'playlist_provider.dart';
 // ─────────────────────────────────────────────────────────────────────────
 // Search Orchestrator — v11 Metadata Architecture (real implementation)
 // ─────────────────────────────────────────────────────────────────────────
-//
-// ⚠️ Fix (Phase 0 v11 stabilization): this used to be a `dynamic`-typed
-// stub with TODO bodies, while a completely separate, broken
-// search_orchestrator.dart file defined a *second*, incompatible
-// SearchOrchestrator with fabricated dependencies (a nonexistent
-// InnertubeService, a wrong import path, duplicate DeezerTrack/SearchResult
-// classes). That file has been removed — this is the one real
-// implementation, wired to the app's actual services:
-// [MusicPlayerRepository.search] (YouTube/Innertube, always authoritative)
-// + [DeezerClient.searchTracks] (400ms timeout, never blocks) +
-// [StreamMatcher] (Phase 0 simple title+duration matching).
-//
-// Per roadmap Section A: search results always come from YouTube/Innertube
-// — Deezer only supplies clean title/artist/thumbnail enrichment on top,
-// never replaces the stream source.
 
-/// Unified search result enriched with Deezer metadata where a match was
-/// found; falls back to raw YouTube data otherwise. `isEnriched` tells the
-/// UI which case it is (Section B: "Search Result Display Rule").
 class EnrichedSearchResult {
   final String videoId;
   final String title;
@@ -69,7 +51,7 @@ class EnrichedSearchResult {
 
   factory EnrichedSearchResult.fromMatch(SearchResult yt, DeezerTrack dz) =>
       EnrichedSearchResult(
-        videoId: yt.videoId, // stream always comes from the YouTube side
+        videoId: yt.videoId,
         title: dz.title,
         artist: dz.artistName,
         album: dz.albumName,
@@ -79,7 +61,6 @@ class EnrichedSearchResult {
       );
 }
 
-/// Preview result bundle for mobile overlay — 3-4 items per category.
 class SearchPreview {
   final List<EnrichedSearchResult> songs;
   final List<AlbumSearchResult> albums;
@@ -94,18 +75,14 @@ class SearchPreview {
   });
 }
 
-/// Category enum for paginated "See All" search.
 enum SearchCategory { songs, albums, artists, playlists }
 
-/// Orchestrates YouTube (always, authoritative) + Deezer (400ms timeout,
-/// non-blocking enrichment) search, per roadmap Section B (Layer 1: SEARCH).
 class SearchOrchestrator {
   final Ref _ref;
   final DeezerClient _deezer;
 
   SearchOrchestrator(this._ref, this._deezer);
 
-  /// Live preview for mobile overlay — 3-4 items per category.
   Future<SearchPreview> searchPreview(String query) async {
     if (query.trim().isEmpty) return const SearchPreview();
 
@@ -128,15 +105,6 @@ class SearchOrchestrator {
     );
   }
 
-  /// Paginated category search for "See All" dedicated screens.
-  ///
-  /// NOTE: songs are the only category with real pagination today — the
-  /// underlying MusicPlayerRepository.search / LibraryRepository search
-  /// methods don't currently accept a page/offset for albums/artists/
-  /// playlists (Fix-First List #4 only scoped the *songs* hard-limit
-  /// removal). Those three fall back to a single larger page; wiring true
-  /// pagination for them is separate follow-up work, not silently faked
-  /// here.
   Future<List<EnrichedSearchResult>> searchCategory(
     String query,
     SearchCategory category, {
@@ -144,7 +112,6 @@ class SearchOrchestrator {
     int pageSize = 20,
   }) async {
     if (category != SearchCategory.songs) {
-      // Non-song categories: not yet paginated — see NOTE above.
       return const [];
     }
 
@@ -157,9 +124,6 @@ class SearchOrchestrator {
     return all.skip(page * pageSize).take(pageSize).toList();
   }
 
-  /// YouTube search (always) + Deezer enrichment (400ms timeout, never
-  /// blocks). Returns enriched results where a Deezer match was found,
-  /// raw YouTube results otherwise — YouTube result is never dropped.
   Future<List<EnrichedSearchResult>> _enrichedSongs(
     String query, {
     required int limit,
@@ -199,20 +163,12 @@ class SearchOrchestrator {
 // Service Providers
 // ─────────────────────────────────────────────────────────────────────────
 
-final metadataCacheServiceProvider = Provider<MetadataCacheService>((ref) {
+final metadataCacheServiceProvider = Provider((ref) {
   final db = ref.watch(appDatabaseProvider);
   return MetadataCacheService(db: db);
 });
 
-/// Deezer's search/track, search/album, search/artist, and
-/// artist/:id/related endpoints are all public and keyless (confirmed
-/// against Deezer's own API docs) — no App ID/Secret is required for the
-/// metadata enrichment this app does. DeezerClient is therefore always
-/// constructed; App ID/Secret are passed through only so a future
-/// OAuth-requiring feature has somewhere to plug in (Deezer's developer
-/// portal was also not accepting new app registrations at the time this
-/// was written — see roadmap Section J).
-final deezerClientProvider = Provider<DeezerClient>((ref) {
+final deezerClientProvider = Provider((ref) {
   return DeezerClient(
     appId: EnvConfig.deezerAppId.isEmpty ? null : EnvConfig.deezerAppId,
     secret: EnvConfig.deezerSecret,
@@ -220,7 +176,7 @@ final deezerClientProvider = Provider<DeezerClient>((ref) {
   );
 });
 
-final searchOrchestratorProvider = Provider<SearchOrchestrator>((ref) {
+final searchOrchestratorProvider = Provider((ref) {
   return SearchOrchestrator(ref, ref.watch(deezerClientProvider));
 });
 
@@ -245,10 +201,10 @@ final recentSearchesProvider =
 
 class SearchState {
   final String query;
-  final List<dynamic> songs;
-  final List<dynamic> albums;
-  final List<dynamic> artists;
-  final List<dynamic> playlists;
+  final List<SearchResult> songs;
+  final List<AlbumSearchResult> albums;
+  final List<ArtistSearchResult> artists;
+  final List<PlaylistSearchResult> playlists;
   final bool isLoading;
   final String? error;
 
@@ -283,10 +239,10 @@ class SearchState {
 
   SearchState copyWith({
     String? query,
-    List<dynamic>? songs,
-    List<dynamic>? albums,
-    List<dynamic>? artists,
-    List<dynamic>? playlists,
+    List<SearchResult>? songs,
+    List<AlbumSearchResult>? albums,
+    List<ArtistSearchResult>? artists,
+    List<PlaylistSearchResult>? playlists,
     bool? isLoading,
     String? error,
   }) {
@@ -303,10 +259,10 @@ class SearchState {
 }
 
 class _CachedSearch {
-  final List<dynamic> songs;
-  final List<dynamic> albums;
-  final List<dynamic> artists;
-  final List<dynamic> playlists;
+  final List<SearchResult> songs;
+  final List<AlbumSearchResult> albums;
+  final List<ArtistSearchResult> artists;
+  final List<PlaylistSearchResult> playlists;
 
   const _CachedSearch({
     required this.songs,
@@ -373,16 +329,16 @@ class SearchController extends Notifier<SearchState> {
       final playlistRepo = ref.read(playlistRepositoryProvider);
 
       final results = await Future.wait([
-        musicRepo.search(query).catchError((_) => []),
-        libraryRepo.searchAlbums(query).catchError((_) => []),
-        libraryRepo.searchArtists(query).catchError((_) => []),
-        playlistRepo.searchPlaylists(query).catchError((_) => []),
+        musicRepo.search(query).catchError((_) => <SearchResult>[]),
+        libraryRepo.searchAlbums(query).catchError((_) => <AlbumSearchResult>[]),
+        libraryRepo.searchArtists(query).catchError((_) => <ArtistSearchResult>[]),
+        playlistRepo.searchPlaylists(query).catchError((_) => <PlaylistSearchResult>[]),
       ]);
 
-      final songs = results[0] as List<dynamic>;
-      final albums = results[1] as List<dynamic>;
-      final artists = results[2] as List<dynamic>;
-      final playlists = results[3] as List<dynamic>;
+      final songs = results[0] as List<SearchResult>;
+      final albums = results[1] as List<AlbumSearchResult>;
+      final artists = results[2] as List<ArtistSearchResult>;
+      final playlists = results[3] as List<PlaylistSearchResult>;
 
       _cache[query] = _CachedSearch(
         songs: songs,
@@ -408,9 +364,7 @@ class SearchController extends Notifier<SearchState> {
     }
   }
 
-  // ── NEW: Preview search (from your modified version) ──
   /// Live preview for mobile overlay — 3-4 items per category.
-  /// Uses SearchOrchestrator for lightweight preview results.
   Future<SearchPreview> searchPreview(String query) async {
     if (query.trim().isEmpty) {
       return const SearchPreview();
@@ -420,7 +374,6 @@ class SearchController extends Notifier<SearchState> {
     return await orchestrator.searchPreview(query);
   }
 
-  // ── NEW: Paginated category search (from your modified version) ──
   /// Paginated category search for dedicated screens.
   Future<List<EnrichedSearchResult>> searchCategory(
     String query,
@@ -448,8 +401,8 @@ final searchControllerProvider =
 
 class SuggestionState {
   final String query;
-  final List<dynamic> suggestions;
-  final List<dynamic> songPreviews;
+  final List<String> suggestions;
+  final List<SearchResult> songPreviews;
   final bool isLoading;
 
   const SuggestionState({
@@ -461,8 +414,8 @@ class SuggestionState {
 
   SuggestionState copyWith({
     String? query,
-    List<dynamic>? suggestions,
-    List<dynamic>? songPreviews,
+    List<String>? suggestions,
+    List<SearchResult>? songPreviews,
     bool? isLoading,
   }) {
     return SuggestionState(
@@ -475,8 +428,8 @@ class SuggestionState {
 }
 
 class _CachedSuggestions {
-  final List<dynamic> suggestions;
-  final List<dynamic> songPreviews;
+  final List<String> suggestions;
+  final List<SearchResult> songPreviews;
 
   const _CachedSuggestions({
     required this.suggestions,
@@ -526,12 +479,12 @@ class SuggestionController extends Notifier<SuggestionState> {
 
     try {
       final Future<List<String>> suggestionsFuture =
-          repo.searchSuggestions(query).catchError((_) => []);
-      final Future<List<dynamic>> songPreviewsFuture = repo
+          repo.searchSuggestions(query).catchError((_) => <String>[]);
+      final Future<List<SearchResult>> songPreviewsFuture = repo
           .search(query, limit: _songPreviewLimit)
           .catchError((e, st) {
         AppLogger.error('[suggestion] songPreview search FAILED', e, st);
-        return [];
+        return <SearchResult>[];
       });
 
       final suggestions = await suggestionsFuture;

@@ -2,25 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/playback/playback_engine.dart';
+import '../../core/theme/app_theme_extension.dart';
 import '../../providers/library_provider.dart';
 import '../../providers/music_player_provider.dart';
 import '../../widgets/cached_artwork.dart';
 
-/// সব favorite গান — reactive, heart button টগল হলে সাথে সাথে
-/// আপডেট হয় (favoritesProvider Stream-based বলে manual refresh লাগে না)।
+/// All favorite songs — reactive, heart button toggles instantly
+/// (favoritesProvider is Stream-based so no manual refresh needed).
 class FavoritesScreen extends ConsumerWidget {
   const FavoritesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final aurora = context.aurora;
     final favoritesAsync = ref.watch(favoritesProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: aurora.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
-        title: const Text('Favorites', style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: aurora.background,
+        elevation: 0,
+        title: Text('Favorites', style: TextStyle(color: aurora.textPrimary)),
+        iconTheme: IconThemeData(color: aurora.textPrimary),
       ),
       body: favoritesAsync.when(
         data: (favorites) {
@@ -28,7 +31,7 @@ class FavoritesScreen extends ConsumerWidget {
             return Center(
               child: Text(
                 'No Favorites yet',
-                style: TextStyle(color: Colors.grey[600]),
+                style: TextStyle(color: aurora.textSecondary),
               ),
             );
           }
@@ -49,13 +52,13 @@ class FavoritesScreen extends ConsumerWidget {
                 ),
                 title: Text(
                   fav.title,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: TextStyle(color: aurora.textPrimary, fontSize: 14),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 subtitle: Text(
                   fav.author,
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  style: TextStyle(color: aurora.textSecondary, fontSize: 12),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -63,8 +66,8 @@ class FavoritesScreen extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.favorite,
-                          color: Colors.redAccent, size: 20),
+                      icon: Icon(Icons.favorite,
+                          color: aurora.primary, size: 20),
                       tooltip: 'Remove from Favorites',
                       onPressed: () {
                         ref
@@ -73,12 +76,9 @@ class FavoritesScreen extends ConsumerWidget {
                       },
                     ),
                     IconButton(
-                      icon: const Icon(Icons.play_arrow,
-                          color: Colors.greenAccent, size: 20),
+                      icon: Icon(Icons.play_arrow,
+                          color: aurora.primary, size: 20),
                       onPressed: () {
-                        // ⚠️ Context-based Queue (Phase 1 fix) — পুরো
-                        // favorites list-ই queue হিসেবে সেট হচ্ছে, tap
-                        // করা track থেকে শুরু করে।
                         final tracks = favorites
                             .map((f) => SearchResult(
                                   videoId: f.songId,
@@ -101,13 +101,13 @@ class FavoritesScreen extends ConsumerWidget {
             },
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: Colors.greenAccent),
+        loading: () => Center(
+          child: CircularProgressIndicator(color: aurora.primary),
         ),
         error: (e, _) => Center(
           child: Text(
             'Failed to load Favorites',
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: aurora.textSecondary),
           ),
         ),
       ),

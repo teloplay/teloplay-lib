@@ -9,20 +9,18 @@ import '../../providers/music_player_provider.dart';
 import '../../providers/search_provider.dart';
 import '../../widgets/cached_artwork.dart';
 
-/// Phase 6.5B — Global Search Architecture। SearchController-এর
-/// multi-entity state (songs/albums/artists/playlists) consume করে,
-/// section-wise render করে — কোনো category খালি হলে সেই section
-/// সম্পূর্ণ hidden থাকে (locked UI rule, দেখো search_provider.dart-এর
-/// SearchState doc-comment)।
+/// Phase 6.5B — Global Search Architecture. SearchController's
+/// multi-entity state (songs/albums/artists/playlists) consumed,
+/// section-wise rendered — empty categories are fully hidden (locked UI
+/// rule, see search_provider.dart SearchState doc-comment).
 ///
-/// Phase 6.5 Batch 3-এর আগের songs-only ভার্সনের উপর ভিত্তি করে — recent
-/// searches/suggestion dropdown আচরণ অপরিবর্তিত রাখা হয়েছে, শুধু
-/// "showing results" অংশ multi-section-এ upgrade হয়েছে।
+/// Phase 6.5 Batch 3: recent searches/suggestion dropdown behavior
+/// unchanged, only the "showing results" part upgraded to multi-section.
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
   @override
-  ConsumerState<SearchScreen> createState() => _SearchScreenState();
+  ConsumerState createState() => _SearchScreenState();
 }
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
@@ -70,6 +68,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _openPlaylist(PlaylistSearchResult playlist) {
     context.push('/library/playlists/${playlist.playlistId}');
+  }
+
+  void _seeAll(SearchCategory category) {
+    context.push(
+      '/search/category',
+      extra: {
+        'query': _searchController.text.trim(),
+        'category': category.name,
+      },
+    );
   }
 
   @override
@@ -166,9 +174,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         if (recent.isEmpty) {
                           return Center(
                             child: Text(
-                                'Search for songs, artists, albums, or playlists',
-                                style:
-                                    TextStyle(color: aurora.textSecondary)),
+                              'Search for songs, artists, albums, or playlists',
+                              style: TextStyle(color: aurora.textSecondary),
+                            ),
                           );
                         }
                         return ListView(
@@ -184,15 +192,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               spacing: 8,
                               runSpacing: 8,
                               children: recent.map((queryString) {
-  return _RecentChip(
-    query: queryString,        // ✅ Direct String use
-    onTap: () => _selectQuery(queryString),
-    onDelete: () async {
-      await ref.read(searchHistoryRepositoryProvider).removeSearch(queryString);
-      ref.invalidate(recentSearchesProvider);
-    },
-  );
-}).toList(),
+                                return _RecentChip(
+                                  query: queryString,
+                                  onTap: () => _selectQuery(queryString),
+                                  onDelete: () async {
+                                    await ref
+                                        .read(searchHistoryRepositoryProvider)
+                                        .removeSearch(queryString);
+                                    ref.invalidate(recentSearchesProvider);
+                                  },
+                                );
+                              }).toList(),
                             ),
                           ],
                         );
@@ -293,6 +303,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             onOpenAlbum: _openAlbum,
                             onOpenArtist: _openArtist,
                             onOpenPlaylist: _openPlaylist,
+                            onSeeAll: _seeAll,
                           ),
               ),
           ],
@@ -303,18 +314,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 }
 
 /// Top Result → Songs → Albums → Artists → Playlists, section-wise —
-/// প্রতিটা section শুধু তখনই দেখানো হয় যখন সেই category-তে অন্তত ১টা
-/// ফলাফল আছে (locked rule, দেখো SearchState doc-comment)।
+/// each section only shown when that category has at least 1 result
+/// (locked rule, see SearchState doc-comment).
 class _MultiCategoryResults extends StatelessWidget {
   final SearchState state;
-  final dynamic repo; // MusicPlayerRepository — playback_engine.dart-এর
-      // SearchResult টাইপ দিয়েই কাজ করে, এখানে টাইপ সরাসরি ইম্পোর্ট
-      // এড়াতে dynamic রাখা হয়েছে (music_player_provider.dart-এই
-      // musicPlayerRepositoryProvider-এর টাইপ resolve হয়ে যায় build()-এ)
+  final dynamic repo;
   final void Function(SearchResult) onOpenSong;
   final void Function(AlbumSearchResult) onOpenAlbum;
   final void Function(ArtistSearchResult) onOpenArtist;
   final void Function(PlaylistSearchResult) onOpenPlaylist;
+  final void Function(SearchCategory) onSeeAll;
 
   const _MultiCategoryResults({
     required this.state,
@@ -323,6 +332,7 @@ class _MultiCategoryResults extends StatelessWidget {
     required this.onOpenAlbum,
     required this.onOpenArtist,
     required this.onOpenPlaylist,
+    required this.onSeeAll,
   });
 
   @override
@@ -346,35 +356,47 @@ class _MultiCategoryResults extends StatelessWidget {
           ),
         ],
         if (state.songs.isNotEmpty) ...[
-          _SectionHeader(title: 'Songs'),
+          _SectionHeader(
+            title: 'Songs',
+            onSeeAll: () => onSeeAll(SearchCategory.songs),
+          ),
           ...state.songs.asMap().entries.map((entry) {
-  final index = entry.key;
-  final song = entry.value as SearchResult;  // ✅ Cast
-  return _SongTile(
-    song: song,
-    repo: repo,
-    allSongs: state.songs.cast<SearchResult>(),  // ✅ Cast
-    index: index,
-    onTap: () => onOpenSong(song),
-  );
-}),
+            final index = entry.key;
+            final song = entry.value as SearchResult;
+            return _SongTile(
+              song: song,
+              repo: repo,
+              allSongs: state.songs.cast<SearchResult>(),
+              index: index,
+              onTap: () => onOpenSong(song),
+            );
+          }),
         ],
         if (state.albums.isNotEmpty) ...[
-          _SectionHeader(title: 'Albums'),
+          _SectionHeader(
+            title: 'Albums',
+            onSeeAll: () => onSeeAll(SearchCategory.albums),
+          ),
           ...state.albums.map((album) => _AlbumTile(
                 album: album,
                 onTap: () => onOpenAlbum(album),
               )),
         ],
         if (state.artists.isNotEmpty) ...[
-          _SectionHeader(title: 'Artists'),
+          _SectionHeader(
+            title: 'Artists',
+            onSeeAll: () => onSeeAll(SearchCategory.artists),
+          ),
           ...state.artists.map((artist) => _ArtistTile(
                 artist: artist,
                 onTap: () => onOpenArtist(artist),
               )),
         ],
         if (state.playlists.isNotEmpty) ...[
-          _SectionHeader(title: 'Playlists'),
+          _SectionHeader(
+            title: 'Playlists',
+            onSeeAll: () => onSeeAll(SearchCategory.playlists),
+          ),
           ...state.playlists.map((playlist) => _PlaylistTile(
                 playlist: playlist,
                 onTap: () => onOpenPlaylist(playlist),
@@ -387,21 +409,35 @@ class _MultiCategoryResults extends StatelessWidget {
 
 class _SectionHeader extends StatelessWidget {
   final String title;
+  final VoidCallback? onSeeAll;
 
-  const _SectionHeader({required this.title});
+  const _SectionHeader({required this.title, this.onSeeAll});
 
   @override
   Widget build(BuildContext context) {
     final aurora = context.aurora;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: aurora.textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: aurora.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (onSeeAll != null)
+            TextButton(
+              onPressed: onSeeAll,
+              child: Text(
+                'See all',
+                style: TextStyle(color: aurora.primary, fontSize: 12),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -597,8 +633,8 @@ class _ArtistTile extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(color: aurora.textPrimary, fontSize: 14)),
-      subtitle:
-          Text('Artist', style: TextStyle(color: aurora.textSecondary, fontSize: 12)),
+      subtitle: Text('Artist',
+          style: TextStyle(color: aurora.textSecondary, fontSize: 12)),
     );
   }
 }

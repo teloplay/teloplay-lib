@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/playback/playback_engine.dart';
-import '../../models/history_entry_model.dart'; // CachedSongEntry
+import '../../core/theme/app_theme_extension.dart';
+import '../../models/history_entry_model.dart';
 import '../../models/playlist_model.dart';
-import '../../providers/library_provider.dart'; // cachedSongsProvider এখানেই
+import '../../providers/library_provider.dart';
 import '../../providers/music_player_provider.dart';
 import '../../providers/playlist_provider.dart';
 import '../../widgets/cached_artwork.dart';
@@ -14,41 +15,21 @@ import 'history_screen.dart';
 import 'playlist_detail_screen.dart';
 import 'playlists_screen.dart';
 
-/// Library-এর central hub — Recently Played, Favorites, Most Played,
-/// Playlists সব একসাথে ছোট preview আকারে, প্রতিটার "সব দেখুন" নিজ নিজ
-/// full screen-এ নিয়ে যায়।
+/// Library central hub — Recently Played, Favorites, Most Played,
+/// Playlists all together in small preview form, each "See all" goes
+/// to its own full screen.
 ///
-/// ⚠️ Design নীতি (roadmap Phase 2 লক্ষ্য অনুযায়ী): এই screen ইচ্ছাকৃতভাবে
-/// lightweight রাখা হয়েছে — প্রতিটা section একটা independent
-/// `_buildXSection()` method, নিজের data/loading/error নিজে handle করে।
-/// ভবিষ্যতে নতুন section (যেমন Phase 7+ Smart Queue/Continue Listening/
-/// Daily Mix) যোগ করতে শুধু একটা নতুন builder method লিখে নিচের
-/// `Column`-এ একটা entry বসালেই হবে — বাকি section-গুলোর কোনো redesign
-/// লাগবে না, প্রতিটা section সম্পূর্ণ স্বনির্ভর।
-///
-/// ⚠️ Playlists section (এই ব্যাচ): আগে placeholder ছিল (disabled
-/// button, "No Playlists yet" hardcoded), এখন playlistsProvider দিয়ে
-/// আসল data দেখায় — খালি থাকলে placeholder + কাজ-করা "New Playlist"
-/// button, গান থাকলে horizontal preview row (Recently Played/
-/// Favorites-এর একই _HorizontalPlaylistRow প্যাটার্নে)।
-///
-/// ⚠️ Downloaded section (Phase 3 — Smart Cache, এই ব্যাচ): cachedSongsProvider
-/// দিয়ে Library-তে locally cached গানগুলো preview row হিসেবে দেখানো হয়,
-/// Recently Played/Favorites-এর একই _HorizontalTrackRow প্যাটার্নে —
-/// "See all" DownloadedSongsScreen-এ নিয়ে যায়।
-///
-/// [section] — one of: null (hub), 'favorites', 'playlists', 'offline',
-/// 'offline/downloaded', 'offline/cached', 'recent', 'most-played'.
-/// Set by the /library/:section nested route (app_router.dart, UI-Batch 2).
-/// When non-null, immediately pushes the matching existing full screen
-/// on top (so PremiumSidebar's deep-links reuse existing screens instead
-/// of duplicating their UI here).
+/// Design principle (roadmap Phase 2 target): this screen is intentionally
+/// lightweight — each section is an independent `_buildXSection()` method,
+/// handles its own data/loading/error. Future sections (Phase 7+ Smart
+/// Queue/Continue Listening/Daily Mix) only need a new builder method
+/// added to the Column below — no redesign of existing sections needed.
 class LibraryScreen extends ConsumerStatefulWidget {
   final String? section;
   const LibraryScreen({super.key, this.section});
 
   @override
-  ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
+  ConsumerState createState() => _LibraryScreenState();
 }
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
@@ -87,9 +68,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         _openHistory(context);
         break;
       case 'most-played':
-        // ⚠️ No dedicated Most Played screen exists yet (Phase 7+
-        // per roadmap) — stays on the hub for now, hub already shows
-        // the "Coming soon" Most Played section.
         break;
     }
   }
@@ -128,31 +106,31 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   Future<void> _createPlaylist(BuildContext context, WidgetRef ref) async {
     final controller = TextEditingController();
+    final aurora = Theme.of(context).extension<AuroraColors>() ?? AuroraColors.dark;
 
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('New Playlist', style: TextStyle(color: Colors.white)),
+        backgroundColor: aurora.surfaceElevated,
+        title: Text('New Playlist', style: TextStyle(color: aurora.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: TextStyle(color: aurora.textPrimary),
+          decoration: InputDecoration(
             hintText: 'Playlist name',
-            hintStyle: TextStyle(color: Colors.grey),
+            hintStyle: TextStyle(color: aurora.textSecondary),
           ),
           onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancel', style: TextStyle(color: aurora.textSecondary)),
           ),
           TextButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Create', style: TextStyle(color: Colors.greenAccent)),
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: Text('Create', style: TextStyle(color: aurora.primary)),
           ),
         ],
       ),
@@ -174,6 +152,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     required String title,
     VoidCallback? onSeeAll,
   }) {
+    final aurora = context.aurora;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
       child: Row(
@@ -181,8 +160,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: aurora.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -190,19 +169,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           if (onSeeAll != null)
             TextButton(
               onPressed: onSeeAll,
-              child: const Text(
+              child: Text(
                 'See all',
-                style: TextStyle(color: Colors.greenAccent, fontSize: 12),
+                style: TextStyle(color: aurora.primary, fontSize: 12),
               ),
             ),
         ],
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  // Recently Played section
-  // ═══════════════════════════════════════════════════════════════
 
   Widget _buildRecentlyPlayedSection(BuildContext context, WidgetRef ref) {
     final recentAsync = ref.watch(recentlyPlayedProvider);
@@ -219,29 +194,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               onSeeAll: () => _openHistory(context),
             ),
             _HorizontalTrackRow(
-  items: entries
-      .map((e) => _TrackCardData(
-            songId: e.songId,
-            title: e.title,
-            author: e.author,
-            thumbnail: e.thumbnail,
-          ))
-      .toList(),
-  source: QueueSource.unknown,   // ← এই লাইনটা যোগ করো
-),
+              items: entries
+                  .map((e) => _TrackCardData(
+                        songId: e.songId,
+                        title: e.title,
+                        author: e.author,
+                        thumbnail: e.thumbnail,
+                      ))
+                  .toList(),
+              source: QueueSource.unknown,
+            ),
           ],
         );
       },
       loading: () => const _SectionLoading(),
-      // Non-critical section — ব্যর্থ হলে চুপচাপ hide, পুরো Library
-      // screen ভাঙা উচিত না।
       error: (_, __) => const SizedBox.shrink(),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  // Favorites section
-  // ═══════════════════════════════════════════════════════════════
 
   Widget _buildFavoritesSection(BuildContext context, WidgetRef ref) {
     final favoritesAsync = ref.watch(favoritesProvider);
@@ -258,16 +227,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               onSeeAll: () => _openFavorites(context),
             ),
             _HorizontalTrackRow(
-  items: favorites
-      .map((f) => _TrackCardData(
-            songId: f.songId,
-            title: f.title,
-            author: f.author,
-            thumbnail: f.thumbnail,
-          ))
-      .toList(),
-  source: QueueSource.favorites,   // ← এই লাইনটা যোগ করো
-),
+              items: favorites
+                  .map((f) => _TrackCardData(
+                        songId: f.songId,
+                        title: f.title,
+                        author: f.author,
+                        thumbnail: f.thumbnail,
+                      ))
+                  .toList(),
+              source: QueueSource.favorites,
+            ),
           ],
         );
       },
@@ -275,10 +244,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       error: (_, __) => const SizedBox.shrink(),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  // Downloaded Songs section (Phase 3 — Smart Cache)
-  // ═══════════════════════════════════════════════════════════════
 
   Widget _buildDownloadedSection(BuildContext context, WidgetRef ref) {
     final cachedAsync = ref.watch(cachedSongsProvider);
@@ -295,16 +260,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               onSeeAll: () => _openDownloadedSongs(context),
             ),
             _HorizontalTrackRow(
-  items: entries
-      .map((e) => _TrackCardData(
-            songId: e.songId,
-            title: e.title,
-            author: e.author,
-            thumbnail: e.thumbnail,
-          ))
-      .toList(),
-  source: QueueSource.downloaded,   // ← এই লাইনটা যোগ করো
-),
+              items: entries
+                  .map((e) => _TrackCardData(
+                        songId: e.songId,
+                        title: e.title,
+                        author: e.author,
+                        thumbnail: e.thumbnail,
+                      ))
+                  .toList(),
+              source: QueueSource.downloaded,
+            ),
           ],
         );
       },
@@ -313,17 +278,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // Most Played section — placeholder (অপরিবর্তিত, Phase 7+)
-  // ═══════════════════════════════════════════════════════════════
-  //
-  // ⚠️ LibraryRepository.getMostPlayed() এখনো Phase 7+ এর TODO
-  // (roadmap-এ স্পষ্টভাবে Advanced/Future-এ রাখা হয়েছে, Behaviour
-  // Tracking data-নির্ভর aggregation)। এখন শুধু slot রাখা হচ্ছে যাতে
-  // ভবিষ্যতে যোগ করার সময় এই screen-এর layout না বদলাতে হয় — শুধু
-  // এই method-এর ভেতরটা বদলে আসল data বসিয়ে দিলেই চলবে।
-
   Widget _buildMostPlayedSection(BuildContext context, WidgetRef ref) {
+    final aurora = context.aurora;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -332,19 +288,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'Coming soon',
-            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            style: TextStyle(color: aurora.textSecondary, fontSize: 12),
           ),
         ),
       ],
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // Playlists section — এই ব্যাচে আসল data দিয়ে wire করা হলো
-  // ═══════════════════════════════════════════════════════════════
-
   Widget _buildPlaylistsSection(BuildContext context, WidgetRef ref) {
     final playlistsAsync = ref.watch(playlistsProvider);
+    final aurora = context.aurora;
 
     return playlistsAsync.when(
       data: (playlists) {
@@ -359,26 +312,32 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   padding: const EdgeInsets.all(20),
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
+                    color: aurora.surfaceRaised,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.05),
+                    ),
                   ),
                   child: Column(
                     children: [
-                      Icon(Icons.playlist_play, color: Colors.grey[600], size: 32),
+                      Icon(Icons.playlist_play,
+                          color: aurora.textSecondary, size: 32),
                       const SizedBox(height: 8),
                       Text(
                         'No Playlists yet',
-                        style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                        style: TextStyle(
+                            color: aurora.textSecondary, fontSize: 13),
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton(
                         onPressed: () => _createPlaylist(context, ref),
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey[700]!),
+                          side: BorderSide(
+                              color: aurora.textSecondary.withOpacity(0.3)),
                         ),
-                        child: const Text(
+                        child: Text(
                           'New Playlist',
-                          style: TextStyle(color: Colors.white),
+                          style: TextStyle(color: aurora.textPrimary),
                         ),
                       ),
                     ],
@@ -411,12 +370,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final aurora = context.aurora;
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: aurora.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
-        title: const Text('Library', style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: aurora.background,
+        elevation: 0,
+        title: Text('Library', style: TextStyle(color: aurora.textPrimary)),
+        iconTheme: IconThemeData(color: aurora.textPrimary),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -434,11 +395,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// Shared small widgets — Recently Played ও Favorites দুটো section-ই একই
-// horizontal-card layout ব্যবহার করে, তাই একবার লিখে reuse করা হচ্ছে।
-// ─────────────────────────────────────────────────────────────────────────
 
 class _TrackCardData {
   final String songId;
@@ -462,8 +418,9 @@ class _HorizontalTrackRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final aurora = context.aurora;
     return SizedBox(
-      height: 156,  // was 150 — fixes 2px text-overflow (title + author line-height)
+      height: 156,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -492,7 +449,7 @@ class _HorizontalTrackRow extends ConsumerWidget {
               child: SizedBox(
                 width: 110,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,  // ADD: don't force extra height
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     CachedArtwork(
@@ -507,13 +464,15 @@ class _HorizontalTrackRow extends ConsumerWidget {
                     const SizedBox(height: 6),
                     Text(
                       item.title,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      style: TextStyle(
+                          color: aurora.textPrimary, fontSize: 12),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       item.author,
-                      style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                      style: TextStyle(
+                          color: aurora.textSecondary, fontSize: 11),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -528,21 +487,20 @@ class _HorizontalTrackRow extends ConsumerWidget {
   }
 }
 
-/// Playlists section-এর horizontal preview row — _HorizontalTrackRow
-/// থেকে আলাদা কারণ playlist card-এ author-এর জায়গায় item count দেখায়,
-/// এবং cover thumbnail null হতে পারে (খালি playlist এই list-এ আসবে না
-/// যেহেতু empty-state আলাদাভাবে handle হয়, কিন্তু defensive fallback
-/// রাখা হলো)।
 class _HorizontalPlaylistRow extends StatelessWidget {
-  final List<PlaylistSummary> playlists;
+  final List<PlaylistModel> playlists;
   final void Function(String playlistId) onTap;
 
-  const _HorizontalPlaylistRow({required this.playlists, required this.onTap});
+  const _HorizontalPlaylistRow({
+    required this.playlists,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final aurora = context.aurora;
     return SizedBox(
-      height: 156,  // was 150
+      height: 156,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -556,7 +514,7 @@ class _HorizontalPlaylistRow extends StatelessWidget {
               child: SizedBox(
                 width: 110,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,  // ADD
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     playlist.coverThumbnail != null
@@ -573,25 +531,27 @@ class _HorizontalPlaylistRow extends StatelessWidget {
                             width: 110,
                             height: 110,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF2A2A2A),
+                              color: aurora.surface,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
                               Icons.playlist_play,
-                              color: Colors.grey[600],
+                              color: aurora.textSecondary,
                               size: 32,
                             ),
                           ),
                     const SizedBox(height: 6),
                     Text(
                       playlist.name,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      style: TextStyle(
+                          color: aurora.textPrimary, fontSize: 12),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       '${playlist.itemCount} songs',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                      style: TextStyle(
+                          color: aurora.textSecondary, fontSize: 11),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -611,14 +571,15 @@ class _SectionLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    final aurora = context.aurora;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: SizedBox(
         height: 20,
         width: 20,
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          color: Colors.greenAccent,
+          color: aurora.primary,
         ),
       ),
     );
