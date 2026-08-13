@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme_extension.dart';
+import '../../../widgets/onboarding/checklist_badge.dart';
 
 /// Phase 6.5 UI-Batch 4 — Mobile-only expanded welcome header।
 /// Desktop-এর SmartWelcomeHeader (compact single-row) থেকে ইচ্ছাকৃতভাবে
@@ -55,6 +56,10 @@ class SmartWelcomeHeaderMobile extends StatelessWidget {
               ],
             ),
           ),
+          // ⚠️ v11 Onboarding (roadmap Section 13) — renders nothing
+          // once dismissed or all 5 items complete.
+          const ChecklistBadge(),
+          const SizedBox(width: 8),
           _BellButton(onTap: onBellTap),
         ],
       ),

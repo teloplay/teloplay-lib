@@ -1,10 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/library_repository.dart';
+import '../../models/continue_session.dart';
 import '../../models/history_entry_model.dart';
 import '../../models/favorite_model.dart';
 import '../../providers/database_provider.dart';
-import '../../providers/music_player_provider.dart' show queueRepositoryProvider;
+import '../../providers/music_player_provider.dart'
+    show
+        queueRepositoryProvider,
+        musicPlayerRepositoryProvider,
+        settingsRepositoryProvider;
+import '../../services/session/continue_session_manager.dart';
 
 /// Phase 6.5 Batch 2 — Home-এর জন্য প্রয়োজনীয় read-only aggregations।
 /// কোনো নতুন write/mutation নেই এই ফাইলে — সব existing repository থেকে
@@ -61,8 +67,39 @@ final topFavoriteForHomeProvider =
   return repo.watchFavorites().map((list) => list.isEmpty ? null : list.first);
 });
 
-/// Continue Listening — সর্বশেষ saved playback position + সেই track-এর
-/// metadata।
+// ═══════════════════════════════════════════════════════════════
+// ⚠️ v11 Continue Session (Section H) — multi-song resume.
+//
+// Fix (Phase 0 v11 stabilization): this REPLACES the old single-song
+// ContinueListeningInfo/continueListeningProvider pair (roadmap Section H:
+// "existing roadmap-এ যেখানেই Resume Playback Position ছিল, সেটাকে এই
+// upgraded model দিয়ে replace/extend করতে হবে"). The old provider read
+// queueRepo.getCurrentPlaybackPosition() + a raw Songs-table lookup for
+// just the current track; ContinueSessionManager reads the SAME
+// QueueRepository state but returns the full queue + index + a
+// user-facing sourceRail label, matching the "Tum Hi Ho + 4 more songs ·
+// From: Daily Mix" card the roadmap specifies. No parallel/duplicate
+// system — same QueueRepository backing store as before.
+// ═══════════════════════════════════════════════════════════════
+
+final continueSessionManagerProvider = Provider<ContinueSessionManager>((ref) {
+  return ContinueSessionManager(
+    queueRepository: ref.watch(queueRepositoryProvider),
+    settings: ref.watch(settingsRepositoryProvider),
+  );
+});
+
+final continueSessionProvider =
+    FutureProvider.autoDispose<ContinueSession?>((ref) async {
+  final manager = ref.watch(continueSessionManagerProvider);
+  return manager.checkForResume();
+});
+
+/// Single-song projection of [continueSessionProvider], for widgets that
+/// predate the multi-song Continue Session model and only need the
+/// current track (desktop [FeaturedHeroCard], mobile hero carousel).
+/// Kept so those widgets don't need to change — same underlying
+/// QueueRepository-backed data, just narrowed to one track's fields.
 class ContinueListeningInfo {
   final String songId;
   final String title;
@@ -77,27 +114,19 @@ class ContinueListeningInfo {
     required this.thumbnail,
     required this.positionMs,
   });
+
+  factory ContinueListeningInfo.fromSession(ContinueSession session) =>
+      ContinueListeningInfo(
+        songId: session.currentSong.videoId,
+        title: session.currentSong.title,
+        author: session.currentSong.author,
+        thumbnail: session.currentSong.thumbnail,
+        positionMs: session.currentPosition.inMilliseconds,
+      );
 }
 
 final continueListeningProvider =
     FutureProvider.autoDispose<ContinueListeningInfo?>((ref) async {
-  final queueRepo = ref.watch(queueRepositoryProvider);
-  final saved = await queueRepo.getCurrentPlaybackPosition();
-  if (saved == null || saved.positionMs <= 0) return null;
-
-  // ⚠️ Fix: আগে recentlyPlayed (limit 12) list-এর ভেতর songId খুঁজে
-  // match করা হতো — history অনেক বেশি হলে সেই গান list-এর বাইরে পড়ে
-  // যেত, Hero silently null থাকত। এখন সরাসরি Songs টেবিল থেকে metadata
-  // টানা হচ্ছে, recentlyPlayed-এর উপর কোনো নির্ভরতা নেই।
-  final db = ref.watch(appDatabaseProvider);
-  final song = await (db.select(db.songs)..where((t) => t.id.equals(saved.songId))).getSingleOrNull();
-  if (song == null) return null;
-
-  return ContinueListeningInfo(
-    songId: song.id,
-    title: song.title,
-    author: song.author,
-    thumbnail: song.thumbnail,
-    positionMs: saved.positionMs,
-  );
+  final session = await ref.watch(continueSessionProvider.future);
+  return session == null ? null : ContinueListeningInfo.fromSession(session);
 });

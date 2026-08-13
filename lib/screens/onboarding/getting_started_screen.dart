@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme_extension.dart';
-import '../../data/repositories/settings_repository.dart';
+import '../../providers/onboarding_provider.dart';
 
 /// Onboarding checklist screen — shown on first app open.
+///
+/// ⚠️ Fix (Phase 0 v11 stabilization):
+/// - Wrong theme import (real path is `app_theme_extension.dart`).
+/// - `onboardingCompletionProvider` was referenced but never defined —
+///   now in `providers/onboarding_provider.dart`.
+/// - `settingsRepository.setBool(...)` doesn't exist (String-only API) —
+///   dismissal now goes through [OnboardingTracker.dismiss].
+/// - `context.push(...)` used without importing go_router.
+/// - Malformed string escape (`'You\\'re all set!'`) that would have
+///   rendered a literal backslash.
 class GettingStartedScreen extends ConsumerStatefulWidget {
   const GettingStartedScreen({super.key});
 
@@ -13,9 +24,9 @@ class GettingStartedScreen extends ConsumerStatefulWidget {
 }
 
 class _GettingStartedScreenState extends ConsumerState<GettingStartedScreen> {
-  final List<OnboardingItem> _items = [
+  static final List<OnboardingItem> _items = [
     OnboardingItem(
-      id: 'play_first_song',
+      id: OnboardingKeys.playFirstSong,
       icon: Icons.play_circle_outline,
       title: 'Start playing',
       description: 'Search and play your first song',
@@ -23,7 +34,7 @@ class _GettingStartedScreenState extends ConsumerState<GettingStartedScreen> {
       actionRoute: '/search',
     ),
     OnboardingItem(
-      id: 'try_mini_player',
+      id: OnboardingKeys.tryMiniPlayer,
       icon: Icons.picture_in_picture_alt_outlined,
       title: 'Try the Mini Player',
       description: 'Tap the mini player to expand it',
@@ -31,7 +42,7 @@ class _GettingStartedScreenState extends ConsumerState<GettingStartedScreen> {
       actionRoute: null,
     ),
     OnboardingItem(
-      id: 'explore_library',
+      id: OnboardingKeys.exploreLibrary,
       icon: Icons.library_music_outlined,
       title: 'Explore your Library',
       description: 'Visit your Library to see your collections',
@@ -39,7 +50,7 @@ class _GettingStartedScreenState extends ConsumerState<GettingStartedScreen> {
       actionRoute: '/library',
     ),
     OnboardingItem(
-      id: 'build_queue',
+      id: OnboardingKeys.buildQueue,
       icon: Icons.queue_music_outlined,
       title: 'Build your Queue',
       description: 'Add a song to your playback queue',
@@ -47,7 +58,7 @@ class _GettingStartedScreenState extends ConsumerState<GettingStartedScreen> {
       actionRoute: null,
     ),
     OnboardingItem(
-      id: 'customize_experience',
+      id: OnboardingKeys.customizeExperience,
       icon: Icons.palette_outlined,
       title: 'Customize your experience',
       description: 'Visit Settings to personalize your app',
@@ -82,8 +93,11 @@ class _GettingStartedScreenState extends ConsumerState<GettingStartedScreen> {
             borderRadius: BorderRadius.circular(20),
             child: completionAsync.when(
               data: (completed) => _buildContent(context, completed),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => _buildContent(context, {}),
+              loading: () => const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (_, __) => _buildContent(context, const {}),
             ),
           ),
         ),
@@ -99,7 +113,6 @@ class _GettingStartedScreenState extends ConsumerState<GettingStartedScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Header
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
           child: Row(
@@ -128,7 +141,6 @@ class _GettingStartedScreenState extends ConsumerState<GettingStartedScreen> {
             ),
           ),
         ),
-        // Checklist
         Flexible(
           child: ListView.builder(
             shrinkWrap: true,
@@ -146,11 +158,11 @@ class _GettingStartedScreenState extends ConsumerState<GettingStartedScreen> {
             },
           ),
         ),
-        if (allComplete) ...[
+        if (allComplete)
           Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'You\\'re all set! 🎉',
+              "You're all set! \u{1F389}",
               style: TextStyle(
                 color: theme.success,
                 fontSize: 16,
@@ -158,14 +170,13 @@ class _GettingStartedScreenState extends ConsumerState<GettingStartedScreen> {
               ),
             ),
           ),
-        ],
         const SizedBox(height: 16),
       ],
     );
   }
 
-  void _dismiss(BuildContext context) async {
-    await ref.read(settingsRepositoryProvider).setBool('onboarding_dismissed', true);
+  Future<void> _dismiss(BuildContext context) async {
+    await ref.read(onboardingTrackerProvider).dismiss();
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -198,7 +209,7 @@ class OnboardingItem {
 class _ProgressRing extends StatelessWidget {
   final int completed;
   final int total;
-  final dynamic theme;
+  final AuroraColors theme;
 
   const _ProgressRing({
     required this.completed,
@@ -208,7 +219,7 @@ class _ProgressRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = completed / total;
+    final progress = total == 0 ? 0.0 : completed / total;
     return SizedBox(
       width: 40,
       height: 40,
@@ -246,7 +257,7 @@ class _ProgressRing extends StatelessWidget {
 class _ChecklistItem extends StatelessWidget {
   final OnboardingItem item;
   final bool isDone;
-  final dynamic theme;
+  final AuroraColors theme;
   final VoidCallback onAction;
 
   const _ChecklistItem({
@@ -314,8 +325,7 @@ class _ChecklistItem extends StatelessWidget {
               ],
             ),
           ),
-          if (isDone)
-            Icon(Icons.check_circle, color: theme.success, size: 20),
+          if (isDone) Icon(Icons.check_circle, color: theme.success, size: 20),
         ],
       ),
     );

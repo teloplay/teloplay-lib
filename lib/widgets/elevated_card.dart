@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../core/theme/theme_extensions.dart';
+import '../core/theme/app_theme_extension.dart';
 
 /// Elevation levels for the TeloPlay design system.
 enum ElevationLevel {

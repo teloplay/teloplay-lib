@@ -13,7 +13,6 @@ import 'tables/favorites_table.dart';
 import 'tables/settings_table.dart';
 import 'tables/sync_queue_table.dart';
 import 'tables/metadata_cache_table.dart';
-import 'tables/continue_sessions_table.dart';
 part 'database.g.dart';
 
 @DriftDatabase(
@@ -28,7 +27,6 @@ part 'database.g.dart';
     SettingsEntries,
     SyncQueueItems,
     MetadataCache, // ⚠️ v11 — Metadata/Discovery/Sync Architecture (L2 cache)
-    ContinueSessions, // ⚠️ v11 — Continue Session (multi-song resume)
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -76,11 +74,14 @@ class AppDatabase extends _$AppDatabase {
   // নতুন MetadataCache টেবিল (Deezer/Last.fm/MusicBrainz/YouTube L2
   // metadata cache, audio byte cache থেকে সম্পূর্ণ আলাদা)।
   //
-  // ⚠️ v11 Continue Session (Section H) — schemaVersion 7 → 8। নতুন
-  // ContinueSessions টেবিল — single-song resume থেকে multi-song
-  // session snapshot model-এ upgrade।
+  // ⚠️ v11 Continue Session (Section H) — no schema change needed.
+  // QueueRepository (queue_table.dart: userId/songId/position/isCurrent/
+  // lastPositionMs) already persists the full queue + current position —
+  // exactly what "multi-song resume" needs. A separate ContinueSessions
+  // table would have duplicated that data; ContinueSessionManager builds
+  // on QueueRepository instead (see services/session/continue_session_manager.dart).
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -136,10 +137,6 @@ class AppDatabase extends _$AppDatabase {
           if (from < 7) {
             // v11 Metadata/Discovery/Sync Architecture — L2 metadata cache.
             await _safeCreateTable(m, metadataCache);
-          }
-          if (from < 8) {
-            // v11 Continue Session (Section H) — multi-song resume.
-            await _safeCreateTable(m, continueSessions);
           }
         },
       );

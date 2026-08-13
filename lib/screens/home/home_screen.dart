@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme_extension.dart';
+import '../../providers/music_player_provider.dart' show musicPlayerRepositoryProvider;
+import '../../widgets/home/continue_section.dart';
 import 'home_providers.dart';
 import 'widgets/content_rail.dart';
 import 'widgets/featured_hero_card.dart';
@@ -17,6 +19,15 @@ import 'widgets/smart_welcome_header_mobile.dart';
 /// (expanded header + swipeable 3-card carousel)। সব rail (Recently
 /// Played/Favorites/Most Played/Offline) দুই platform-এই শেয়ার্ড —
 /// শুধু header + hero অংশ আলাদা।
+///
+/// ⚠️ v11 Fix (Continue Session, roadmap Section H): the multi-song
+/// [ContinueSection] card is inserted right after the existing hero
+/// (FeaturedHeroCard/carousel) whenever the resumable session has more
+/// than one remaining song — the single-song hero already covers
+/// "what to resume", this card adds the "+N more songs in queue / From:
+/// [rail]" detail the old hero didn't carry. When there's nothing to
+/// resume, or the session is exactly one song (nothing extra to say
+/// beyond what the hero already shows), this section renders nothing.
 bool get _isDesktop => Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
 class HomeScreen extends ConsumerWidget {
@@ -27,6 +38,7 @@ class HomeScreen extends ConsumerWidget {
     final aurora = context.aurora;
 
     final continueListening = ref.watch(continueListeningProvider);
+    final continueSession = ref.watch(continueSessionProvider);
     final recentlyPlayed = ref.watch(recentlyPlayedForHomeProvider);
     final favorites = ref.watch(favoritesForHomeProvider);
     final mostPlayed = ref.watch(mostPlayedForHomeProvider);
@@ -39,6 +51,7 @@ class HomeScreen extends ConsumerWidget {
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(continueListeningProvider);
+            ref.invalidate(continueSessionProvider);
             ref.invalidate(recentlyPlayedForHomeProvider);
             ref.invalidate(cachedSongsForHomeProvider);
           },
@@ -55,6 +68,23 @@ class HomeScreen extends ConsumerWidget {
                 const SmartWelcomeHeaderMobile(),
                 _buildMobileHeroCarousel(context, continueListening, topFavorite, mostPlayed),
               ],
+
+              // ⚠️ v11 Continue Session — only shown when there's more
+              // than one remaining song (see class doc-comment above).
+              continueSession.when(
+                data: (session) {
+                  if (session == null || session.remainingSongs <= 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return ContinueSection(
+                    session: session,
+                    onResume: () => _resumeSession(context, ref),
+                    onDismiss: () => _dismissSession(ref, session.currentSong.videoId),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
 
               recentlyPlayed.when(
                 data: (list) => ContentRail(
@@ -126,6 +156,23 @@ class HomeScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _resumeSession(BuildContext context, WidgetRef ref) async {
+    final session = ref.read(continueSessionProvider).value;
+    if (session == null) return;
+
+    final manager = ref.read(continueSessionManagerProvider);
+    final musicRepo = ref.read(musicPlayerRepositoryProvider);
+    await manager.restoreSession(session, musicRepo);
+
+    if (context.mounted) context.push('/player');
+  }
+
+  Future<void> _dismissSession(WidgetRef ref, String songId) async {
+    final manager = ref.read(continueSessionManagerProvider);
+    await manager.dismiss(songId);
+    ref.invalidate(continueSessionProvider);
   }
 
   /// ৩টা সম্ভাব্য card থেকে যেগুলোর data আছে শুধু সেগুলোই বসানো হয় —

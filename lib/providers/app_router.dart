@@ -15,9 +15,12 @@ import '../screens/library/favorites_screen.dart';
 import '../screens/library/history_screen.dart';
 import '../screens/library/playlist_detail_screen.dart';
 import '../screens/library/playlists_screen.dart';
+import '../screens/onboarding/getting_started_screen.dart';
 import '../screens/player/player_test_screen.dart';
+import '../screens/search/search_category_results_screen.dart';
 import '../screens/settings/cache_settings_section.dart';
 import '../screens/settings/settings_screen.dart';
+import 'search_provider.dart' show SearchCategory;
 import '../screens/song/song_details_screen.dart';
 import '../screens/album/album_details_screen.dart';
 import '../screens/artist/artist_page_screen.dart';
@@ -328,6 +331,38 @@ GoRouter appRouter(Ref ref) {
           key: state.pageKey,
           child: const SettingsScreen(),
         ),
+      ),
+      // ⚠️ v11 Fix — GettingStartedScreen (roadmap Section 15) was
+      // created but never registered in the router; ChecklistBadge
+      // opens it via showDialog directly, but a real route also lets it
+      // be deep-linked / opened from Settings ("Show tips again").
+      GoRoute(
+        path: '/onboarding',
+        pageBuilder: (context, state) => _platformAwarePage(
+          key: state.pageKey,
+          child: const GettingStartedScreen(),
+        ),
+      ),
+      // ⚠️ v11 Fix-First List #4 — "See All" pathway for search
+      // categories. `category` comes as a query param (?category=songs)
+      // since GoRoute path params can't carry an enum directly; `q` is
+      // the query text. Unknown/missing category defaults to songs
+      // (the only category SearchOrchestrator paginates today — see
+      // search_provider.dart doc-comment).
+      GoRoute(
+        path: '/search/category',
+        pageBuilder: (context, state) {
+          final query = state.uri.queryParameters['q'] ?? '';
+          final categoryName = state.uri.queryParameters['category'];
+          final category = SearchCategory.values.firstWhere(
+            (c) => c.name == categoryName,
+            orElse: () => SearchCategory.songs,
+          );
+          return _platformAwarePage(
+            key: state.pageKey,
+            child: SearchCategoryResultsScreen(query: query, category: category),
+          );
+        },
       ),
       GoRoute(
         path: '/debug/player-test',

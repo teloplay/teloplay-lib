@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme_extension.dart';
+import '../../../widgets/onboarding/checklist_badge.dart';
 
 /// Phase 6.5 UI-Batch 3a (v2 — compact) — single-row premium header.
 ///
@@ -49,6 +50,10 @@ class SmartWelcomeHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
+          // ⚠️ v11 Onboarding (roadmap Section 13/Phase 0 item #13) —
+          // renders nothing once dismissed or all 5 items complete.
+          const ChecklistBadge(),
+          const SizedBox(width: 8),
           const _QuickPillRow(),
         ],
       ),

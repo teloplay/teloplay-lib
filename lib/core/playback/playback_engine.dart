@@ -42,6 +42,7 @@ enum QueueSource {
   songDetails,
   album,
   artist,   // 🆕 যোগ করো
+  resumedSession, // ⚠️ v11 Continue Session (Section H) — app restart-এ multi-song resume
   unknown,
 }
 

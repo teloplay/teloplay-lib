@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/theme_extensions.dart';
-import '../../data/repositories/settings_repository.dart';
+import '../../core/theme/app_theme_extension.dart';
+import '../../providers/onboarding_provider.dart';
 import '../../screens/onboarding/getting_started_screen.dart';
 
 /// Persistent onboarding badge in home app bar.
+///
+/// ⚠️ Fix (Phase 0 v11 stabilization): same missing-provider issue as
+/// getting_started_screen.dart — `onboardingCompletionProvider`/
+/// `onboardingDismissedProvider` are now real (providers/onboarding_provider.dart),
+/// and the wrong theme import path is corrected.
 class ChecklistBadge extends ConsumerWidget {
   const ChecklistBadge({super.key});
 
@@ -21,7 +26,7 @@ class ChecklistBadge extends ConsumerWidget {
         return completionAsync.when(
           data: (completed) {
             final count = completed.values.where((v) => v).length;
-            if (count == 5) return const SizedBox.shrink();
+            if (count == OnboardingKeys.all.length) return const SizedBox.shrink();
             return _buildBadge(context, count, theme);
           },
           loading: () => const SizedBox.shrink(),
@@ -33,7 +38,8 @@ class ChecklistBadge extends ConsumerWidget {
     );
   }
 
-  Widget _buildBadge(BuildContext context, int completed, dynamic theme) {
+  Widget _buildBadge(BuildContext context, int completed, AuroraColors theme) {
+    final total = OnboardingKeys.all.length;
     return InkWell(
       onTap: () => _openOnboarding(context),
       borderRadius: BorderRadius.circular(20),
@@ -51,7 +57,7 @@ class ChecklistBadge extends ConsumerWidget {
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
-                value: completed / 5,
+                value: completed / total,
                 strokeWidth: 2,
                 backgroundColor: theme.textDisabled,
                 valueColor: AlwaysStoppedAnimation(theme.primary),
@@ -59,7 +65,7 @@ class ChecklistBadge extends ConsumerWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              '$completed/5',
+              '$completed/$total',
               style: TextStyle(
                 color: theme.primary,
                 fontSize: 12,
