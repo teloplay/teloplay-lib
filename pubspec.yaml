@@ -84,6 +84,7 @@ dev_dependencies:
 dependency_overrides:
   uuid: ^4.5.1
   flutter_rust_bridge: 2.11.1
+  storage_client: 2.6.0
 
 flutter:
   uses-material-design: true
