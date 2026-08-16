@@ -104,30 +104,21 @@ class DownloadedSongsScreen extends ConsumerWidget {
             _getArtistName(song),
             style: TextStyle(color: theme.textSecondary, fontSize: 14),
           ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: theme.secondary.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  song.quality ?? '320kbps',
-                  style: TextStyle(
-                    color: theme.secondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _formatBytes(song.fileSize ?? 0),
-                style: TextStyle(color: theme.textSecondary, fontSize: 12),
-              ),
-            ],
+          // ⚠️ Bug fix — CachedSongEntry has no 'quality' or 'fileSize'
+          // getters (model only exposes songId/title/author/thumbnail/
+          // cacheSizeBytes — see models/history_entry_model.dart). The
+          // previous code called song.quality and song.fileSize, which
+          // don't exist on this class, so building this ListTile threw
+          // NoSuchMethodError every time the Downloads screen opened.
+          // There's no bitrate/quality data in this model at all (the
+          // cache layer doesn't track that), so the quality chip is
+          // dropped rather than showing a fake hardcoded '320kbps'.
+          // Size now comes from the real cacheSizeBytes field via the
+          // model's own formattedSize getter, which already exists for
+          // exactly this purpose.
+          trailing: Text(
+            song.formattedSize,
+            style: TextStyle(color: theme.textSecondary, fontSize: 12),
           ),
           onTap: () => _playSong(song),
           onLongPress: () => _showContextMenu(song),

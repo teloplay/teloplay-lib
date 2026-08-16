@@ -454,10 +454,22 @@ class SuggestionController extends Notifier<SuggestionState> {
     return const SuggestionState();
   }
 
-  void onQueryChanged(String query) {
+  void onQueryChanged(String rawQuery) {
     _debounce?.cancel();
 
-    if (query.trim().isEmpty) {
+    // ⚠️ Trailing/leading-space fix — earlier this used the raw
+    // (untrimmed) text as both the cache key and the value sent to the
+    // suggest API. Typing "kei" then a space produced "kei " which is a
+    // *different* cache key, so it always missed cache, went to
+    // _fetch(), and hit YouTube's suggest endpoint with a trailing
+    // space — which YouTube typically answers with an empty/near-empty
+    // result. The dropdown then looked "frozen"/unresponsive right when
+    // space was pressed. We now key everything off the trimmed query,
+    // so trailing spaces reuse the already-fetched suggestions instead
+    // of triggering a doomed network call.
+    final query = rawQuery.trim();
+
+    if (query.isEmpty) {
       state = const SuggestionState();
       return;
     }

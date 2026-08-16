@@ -146,15 +146,11 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
 
     return CallbackShortcuts(
       bindings: {
-        // ⚠️ Fix-First List #5 — Keyboard Shortcut Scope Conflict.
-        // Space (and every other single-key/no-modifier shortcut below)
-        // is wrapped with ifNotTypingIn() so it no-ops while the search
-        // field (or any EditableText) has focus — the key event then
-        // falls through as normal typed input instead of toggling
-        // playback. Ctrl/modifier-based shortcuts are left unwrapped
-        // since those never collide with normal typing.
-        const SingleActivator(LogicalKeyboardKey.space):
-            ifNotTypingIn(context, () => repo.togglePause()),
+        // ⚠️ Fix-First List #5 — Keyboard Shortcut Scope Conflict (v2).
+        // Only modifier-based shortcuts live here now. These never
+        // collide with normal typing (nobody types Ctrl+M into a search
+        // box), so CallbackShortcuts consuming the event unconditionally
+        // is fine for these.
         const SingleActivator(LogicalKeyboardKey.arrowRight, control: true): () => repo.next(),
         const SingleActivator(LogicalKeyboardKey.arrowLeft, control: true): () => repo.previous(),
         const SingleActivator(LogicalKeyboardKey.arrowUp, control: true): () =>
@@ -162,23 +158,68 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
         const SingleActivator(LogicalKeyboardKey.arrowDown, control: true): () =>
             repo.setVolume((repo.currentVolume - 5).clamp(0.0, 100.0)),
         const SingleActivator(LogicalKeyboardKey.keyM, control: true): () => repo.toggleMute(),
-        const SingleActivator(LogicalKeyboardKey.arrowRight): ifNotTypingIn(context, () {
-          final pos = ref.read(playbackPositionProvider).value ?? Duration.zero;
-          repo.seek(pos + const Duration(seconds: 10));
-        }),
-        const SingleActivator(LogicalKeyboardKey.arrowLeft): ifNotTypingIn(context, () {
-          final pos = ref.read(playbackPositionProvider).value ?? Duration.zero;
-          final target = pos - const Duration(seconds: 10);
-          repo.seek(target.isNegative ? Duration.zero : target);
-        }),
         // ⚠️ New this batch — Ctrl+Q toggles the context panel, matching
         // the desktop-app convention (queue/side-panel toggle) used by
         // most reference players.
         const SingleActivator(LogicalKeyboardKey.keyQ, control: true): _toggleContextPanel,
         const SingleActivator(LogicalKeyboardKey.keyK, control: true): () => _onDestinationSelected(1),
       },
-     child: Focus(
+      child: Focus(
         autofocus: true,
+        // ⚠️ Fix-First List #5 v2 — bare space / arrow-left / arrow-right
+        // (no modifier) moved OUT of CallbackShortcuts entirely and
+        // handled here instead. The earlier fix (ifNotTypingIn wrapping
+        // the CallbackShortcuts callback) still let CallbackShortcuts
+        // swallow the key event the moment the SingleActivator matched —
+        // the callback no-opping doesn't un-consume it. That meant space
+        // stopped toggling playback while typing, but it ALSO stopped
+        // typing a space character at all, since the keystroke never
+        // reached the focused EditableText.
+        //
+        // onKeyEvent runs before that key would otherwise bubble to a
+        // shortcut map, and returning KeyEventResult.ignored here means
+        // Flutter continues propagating the event down to whatever is
+        // actually focused — including the search field's EditableText,
+        // which is what lets it type a literal space/consume arrow keys
+        // for cursor movement instead of seeking playback.
+        onKeyEvent: (node, event) {
+          if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+            return KeyEventResult.ignored;
+          }
+
+          final isSpace = event.logicalKey == LogicalKeyboardKey.space;
+          final isBareArrowRight =
+              event.logicalKey == LogicalKeyboardKey.arrowRight;
+          final isBareArrowLeft =
+              event.logicalKey == LogicalKeyboardKey.arrowLeft;
+
+          if (!isSpace && !isBareArrowRight && !isBareArrowLeft) {
+            return KeyEventResult.ignored;
+          }
+
+          if (isTextFieldFocused(context)) {
+            // Let it fall through to the focused text field untouched.
+            return KeyEventResult.ignored;
+          }
+
+          if (isSpace) {
+            repo.togglePause();
+            return KeyEventResult.handled;
+          }
+          if (isBareArrowRight) {
+            final pos = ref.read(playbackPositionProvider).value ?? Duration.zero;
+            repo.seek(pos + const Duration(seconds: 10));
+            return KeyEventResult.handled;
+          }
+          if (isBareArrowLeft) {
+            final pos = ref.read(playbackPositionProvider).value ?? Duration.zero;
+            final target = pos - const Duration(seconds: 10);
+            repo.seek(target.isNegative ? Duration.zero : target);
+            return KeyEventResult.handled;
+          }
+
+          return KeyEventResult.ignored;
+        },
         child: Scaffold(
           backgroundColor: aurora.background,
           body: Column(
