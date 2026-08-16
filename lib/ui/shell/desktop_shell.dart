@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme_extension.dart';
+import '../../core/keyboard_shortcuts.dart';
 import '../../core/playback/playback_engine.dart';
 import '../../providers/music_player_provider.dart';
 import '../../providers/playlist_provider.dart';
@@ -145,7 +146,15 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
 
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.space): () => repo.togglePause(),
+        // ⚠️ Fix-First List #5 — Keyboard Shortcut Scope Conflict.
+        // Space (and every other single-key/no-modifier shortcut below)
+        // is wrapped with ifNotTypingIn() so it no-ops while the search
+        // field (or any EditableText) has focus — the key event then
+        // falls through as normal typed input instead of toggling
+        // playback. Ctrl/modifier-based shortcuts are left unwrapped
+        // since those never collide with normal typing.
+        const SingleActivator(LogicalKeyboardKey.space):
+            ifNotTypingIn(context, () => repo.togglePause()),
         const SingleActivator(LogicalKeyboardKey.arrowRight, control: true): () => repo.next(),
         const SingleActivator(LogicalKeyboardKey.arrowLeft, control: true): () => repo.previous(),
         const SingleActivator(LogicalKeyboardKey.arrowUp, control: true): () =>
@@ -153,15 +162,15 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
         const SingleActivator(LogicalKeyboardKey.arrowDown, control: true): () =>
             repo.setVolume((repo.currentVolume - 5).clamp(0.0, 100.0)),
         const SingleActivator(LogicalKeyboardKey.keyM, control: true): () => repo.toggleMute(),
-        const SingleActivator(LogicalKeyboardKey.arrowRight): () {
+        const SingleActivator(LogicalKeyboardKey.arrowRight): ifNotTypingIn(context, () {
           final pos = ref.read(playbackPositionProvider).value ?? Duration.zero;
           repo.seek(pos + const Duration(seconds: 10));
-        },
-        const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
+        }),
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): ifNotTypingIn(context, () {
           final pos = ref.read(playbackPositionProvider).value ?? Duration.zero;
           final target = pos - const Duration(seconds: 10);
           repo.seek(target.isNegative ? Duration.zero : target);
-        },
+        }),
         // ⚠️ New this batch — Ctrl+Q toggles the context panel, matching
         // the desktop-app convention (queue/side-panel toggle) used by
         // most reference players.

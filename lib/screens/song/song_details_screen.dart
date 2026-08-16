@@ -99,6 +99,21 @@ class _SongDetailsScreenState extends ConsumerState<SongDetailsScreen> {
       _error = null;
     });
 
+    // ⚠️ Fix-First List #6 — videoId validation, defense-in-depth. The
+    // search screen already blocks navigation for an empty videoId (see
+    // search_screen.dart _openSong), but this screen is also reachable
+    // from other entry points (deep links, history, etc.), so the same
+    // guard belongs here too — with a message that names the real cause
+    // instead of the generic "Song not found" a failed library lookup
+    // would otherwise show.
+    if (widget.songId.isEmpty) {
+      setState(() {
+        _loading = false;
+        _error = 'This song is missing its playback ID and can\'t be opened.';
+      });
+      return;
+    }
+
     try {
       final libraryRepo = ref.read(libraryRepositoryProvider);
 
@@ -111,7 +126,7 @@ class _SongDetailsScreenState extends ConsumerState<SongDetailsScreen> {
       if (track == null) {
         setState(() {
           _loading = false;
-          _error = 'Song not found';
+          _error = 'Song not found in your library.';
         });
         return;
       }

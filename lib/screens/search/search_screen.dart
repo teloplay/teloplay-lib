@@ -54,7 +54,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     ref.read(suggestionControllerProvider.notifier).clear();
   }
 
+  // ⚠️ Fix-First List #6 — Live Search Result videoId Validation.
+  // Previously an empty/missing videoId would still navigate to
+  // SongDetailsScreen, which then failed its own lookup and showed a
+  // generic "Song not found" — misleading, since the real cause was an
+  // invalid search result, not a missing library entry. Now caught here,
+  // before navigation, with a message that actually explains what
+  // happened.
   void _openSong(SearchResult song) {
+    if (song.videoId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This result is missing playback data and can\'t be opened.'),
+        ),
+      );
+      return;
+    }
     context.push('/song/${song.videoId}', extra: song);
   }
 
