@@ -5,6 +5,12 @@ class ResolvedStream {
   /// সরাসরি playable audio URL (yt-dlp থেকে বা Innertube থেকে)
   final String streamUrl;
 
+  /// Web fallback: [streamUrl] browser-এ play fail করলে switch করার মতো
+  /// worker proxy URL (worker /audio)। শুধুমাত্র web engine সেট করে —
+  /// [streamUrl] direct googlevideo URL হলে এটা proxy URL হয়, direct না
+  /// হলে null (তখন [streamUrl]-ই proxy)। Native engine null রাখে।
+  final String? fallbackStreamUrl;
+
   /// কত সেকেন্ড পর্যন্ত এই URL valid থাকবে (YouTube stream URL expire করে)।
   /// null মানে জানা নেই / assume করা যাবে না।
   final Duration? expiresIn;
@@ -14,6 +20,7 @@ class ResolvedStream {
 
   const ResolvedStream({
     required this.streamUrl,
+    this.fallbackStreamUrl,
     this.expiresIn,
     required this.sourceLabel,
   });

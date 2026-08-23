@@ -20,6 +20,7 @@ dependencies:
   
   # 🔗 HTTP + Future Sync Prep
   http: ^1.2.2
+  web: ^1.1.1
   web_socket_channel: ^3.0.1
 
   # 🖥️ System Tray (minimize to tray)

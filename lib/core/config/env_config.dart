@@ -5,7 +5,13 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class EnvConfig {
   static String get supabaseUrl => dotenv.env['SUPABASE_URL'] ?? '';
   static String get supabaseAnonKey => dotenv.env['SUPABASE_ANON_KEY'] ?? '';
-  static String get googleWebClientId => dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
+  static String get googleWebClientId =>
+      dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
+
+  /// Optional free Cloudflare Worker that resolves Piped streams server-side
+  /// and proxies audio with CORS. Required for reliable Flutter web playback.
+  static String get streamProxyUrl =>
+      dotenv.env['TELOPLAY_STREAM_PROXY_URL'] ?? '';
 
   // ⚠️ v11 — Metadata/Discovery/Sync Architecture. All three are official
   // public APIs used with real app registration — see roadmap Section J.

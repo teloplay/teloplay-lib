@@ -2,3 +2,27 @@
 !.gitignore
 !lib/
 !lib/**
+
+# Keep the deployable Cloudflare Worker source/package files in version control.
+!workers/
+!workers/teloplay-stream/
+!workers/teloplay-stream/src/
+!workers/teloplay-stream/src/**
+!workers/teloplay-stream/package.json
+!workers/teloplay-stream/package-lock.json
+!workers/teloplay-stream/wrangler.toml
+!workers/teloplay-stream/README.md
+workers/teloplay-stream/node_modules/
+workers/teloplay-stream/.wrangler/
+workers/teloplay-stream/dist/
+
+# Keep the Android Gradle project and native playback integration in version control.
+!android/
+!android/**
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/local.properties
+android/hs_err_*.log
+android/teloplay_android.iml

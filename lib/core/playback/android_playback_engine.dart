@@ -264,6 +264,97 @@ class AndroidPlaybackEngine implements PlaybackEngine {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // ⚠️ RICH DATA COMMANDS — MainActivity.kt-এর generic "command"
+  // MethodChannel case ব্যবহার করে (handleCommand() dispatch)।
+  //
+  // প্রতিটা method native response shape অনুযায়ী ok/error চেক করে,
+  // ব্যর্থ হলে PlaybackEngineException throw করে — search()/
+  // resolveStream()-এর সাথে consistent error-handling pattern।
+  // ═══════════════════════════════════════════════════════════════
+
+  /// [cmd]-এ দেওয়া native command-টা execute করে পুরো response map
+  /// (String-keyed) ফেরত দেয় — Windows engine (innertube-windows) এর
+  /// same behavior: `ok` != true হলে বা response খালি হলে
+  /// [PlaybackEngineException] throw হয়, সফল হলে সম্পূর্ণ map ফেরত আসে।
+  Future<Map<String, dynamic>> _invokeCommand(
+    String cmd,
+    Map<String, dynamic> params,
+  ) async {
+    try {
+      final response = await _channel.invokeMapMethod<dynamic, dynamic>(
+        'command',
+        {'cmd': cmd, ...params},
+      );
+      if (response == null || response['ok'] != true) {
+        throw PlaybackEngineException(
+          '$cmd failed: ${response?['error'] ?? 'empty response'}',
+        );
+      }
+      return response.cast<String, dynamic>();
+    } on PlatformException catch (e) {
+      throw PlaybackEngineException('Innertube $cmd ব্যর্থ', cause: e);
+    }
+  }
+
+  /// Video details (title, author, thumbnail, duration, explicit)
+  Future<Map<String, dynamic>> getVideoDetails(String videoId) async {
+    AppLogger.playback('[$engineLabel] getVideoDetails: $videoId');
+    return _invokeCommand('details', {'videoId': videoId});
+  }
+
+  /// Album tracks (albumName, artistName, year, trackCount, tracks[])
+  Future<Map<String, dynamic>> getAlbumTracks(String albumId) async {
+    AppLogger.playback('[$engineLabel] getAlbumTracks: $albumId');
+    return _invokeCommand('album', {'albumId': albumId});
+  }
+
+  /// Artist songs (artistName, thumbnail, songCount, songs[])
+  /// limit <= 0 means no cap
+  Future<Map<String, dynamic>> getArtistSongs(String artistId, {int limit = 0}) async {
+    AppLogger.playback('[$engineLabel] getArtistSongs: $artistId (limit=$limit)');
+    return _invokeCommand('artist', {'artistId': artistId, 'limit': limit});
+  }
+
+  /// Related songs / Watch Next (videoId, relatedCount, songs[])
+  /// limit <= 0 means no cap
+  Future<Map<String, dynamic>> getRelatedSongs(String videoId, {int limit = 0}) async {
+    AppLogger.playback('[$engineLabel] getRelatedSongs: $videoId (limit=$limit)');
+    return _invokeCommand('related', {'videoId': videoId, 'limit': limit});
+  }
+
+  /// Playlist tracks (playlistName, author, thumbnail, trackCount, tracks[])
+  /// limit <= 0 means no cap
+  Future<Map<String, dynamic>> getPlaylistTracks(String playlistId, {int limit = 0}) async {
+    AppLogger.playback('[$engineLabel] getPlaylistTracks: $playlistId (limit=$limit)');
+    return _invokeCommand('playlist', {'playlistId': playlistId, 'limit': limit});
+  }
+
+  /// Lyrics (lyrics text, source, isSynced)
+  Future<Map<String, dynamic>> getLyrics(String videoId) async {
+    AppLogger.playback('[$engineLabel] getLyrics: $videoId');
+    return _invokeCommand('lyrics', {'videoId': videoId});
+  }
+
+  /// Media info (title, author, authorId, authorThumbnail, description,
+  /// uploadDate, subscribers, viewCount, like, dislike)
+  Future<Map<String, dynamic>> getMediaInfo(String videoId) async {
+    AppLogger.playback('[$engineLabel] getMediaInfo: $videoId');
+    return _invokeCommand('media-info', {'videoId': videoId});
+  }
+
+  /// Charts (sections[] — title, chartType, songs[])
+  Future<Map<String, dynamic>> getCharts() async {
+    AppLogger.playback('[$engineLabel] getCharts');
+    return _invokeCommand('charts', {});
+  }
+
+  /// Home feed (sections[] — title, songs[])
+  Future<Map<String, dynamic>> getHome() async {
+    AppLogger.playback('[$engineLabel] getHome');
+    return _invokeCommand('home', {});
+  }
+
   @override
   Future<void> dispose() async {
     await _interruptionSub?.cancel();

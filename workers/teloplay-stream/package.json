@@ -1,0 +1,14 @@
+{
+  "name": "teloplay-stream",
+  "version": "1.0.0",
+  "description": "Server-side YouTube stream resolver for TeloPlay Web/iOS. Direct Innertube API + Piped + Invidious resolve, CORS proxy for browser playback.",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "deploy": "npx wrangler deploy",
+    "dev": "npx wrangler dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

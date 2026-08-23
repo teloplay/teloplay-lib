@@ -364,6 +364,44 @@ class InnertubeWindowsPlaybackEngine implements PlaybackEngine {
     return response;
   }
 
+  // ⚠️ Parity addition (Android MainActivity.kt-এর সাথে consistent):
+  // CLI daemon (innertube-cli.jar) ইতিমধ্যে media-info/charts/home
+  // command support করে — শুধু Dart side থেকে expose করা হচ্ছিল না।
+  // এগুলো যোগ করায় Windows engine-এ এখন CLI-এর ৯টা command-ই
+  // reachable (details/album/artist/related/playlist/lyrics/media-info/
+  // charts/home)।
+
+  /// Media info (title, author, authorId, authorThumbnail, description,
+  /// uploadDate, subscribers, viewCount, like, dislike)
+  Future<Map<String, dynamic>> getMediaInfo(String videoId) async {
+    await initialize();
+    final response = await _sendRequest('media-info', {'videoId': videoId});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException('media-info failed: ${response['error']}');
+    }
+    return response;
+  }
+
+  /// Charts (sections[] — title, chartType, songs[])
+  Future<Map<String, dynamic>> getCharts() async {
+    await initialize();
+    final response = await _sendRequest('charts', {});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException('charts failed: ${response['error']}');
+    }
+    return response;
+  }
+
+  /// Home feed (sections[] — title, songs[])
+  Future<Map<String, dynamic>> getHome() async {
+    await initialize();
+    final response = await _sendRequest('home', {});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException('home failed: ${response['error']}');
+    }
+    return response;
+  }
+
   String _findJava() {
     if (_cachedJavaPath != null) return _cachedJavaPath!;
 
