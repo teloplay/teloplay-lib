@@ -3,6 +3,11 @@
 !lib/
 !lib/**
 
+# Render API backend
+!render-api/
+!render-api/**
+!render.yaml
+
 # Keep the deployable Cloudflare Worker source/package files in version control.
 !workers/
 !workers/teloplay-stream/
@@ -26,3 +31,12 @@ android/app/build/
 android/local.properties
 android/hs_err_*.log
 android/teloplay_android.iml
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
+# Widget Preview related
+.widget_preview/
