@@ -70,7 +70,8 @@ class ApiService {
         _log('SEARCH', 'Found ${list.length} tracks for "$cleanQuery"');
         return list.map((item) => Track.fromJson(item as Map<String, dynamic>)).toList();
       } else {
-        _log('SEARCH', 'HTTP ${response.statusCode}', 'Status: ${response.statusCode} Body: ${response.body.substring(0, 200)}');
+        final bodyPreview = response.body.length > 200 ? response.body.substring(0, 200) : response.body;
+        _log('SEARCH', 'HTTP ${response.statusCode}', 'Status: ${response.statusCode} Body: $bodyPreview');
       }
     } catch (e) {
       _log('SEARCH', 'Exception searching "$cleanQuery"', e);
@@ -113,7 +114,7 @@ class ApiService {
         'id': videoId,
       });
 
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      final response = await http.get(uri).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['ok'] == true && data['url'] != null) {
