@@ -9,7 +9,7 @@ class ApiService {
   ApiService._internal();
 
   // Configurable base URL - default to local or your Cloudflare Worker
-  String _baseUrl = 'https://teloplay-api.onrender.com';
+  String _baseUrl = 'https://teloplay-stream.teloplay-verify.workers.dev';
 
   String get baseUrl => _baseUrl;
 
@@ -53,7 +53,7 @@ class ApiService {
     try {
       _log('SEARCH', 'Searching "$cleanQuery" (limit: $limit)');
 
-      final uri = Uri.parse('$_baseUrl/api/search').replace(queryParameters: {
+      final uri = Uri.parse('$_baseUrl/search').replace(queryParameters: {
         'q': cleanQuery,
         'limit': limit.toString(),
       });
@@ -66,7 +66,7 @@ class ApiService {
           _log('SEARCH', 'Server returned ok=false: ${data['error']}', data['error']);
           return [];
         }
-        final list = data['results'] as List? ?? [];
+        final list = data['items'] as List? ?? data['results'] as List? ?? [];
         _log('SEARCH', 'Found ${list.length} tracks for "$cleanQuery"');
         return list.map((item) => Track.fromJson(item as Map<String, dynamic>)).toList();
       } else {
@@ -85,14 +85,19 @@ class ApiService {
     if (cleanQuery.isEmpty) return [];
 
     try {
-      final uri = Uri.parse('$_baseUrl/api/suggest').replace(queryParameters: {
+      final uri = Uri.parse('https://suggestqueries.google.com/complete/search').replace(queryParameters: {
+        'client': 'youtube',
+        'ds': 'yt',
         'q': cleanQuery,
       });
 
       final response = await http.get(uri).timeout(const Duration(seconds: 6));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final list = data['suggestions'] as List? ?? [];
+        if (data is List && data.length > 1) {
+          return (data[1] as List).map((e) => (e as List).first.toString()).toList();
+        }
+        final list = data is Map ? data['suggestions'] as List? ?? [] : <dynamic>[];
         return list.map((e) => e.toString()).toList();
       } else {
         _log('SUGGEST', 'HTTP ${response.statusCode}');
@@ -110,16 +115,18 @@ class ApiService {
     try {
       _log('RESOLVE', 'Resolving stream for $videoId');
 
-      final uri = Uri.parse('$_baseUrl/api/resolve').replace(queryParameters: {
-        'id': videoId,
+      final uri = Uri.parse('$_baseUrl/streams/$videoId').replace(queryParameters: {
+        'safari': '0',
       });
 
       final response = await http.get(uri).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['ok'] == true && data['url'] != null) {
-          _log('RESOLVE', 'OK: itag=${data['itag']} for $videoId');
-          return data['url'] as String;
+        final streamUrl = data['streamUrl'] as String?;
+        if (streamUrl != null && streamUrl.isNotEmpty) {
+          final direct = data['direct'] == true;
+          _log('RESOLVE', 'OK: direct=$direct for $videoId');
+          return streamUrl;
         } else {
           _log('RESOLVE', 'Failed: ${data['error']}', data['error']);
         }
