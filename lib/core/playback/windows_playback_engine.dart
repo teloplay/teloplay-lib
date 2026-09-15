@@ -186,7 +186,29 @@ class WindowsPlaybackEngine implements PlaybackEngine {
   @override
   Future<List<String>> searchSuggestions(String query) async => [];
 
+
   @override
+  @override
+  Future<Map<String, dynamic>?> getAlbum(String albumId) async => null;
+
+  @override
+  Future<Map<String, dynamic>?> getArtist(String artistId, {int limit = 0}) async => null;
+
+  @override
+  Future<List<SearchResult>> getRelatedTracks(String videoId, {int limit = 20}) async => const [];
+
+  @override
+  Future<Map<String, dynamic>?> getPlaylist(String playlistId, {int limit = 0}) async => null;
+
+  @override
+  Future<Map<String, dynamic>?> getExplore() async => null;
+
+  @override
+  Future<Map<String, dynamic>?> getChartsData() async => null;
+
+  @override
+  Future<String?> getLyricsText(String videoId) async => null;
+
   Future<void> dispose() async {
     // কোনো persistent resource/process নেই — প্রতিটা resolve নিজের
     // subprocess শুরু-শেষ করে।

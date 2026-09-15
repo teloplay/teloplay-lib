@@ -355,6 +355,94 @@ class AndroidPlaybackEngine implements PlaybackEngine {
     return _invokeCommand('home', {});
   }
 
+  /// Moods and genres (items[] — title, items[])
+  Future<Map<String, dynamic>> getMoodsAndGenres() async {
+    AppLogger.playback('[$engineLabel] getMoodsAndGenres');
+    return _invokeCommand('moods-and-genres', {});
+  }
+
+  /// New releases (albums[] — albumId, title, year, thumbnail, artists[])
+  Future<Map<String, dynamic>> getNewReleases() async {
+    AppLogger.playback('[$engineLabel] getNewReleases');
+    return _invokeCommand('new-releases', {});
+  }
+
+  @override
+  Future<String?> getLyricsText(String videoId) async {
+    try {
+      final res = await getLyrics(videoId);
+      return res['lyrics'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getAlbum(String albumId) async {
+    try {
+      return await getAlbumTracks(albumId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getArtist(String artistId, {int limit = 0}) async {
+    try {
+      return await getArtistSongs(artistId, limit: limit);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<SearchResult>> getRelatedTracks(String videoId, {int limit = 20}) async {
+    try {
+      final res = await getRelatedSongs(videoId, limit: limit);
+      final raw = res['songs'] as List<dynamic>? ?? [];
+      return raw.map((item) {
+        final map = item as Map<String, dynamic>;
+        final id = map['videoId'] as String? ?? '';
+        return SearchResult(
+          videoId: id,
+          title: (map['title'] as String?) ?? 'Unknown',
+          author: (map['author'] as String?) ?? 'Unknown',
+          thumbnail: (map['thumbnail'] as String?) ?? 'https://img.youtube.com/vi/$id/mqdefault.jpg',
+          duration: map['duration'] != null ? Duration(seconds: map['duration'] as int) : null,
+        );
+      }).where((s) => s.videoId.isNotEmpty).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getPlaylist(String playlistId, {int limit = 0}) async {
+    try {
+      return await getPlaylistTracks(playlistId, limit: limit);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getExplore() async {
+    try {
+      return await getHome();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getChartsData() async {
+    try {
+      return await getCharts();
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Future<void> dispose() async {
     await _interruptionSub?.cancel();

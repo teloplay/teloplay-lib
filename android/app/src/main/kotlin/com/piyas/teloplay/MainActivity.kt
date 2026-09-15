@@ -576,6 +576,54 @@ class MainActivity : AudioServiceFragmentActivity() {
         )
     }
 
+// 10. MOODS & GENRES — YouTube.moodAndGenres()
+    private suspend fun getMoodAndGenres(): Map<String, Any?> {
+        ensureVisitorData()
+
+        val list = YouTube.moodAndGenres().getOrNull()
+            ?: return mapOf("ok" to false, "error" to "MOODS_GENRES_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "items" to list.map { mg ->
+                mapOf(
+                    "title" to mg.title,
+                    "items" to mg.items.map { item ->
+                        mapOf(
+                            "title" to item.title,
+                            "stripeColor" to item.stripeColor,
+                            "browseId" to item.endpoint.browseId,
+                            "params" to item.endpoint.params,
+                        )
+                    }
+                )
+            }
+        )
+    }
+
+    // 11. NEW RELEASES — YouTube.newReleaseAlbums()
+    private suspend fun getNewReleases(): Map<String, Any?> {
+        ensureVisitorData()
+
+        val list = YouTube.newReleaseAlbums().getOrNull()
+            ?: return mapOf("ok" to false, "error" to "NEW_RELEASES_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "albums" to list.map { album ->
+                mapOf(
+                    "albumId" to album.id,
+                    "title" to album.title,
+                    "year" to album.year,
+                    "thumbnail" to album.thumbnail,
+                    "artists" to (album.artists?.map { a ->
+                        mapOf("name" to a.name, "id" to a.id)
+                    } ?: emptyList<Map<String, Any?>>()),
+                )
+            }
+        )
+    }
+
     // ========== GENERIC COMMAND DISPATCH (main.kt এর handleCommand() এর সমতুল্য) ==========
     private suspend fun handleCommand(cmd: String, params: Map<String, Any?>): Map<String, Any?> {
         return when (cmd) {
@@ -645,6 +693,8 @@ class MainActivity : AudioServiceFragmentActivity() {
             }
             "charts" -> getCharts()
             "home" -> getHome()
+            "moods-and-genres" -> getMoodAndGenres()
+            "new-releases" -> getNewReleases()
             else -> mapOf("ok" to false, "error" to "unknown cmd: $cmd")
         }
     }

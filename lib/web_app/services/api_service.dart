@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/track.dart';
@@ -8,8 +8,8 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
-  // Configurable base URL - default to local or your Cloudflare Worker
-  String _baseUrl = 'https://teloplay-stream.teloplay-verify.workers.dev';
+  // Default Render Web API URL
+  String _baseUrl = 'https://teloplay-web.onrender.com';
 
   String get baseUrl => _baseUrl;
 
@@ -18,7 +18,7 @@ class ApiService {
     _log('CONFIG', 'Base URL set to: $_baseUrl');
   }
 
-  // â”€â”€â”€ Error Logger â”€â”€â”€
+  // ─── Error Logger ───
   static final List<Map<String, dynamic>> _errorLog = [];
   static const int _maxLog = 100;
 
@@ -33,9 +33,9 @@ class ApiService {
     if (_errorLog.length > _maxLog) _errorLog.removeAt(0);
 
     if (error != null) {
-      debugPrint('âŒ [$tag] $msg | Error: $error');
+      debugPrint('❌ [$tag] $msg | Error: $error');
     } else {
-      debugPrint('ðŸ“¡ [$tag] $msg');
+      debugPrint('📡 [$tag] $msg');
     }
   }
 
@@ -53,7 +53,7 @@ class ApiService {
     try {
       _log('SEARCH', 'Searching "$cleanQuery" (limit: $limit)');
 
-      final uri = Uri.parse('$_baseUrl/search').replace(queryParameters: {
+      final uri = Uri.parse('$_baseUrl/api/search').replace(queryParameters: {
         'q': cleanQuery,
         'limit': limit.toString(),
       });
@@ -66,12 +66,11 @@ class ApiService {
           _log('SEARCH', 'Server returned ok=false: ${data['error']}', data['error']);
           return [];
         }
-        final list = data['items'] as List? ?? data['results'] as List? ?? [];
+        final list = data['results'] as List? ?? [];
         _log('SEARCH', 'Found ${list.length} tracks for "$cleanQuery"');
         return list.map((item) => Track.fromJson(item as Map<String, dynamic>)).toList();
       } else {
-        final bodyPreview = response.body.length > 200 ? response.body.substring(0, 200) : response.body;
-        _log('SEARCH', 'HTTP ${response.statusCode}', 'Status: ${response.statusCode} Body: $bodyPreview');
+        _log('SEARCH', 'HTTP ${response.statusCode}', 'Status: ${response.statusCode} Body: ${response.body.substring(0, 200)}');
       }
     } catch (e) {
       _log('SEARCH', 'Exception searching "$cleanQuery"', e);
@@ -79,25 +78,34 @@ class ApiService {
     return [];
   }
 
+  /// Pre-warm stream cache for a batch of videoIds. Fire-and-forget.
+  Future<void> prewarmTracks(List<String> videoIds) async {
+    if (videoIds.isEmpty) return;
+    final ids = videoIds.where((id) => id.isNotEmpty).take(8).join(',');
+    if (ids.isEmpty) return;
+    try {
+      final uri = Uri.parse('$_baseUrl/api/prewarm').replace(queryParameters: {'ids': ids});
+      await http.get(uri).timeout(const Duration(seconds: 4));
+    } catch (e) {
+      _log('PREWARM', 'Failed to prewarm $ids', e);
+    }
+  }
+
+
   /// Get search suggestions
   Future<List<String>> getSuggestions(String query) async {
     final cleanQuery = query.trim();
     if (cleanQuery.isEmpty) return [];
 
     try {
-      final uri = Uri.parse('https://suggestqueries.google.com/complete/search').replace(queryParameters: {
-        'client': 'youtube',
-        'ds': 'yt',
+      final uri = Uri.parse('$_baseUrl/api/suggest').replace(queryParameters: {
         'q': cleanQuery,
       });
 
       final response = await http.get(uri).timeout(const Duration(seconds: 6));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data is List && data.length > 1) {
-          return (data[1] as List).map((e) => (e as List).first.toString()).toList();
-        }
-        final list = data is Map ? data['suggestions'] as List? ?? [] : <dynamic>[];
+        final list = data['suggestions'] as List? ?? [];
         return list.map((e) => e.toString()).toList();
       } else {
         _log('SUGGEST', 'HTTP ${response.statusCode}');
@@ -109,37 +117,47 @@ class ApiService {
   }
 
   /// Resolve stream URL for a given video ID
-  Future<String?> resolveStreamUrl(String videoId) async {
+  Future<String?> resolveStreamUrl(String videoId, {String? title, String? artist}) async {
     if (videoId.isEmpty) return null;
 
+    final songQuery = [title, artist].where((s) => s != null && s.trim().isNotEmpty).join(' ');
+
     try {
-      _log('RESOLVE', 'Resolving stream for $videoId');
+      _log('RESOLVE', 'Resolving stream for $videoId ("$songQuery")');
 
-      final uri = Uri.parse('$_baseUrl/streams/$videoId').replace(queryParameters: {
-        'safari': '0',
-      });
+      final queryParams = <String, String>{'id': videoId};
+      if (songQuery.isNotEmpty) queryParams['q'] = songQuery;
 
-      final response = await http.get(uri).timeout(const Duration(seconds: 30));
+      final uri = Uri.parse('$_baseUrl/api/resolve').replace(queryParameters: queryParams);
+
+      // Exact-video converter fallback can take about 15-35 seconds on a cold
+      // request, so do not abandon this request and switch to a failing proxy.
+      final response = await http.get(uri).timeout(const Duration(seconds: 45));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final streamUrl = data['streamUrl'] as String?;
-        if (streamUrl != null && streamUrl.isNotEmpty) {
-          final direct = data['direct'] == true;
-          _log('RESOLVE', 'OK: direct=$direct for $videoId');
-          return streamUrl;
-        } else {
-          _log('RESOLVE', 'Failed: ${data['error']}', data['error']);
+        if (data['ok'] == true) {
+          final provider = data['provider'] as String? ?? '';
+          final directUrl = data['url'] as String? ?? '';
+
+          // Zero-Bandwidth Optimization:
+          // If the resolved audio URL is a direct CDN/media URL (Paulin, Ricky, Savenow, etc.),
+          // play it directly on the client. Render consumes ZERO audio bandwidth!
+          // Only fallback to the backend stream proxy if direct URL is not available.
+          if (directUrl.isNotEmpty && !directUrl.contains('googlevideo.com')) {
+            _log('RESOLVE', 'OK: using direct stream (0 server bandwidth) ($provider) for $videoId');
+            return directUrl;
+          }
+
+          final proxyUrl = '$_baseUrl/api/stream/$videoId';
+          _log('RESOLVE', 'OK: using stream proxy $proxyUrl ($provider) for $videoId');
+          return proxyUrl;
         }
-      } else {
-        _log('RESOLVE', 'HTTP ${response.statusCode}', response.body);
       }
     } catch (e) {
-      _log('RESOLVE', 'Exception resolving $videoId', e);
+      _log('RESOLVE', 'Resolve API exception for $videoId', e);
     }
 
-    // Do not return the proxy URL after a resolver failure. The proxy calls
-    // the same resolver again and only hides the actual YouTube error.
-    _log('RESOLVE', 'No playable stream returned for $videoId');
+    _log('RESOLVE', 'No exact stream could be resolved for $videoId');
     return null;
   }
 
@@ -165,5 +183,3 @@ class ApiService {
     return [];
   }
 }
-
-

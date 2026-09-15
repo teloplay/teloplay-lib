@@ -89,4 +89,9 @@ class AppLogger {
   static void drift(String message) {
     _logger.d('🗄️ [Drift] $message');
   }
+
+  /// ⚠️ Phase 4 — Smart Sync (Offline queue drain / Supabase sync) log.
+  static void sync(String message) {
+    _logger.d('☁️ [Sync] $message');
+  }
 }

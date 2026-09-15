@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:smtc_windows/smtc_windows.dart';
 
 import '../logging/app_logger.dart';
-import '../playback/playback_engine.dart';
 import '../../data/repositories/music_player_repository.dart';
 import '../../models/now_playing_model.dart';
 

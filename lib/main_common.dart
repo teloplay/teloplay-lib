@@ -19,6 +19,9 @@ import 'providers/playback_engine_provider.dart';
 import 'providers/cache_service_provider.dart';
 import 'providers/theme_provider.dart';
 import 'services/performance_service.dart';
+import 'providers/sync_providers.dart';
+import 'services/feature_flags_service.dart';
+
 
 /// Common bootstrap: ErrorHandler, MediaKit, EnvConfig, Supabase,
 /// PerformanceService — platform-agnostic.
@@ -36,6 +39,11 @@ Future<void> bootstrapCommon() async {
     url: EnvConfig.supabaseUrl,
     anonKey: EnvConfig.supabaseAnonKey,
   );
+
+  // Phase 4: FeatureFlags bootstrap
+  FeatureFlagsService.instance.fetchFlags().catchError((e) {
+    AppLogger.error('FeatureFlagsService fetch failed (non-fatal)', e);
+  });
 
   PerformanceService.instance.initialize();
 }
@@ -73,23 +81,35 @@ class _TeloPlayAppState extends ConsumerState<TeloPlayApp> {
       });
     }
 
-    // CacheService bootstrap
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final cacheService = ref.read(cacheServiceProvider);
-      cacheService.initialize().then((_) {
-        AppLogger.performance('CacheService warm-up complete');
-      }).catchError((Object e, StackTrace st) {
-        AppLogger.error('CacheService warm-up failed (non-fatal)', e);
+    // CacheService bootstrap (Native only, web handles via browser memory/worker)
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final cacheService = ref.read(cacheServiceProvider);
+        cacheService.initialize().then((_) {
+          AppLogger.performance('CacheService warm-up complete');
+        }).catchError((Object e, StackTrace st) {
+          AppLogger.error('CacheService warm-up failed (non-fatal)', e);
+        });
       });
-    });
+    }
 
     // v11 — DiscoveryQueue bootstrap. Fire-and-forget: start()
     // is idempotent. Runs in background, never blocks UI.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final discoveryQueue = ref.read(discoveryQueueProvider);
-      discoveryQueue.start();
-      AppLogger.discovery('DiscoveryQueue started (app startup)');
-    });
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final discoveryQueue = ref.read(discoveryQueueProvider);
+        discoveryQueue.start();
+        AppLogger.discovery('DiscoveryQueue started (app startup)');
+      });
+    }
+
+    // Phase 4: SyncManager bootstrap (starts periodic background sync & triggers on auth change)
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(syncManagerProvider);
+        AppLogger.sync('SyncManager bootstrap complete');
+      });
+    }
   }
 
   @override

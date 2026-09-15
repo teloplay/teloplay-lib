@@ -195,5 +195,16 @@ class BehaviourTrackingService {
     }
   }
 
+
+  /// Capture favorite toggle event.
+  Future<void> recordFavoriteToggle({
+    required String songId,
+    required bool isFavorited,
+  }) async {
+    final userId = _userId;
+    if (userId == null) return;
+    AppLogger.playback('BehaviourTracking: favorite-toggle songId=$songId isFavorited=$isFavorited');
+  }
+
   // Phase 2-এ যোগ হবে: recordFavoriteToggle() (LibraryRepository থেকে)
 }

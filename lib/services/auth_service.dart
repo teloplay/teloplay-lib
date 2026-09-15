@@ -88,18 +88,31 @@ class AuthService {
   // Google Sign-In (google_sign_in v7.x API)
   // ─────────────────────────────────────────────────────────
 
-  /// Google দিয়ে sign in করে। বর্তমানে শুধু Android/iOS-এ কাজ করে।
-  /// Windows-এ কল হলে UnsupportedError ছোড়ে।
-  ///
-  /// গুরুত্বপূর্ণ: guest (anonymous) অবস্থায় থেকে এটা কল হলে Supabase
-  /// নিজে থেকেই same UID-তে Google identity link করে দেয় (email OTP
-  /// flow-এর মতোই), যেহেতু "Allow manual linking" ON করা আছে।
+  /// Web ও Desktop-এ OAuth Sign-in (Supabase Hosted OAuth Flow)
+  Future<void> signInWithOAuthWeb(OAuthProvider provider) async {
+    final redirectUrl = kIsWeb 
+        ? Uri.base.origin 
+        : 'io.supabase.teloplay://login-callback/';
+    await _client.auth.signInWithOAuth(
+      provider,
+      redirectTo: redirectUrl,
+      authScreenLaunchMode: LaunchMode.platformDefault,
+    );
+  }
+
+  /// Google দিয়ে sign in করে।
+  /// Android/iOS-এ native GoogleSignIn, Web-এ Supabase OAuth।
   Future<void> signInWithGoogle() async {
+    if (kIsWeb) {
+      await signInWithOAuthWeb(OAuthProvider.google);
+      return;
+    }
+
     if (!(defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS)) {
       throw UnsupportedError(
         'Google Sign-In এই platform-এ এখনো সাপোর্টেড না। '
-        'শুধু Android/iOS-এ কাজ করে।',
+        'শুধু Android/iOS/Web-এ কাজ করে।',
       );
     }
 

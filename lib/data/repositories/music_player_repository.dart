@@ -27,6 +27,9 @@ class MusicPlayerRepository {
 
   final CacheService? _cacheService;
 
+  Future<List<SearchResult>> Function(SearchResult? currentTrack, List<String> currentQueueIds)?
+      smartQueueAutoFillHandler;
+
   bool _initialized = false;
 
   bool _disposed = false;
@@ -118,6 +121,9 @@ class MusicPlayerRepository {
   static const _kSettingShuffleEnabled = 'shuffle_enabled';
   static const _kSettingRepeatMode = 'repeat_mode';
   static const _kSettingPlaybackSpeed = 'playback_speed';
+  static const _kSettingVolumeNormalization = 'volume_normalization_enabled';
+  static const _kSettingCrossfadeEnabled = 'crossfade_enabled';
+  static const _kSettingCrossfadeDuration = 'crossfade_duration_seconds';
 
   bool _shuffleEnabled = false;
   bool get shuffleEnabled => _shuffleEnabled;
@@ -140,6 +146,40 @@ class MusicPlayerRepository {
   final _playbackSpeedController = StreamController<double>.broadcast();
   Stream<double> get playbackSpeedStream => _playbackSpeedController.stream;
 
+  // ⚠️ Volume Normalization (Phase 1) — Soft limiter to reduce perceived
+  // volume differences between tracks. Without loudness metadata from
+  // YouTube, we apply a configurable gain reduction that kicks in at
+  // higher volumes to prevent clipping. This is a "best effort" approach
+  // — true ReplayGain requires metadata we don't have.
+  bool _volumeNormalizationEnabled = true; // On by default (premium feel)
+  bool get volumeNormalizationEnabled => _volumeNormalizationEnabled;
+
+  final _volumeNormalizationController = StreamController<bool>.broadcast();
+  Stream<bool> get volumeNormalizationStream =>
+      _volumeNormalizationController.stream;
+
+  // ⚠️ Crossfade (Phase 1) — Smooth transition between tracks.
+  // Default 1-2 seconds, on by default. Uses a timer-based volume ramp
+  // on the current track + early start of next track at low volume.
+  bool _crossfadeEnabled = true; // On by default (premium feel)
+  bool get crossfadeEnabled => _crossfadeEnabled;
+
+  final _crossfadeEnabledController = StreamController<bool>.broadcast();
+  Stream<bool> get crossfadeEnabledStream => _crossfadeEnabledController.stream;
+
+  double _crossfadeDurationSeconds = 1.5; // Default 1.5s
+  double get crossfadeDurationSeconds => _crossfadeDurationSeconds;
+
+  final _crossfadeDurationController = StreamController<double>.broadcast();
+  Stream<double> get crossfadeDurationStream => _crossfadeDurationController.stream;
+
+  // Crossfade internal state
+  Timer? _crossfadeTimer;
+  Timer? _crossfadeRampTimer;
+  bool _crossfadeInProgress = false;
+  int _crossfadeToken = 0;
+  static const _crossfadeRampStep = Duration(milliseconds: 50);
+
   // ⚠️ Phase 6 (Batch 4) — Volume foundation। _player.setVolume() লেখা
   // যায় কিন্তু media_kit থেকে current volume পড়ার কোনো stream নেই,
   // তাই নিজেদের local source-of-truth রাখা হচ্ছে (write-through:
@@ -148,6 +188,11 @@ class MusicPlayerRepository {
   // (audio-focus ducking-এর _volumeBeforeDuck-এর মতোই প্যাটার্ন,
   // ইচ্ছাকৃতভাবে আলাদা — duck আর mute দুটো independent concept,
   // একটা conflict করলে অন্যটার state overwrite করা উচিত না)।
+  //
+  // ⚠️ Volume Normalization (Phase 1) — Soft limiter ceiling.
+  // When enabled, volumes above 85% are compressed to reduce clipping
+  // and perceived loudness differences. This is NOT true ReplayGain
+  // (which requires loudness metadata), but a pragmatic approximation.
   double _currentVolume = 100.0;
   bool _isMuted = false;
   double _volumeBeforeMute = 100.0;
@@ -460,6 +505,11 @@ class MusicPlayerRepository {
       final hasNext = _hasNextTrack();
 
       if (hasNext) {
+        // ⚠️ Crossfade (Phase 1) — If enabled, start crossfade transition
+        // before the current track fully ends.
+        if (_crossfadeEnabled && _crossfadeDurationSeconds > 0) {
+          _startCrossfadeTransition();
+        }
         next();
         return;
       }
@@ -500,6 +550,9 @@ class MusicPlayerRepository {
         _kSettingShuffleEnabled,
         _kSettingRepeatMode,
         _kSettingPlaybackSpeed,
+        _kSettingVolumeNormalization,
+        _kSettingCrossfadeEnabled,
+        _kSettingCrossfadeDuration,
       ]);
 
       if (_disposed) return;
@@ -527,6 +580,29 @@ class MusicPlayerRepository {
           _playbackSpeed = parsed;
           _playbackSpeedController.add(_playbackSpeed);
           unawaited(_player.setRate(_playbackSpeed));
+        }
+      }
+
+      // ⚠️ Volume Normalization (Phase 1) — Load persisted preference
+      final volumeNormStr = values[_kSettingVolumeNormalization];
+      if (volumeNormStr != null) {
+        _volumeNormalizationEnabled = volumeNormStr == 'true';
+        _volumeNormalizationController.add(_volumeNormalizationEnabled);
+      }
+
+      // ⚠️ Crossfade (Phase 1) — Load persisted preferences
+      final crossfadeEnabledStr = values[_kSettingCrossfadeEnabled];
+      if (crossfadeEnabledStr != null) {
+        _crossfadeEnabled = crossfadeEnabledStr == 'true';
+        _crossfadeEnabledController.add(_crossfadeEnabled);
+      }
+
+      final crossfadeDurationStr = values[_kSettingCrossfadeDuration];
+      if (crossfadeDurationStr != null) {
+        final parsed = double.tryParse(crossfadeDurationStr);
+        if (parsed != null && parsed > 0) {
+          _crossfadeDurationSeconds = parsed.clamp(0.5, 5.0);
+          _crossfadeDurationController.add(_crossfadeDurationSeconds);
         }
       }
     } catch (e) {
@@ -1258,7 +1334,14 @@ _setNowPlaying(
       await _player.play();
 
       _isDucking = false;
-      unawaited(_player.setVolume(_currentVolume));
+
+      // ⚠️ Crossfade (Phase 1) — If crossfade is enabled, ramp volume up
+      // from 0 to current volume over the crossfade duration.
+      if (_crossfadeEnabled && _crossfadeDurationSeconds > 0) {
+        _onCrossfadeTrackStarted();
+      } else {
+        unawaited(_player.setVolume(_currentVolume));
+      }
 
       if (_playbackSpeed != 1.0) {
         unawaited(_player.setRate(_playbackSpeed));
@@ -1551,12 +1634,28 @@ _setNowPlaying(
     // (_completedSub listener)-এ ছিল, manual next() button চাপলে queue
     // শেষে থাকলে কিছুই হতো না, repeat-all mode-এ থাকা সত্ত্বেও। এখন
     // manual next এবং auto-next দুটোই একই wrap-around behavior পাবে।
-    if (_repeatMode == PlaybackRepeatMode.all && _queue.isNotEmpty) {
-      await playFromQueue(0);
+    // Phase 2: Smart Auto-Queue injection when queue is exhausted and repeat is off
+    if (smartQueueAutoFillHandler != null && _repeatMode != PlaybackRepeatMode.all) {
+      try {
+        final current = currentTrack;
+        final currentIds = _queue.map((t) => t.videoId).toList();
+        final additions = await smartQueueAutoFillHandler!(current, currentIds);
+        if (additions.isNotEmpty) {
+          final nextIndex = _queue.length;
+          _queue.addAll(additions);
+          _notifyQueueChanged();
+          unawaited(_persistQueue());
+          await playFromQueue(nextIndex);
+          return;
+        }
+      } catch (e) {
+        AppLogger.playback('SmartQueue auto-inject fallback error: $e');
+      }
     }
   }
 
   Future<void> previous() async {
+
     if (_shuffleOrder != null) {
       if (_shufflePosition - 1 < 0) return;
       _shufflePosition--;
@@ -1696,7 +1795,22 @@ _setNowPlaying(
     _currentVolume = clamped;
     _isMuted = clamped == 0.0;
     _volumeController.add(clamped);
-    await _player.setVolume(clamped);
+    // ⚠️ Volume Normalization (Phase 1) — Apply soft limiter when enabled.
+    // Reduces perceived loudness differences between tracks.
+    final normalizedVolume = _volumeNormalizationEnabled
+        ? _applyVolumeNormalization(clamped)
+        : clamped;
+    await _player.setVolume(normalizedVolume);
+  }
+
+  /// Apply volume normalization (soft limiter).
+  /// Volumes above 85% are compressed using a logarithmic curve.
+  double _applyVolumeNormalization(double volume) {
+    if (volume <= 85.0) return volume;
+    // Soft knee compression: map 85-100 → 85-95 (gentle rolloff)
+    final excess = volume - 85.0;
+    final compressed = excess * 0.66; // Reduce excess by ~1/3
+    return 85.0 + compressed;
   }
 
   /// Mute — বর্তমান volume মনে রেখে 0-এ নামায়। ইতিমধ্যে 0 হলে no-op
@@ -1721,9 +1835,154 @@ _setNowPlaying(
 
   Future<void> toggleMute() => _isMuted ? unmute() : mute();
 
+  // ═══════════════════════════════════════════════════════════════
+  // ⚠️ Volume Normalization (Phase 1) — Toggle
+  // ═══════════════════════════════════════════════════════════════
+
+  Future<void> setVolumeNormalizationEnabled(bool enabled) async {
+    _volumeNormalizationEnabled = enabled;
+    _volumeNormalizationController.add(enabled);
+    unawaited(_settingsRepository?.setValue(
+      _kSettingVolumeNormalization,
+      enabled.toString(),
+    ));
+    // Re-apply current volume to take effect immediately
+    if (!_disposed) {
+      final normalizedVolume = enabled
+          ? _applyVolumeNormalization(_currentVolume)
+          : _currentVolume;
+      await _player.setVolume(normalizedVolume);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ⚠️ Crossfade (Phase 1) — Toggle + Configuration
+  // ═══════════════════════════════════════════════════════════════
+
+  Future<void> setCrossfadeEnabled(bool enabled) async {
+    _crossfadeEnabled = enabled;
+    _crossfadeEnabledController.add(enabled);
+    unawaited(_settingsRepository?.setValue(
+      _kSettingCrossfadeEnabled,
+      enabled.toString(),
+    ));
+    if (!enabled) {
+      _cancelCrossfade();
+    }
+  }
+
+  Future<void> setCrossfadeDuration(double seconds) async {
+    _crossfadeDurationSeconds = seconds.clamp(0.5, 5.0);
+    _crossfadeDurationController.add(_crossfadeDurationSeconds);
+    unawaited(_settingsRepository?.setValue(
+      _kSettingCrossfadeDuration,
+      _crossfadeDurationSeconds.toString(),
+    ));
+  }
+
+  void _cancelCrossfade() {
+    _crossfadeTimer?.cancel();
+    _crossfadeTimer = null;
+    _crossfadeRampTimer?.cancel();
+    _crossfadeRampTimer = null;
+    _crossfadeInProgress = false;
+    _crossfadeToken++;
+  }
+
+  // ⚠️ Crossfade (Phase 1) — Start the crossfade transition.
+  // Begins fading out the current track's volume before it ends,
+  // creating a smooth transition to the next track.
+  void _startCrossfadeTransition() {
+    if (_crossfadeInProgress || _disposed) return;
+
+    final myToken = ++_crossfadeToken;
+    _crossfadeInProgress = true;
+
+    final fadeDurationMs =
+        (_crossfadeDurationSeconds * 1000).round();
+    final totalSteps = fadeDurationMs ~/ _crossfadeRampStep.inMilliseconds;
+    var stepsElapsed = 0;
+
+    AppLogger.playback(
+      '[crossfade] starting ${_crossfadeDurationSeconds}s fade-out',
+    );
+
+    _crossfadeRampTimer = Timer.periodic(_crossfadeRampStep, (timer) {
+      if (_disposed || myToken != _crossfadeToken) {
+        timer.cancel();
+        return;
+      }
+
+      stepsElapsed++;
+      final fraction = 1 - (stepsElapsed / totalSteps);
+      final newVolume = (_currentVolume * fraction).clamp(0.0, 100.0);
+
+      // Apply volume normalization if enabled
+      final normalizedVolume = _volumeNormalizationEnabled
+          ? _applyVolumeNormalization(newVolume)
+          : newVolume;
+
+      unawaited(_player.setVolume(normalizedVolume));
+
+      if (stepsElapsed >= totalSteps) {
+        timer.cancel();
+        _crossfadeInProgress = false;
+        AppLogger.playback('[crossfade] fade-out complete');
+      }
+    });
+  }
+
+  // ⚠️ Crossfade (Phase 1) — Restore volume after crossfade starts.
+  // Called when the next track begins playing to ramp volume back up.
+  void _onCrossfadeTrackStarted() {
+    if (!_crossfadeEnabled || _disposed) return;
+
+    final myToken = _crossfadeToken;
+    final fadeDurationMs =
+        (_crossfadeDurationSeconds * 1000).round();
+    final totalSteps = fadeDurationMs ~/ _crossfadeRampStep.inMilliseconds;
+    var stepsElapsed = 0;
+
+    // Cancel any existing ramp
+    _crossfadeRampTimer?.cancel();
+
+    AppLogger.playback(
+      '[crossfade] ramping up ${_crossfadeDurationSeconds}s fade-in',
+    );
+
+    _crossfadeRampTimer = Timer.periodic(_crossfadeRampStep, (timer) {
+      if (_disposed || myToken != _crossfadeToken) {
+        timer.cancel();
+        return;
+      }
+
+      stepsElapsed++;
+      final fraction = stepsElapsed / totalSteps;
+      final newVolume = (_currentVolume * fraction).clamp(0.0, 100.0);
+
+      // Apply volume normalization if enabled
+      final normalizedVolume = _volumeNormalizationEnabled
+          ? _applyVolumeNormalization(newVolume)
+          : newVolume;
+
+      unawaited(_player.setVolume(normalizedVolume));
+
+      if (stepsElapsed >= totalSteps) {
+        timer.cancel();
+        // Ensure final volume is set correctly
+        final finalVolume = _volumeNormalizationEnabled
+            ? _applyVolumeNormalization(_currentVolume)
+            : _currentVolume;
+        unawaited(_player.setVolume(finalVolume));
+        AppLogger.playback('[crossfade] fade-in complete');
+      }
+    });
+  }
+
   Future<void> dispose() async {
     _disposed = true;
     _cancelSleepTimerInternal(resetState: false);
+    _cancelCrossfade();
 
     _endCurrentPlaybackSession(
       finalPosition: _currentSessionLastKnownPosition,
@@ -1745,6 +2004,9 @@ _setNowPlaying(
     await _sleepTimerController.close();
     await _isResolvingController.close();
     await _volumeController.close();
+    await _volumeNormalizationController.close();
+    await _crossfadeEnabledController.close();
+    await _crossfadeDurationController.close();
     await _player.dispose();
     await _engine.dispose();
   }

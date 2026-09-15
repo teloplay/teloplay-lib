@@ -12,6 +12,8 @@ import '../data/repositories/music_player_repository.dart';
 import '../data/repositories/queue_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../models/now_playing_model.dart';
+import 'smart_queue_provider.dart';
+
 import 'database_provider.dart';
 import 'playback_engine_provider.dart';
 import 'repository_providers.dart';
@@ -84,6 +86,15 @@ final musicPlayerRepositoryProvider = Provider<MusicPlayerRepository>((ref) {
 
   // Provider তৈরি হওয়ার সাথে সাথেই আগের session-এর queue restore করার
   // চেষ্টা — fire-and-forget, কারণ Provider-এর build() sync হতে হবে।
+
+  // Phase 2: Wire Smart Queue auto-fill handler
+  repo.smartQueueAutoFillHandler = (currentTrack, currentQueueIds) {
+    return ref.read(smartQueueProvider.notifier).fetchAutoQueue(
+          currentTrack: currentTrack,
+          currentQueueIds: currentQueueIds,
+        );
+  };
+
   // restoreQueue() নিজেই সব error handle করে (crash করবে না)।
   unawaited(repo.restoreQueue());
 
@@ -207,4 +218,19 @@ final isResolvingProvider = StreamProvider<bool>((ref) {
 final volumeProvider = StreamProvider<double>((ref) {
   final repo = ref.watch(musicPlayerRepositoryProvider);
   return repo.volumeStream;
+});
+
+final volumeNormalizationProvider = StreamProvider<bool>((ref) {
+  final repo = ref.watch(musicPlayerRepositoryProvider);
+  return repo.volumeNormalizationStream;
+});
+
+final crossfadeEnabledProvider = StreamProvider<bool>((ref) {
+  final repo = ref.watch(musicPlayerRepositoryProvider);
+  return repo.crossfadeEnabledStream;
+});
+
+final crossfadeDurationProvider = StreamProvider<double>((ref) {
+  final repo = ref.watch(musicPlayerRepositoryProvider);
+  return repo.crossfadeDurationStream;
 });

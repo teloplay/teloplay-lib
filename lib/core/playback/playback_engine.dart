@@ -257,6 +257,27 @@ abstract class PlaybackEngine {
   Stream<double>? get bufferHealthStream => null;
 
   /// Engine dispose/cleanup — app বন্ধ হওয়ার সময় বা engine switch হলে কল হয়।
+  /// Gets album details and tracks from Innertube.
+  Future<Map<String, dynamic>?> getAlbum(String albumId) async => null;
+
+  /// Gets artist profile and popular songs from Innertube.
+  Future<Map<String, dynamic>?> getArtist(String artistId, {int limit = 0}) async => null;
+
+  /// Gets automated up-next / related songs from Innertube.
+  Future<List<SearchResult>> getRelatedTracks(String videoId, {int limit = 20}) async => const [];
+
+  /// Gets tracks in a YouTube Music playlist.
+  Future<Map<String, dynamic>?> getPlaylist(String playlistId, {int limit = 0}) async => null;
+
+  /// Gets explore/home items from YouTube Music.
+  Future<Map<String, dynamic>?> getExplore() async => null;
+
+  /// Gets charts from YouTube Music.
+  Future<Map<String, dynamic>?> getChartsData() async => null;
+
+  /// Gets lyrics text from YouTube Music.
+  Future<String?> getLyricsText(String videoId) async => null;
+
   Future<void> dispose();
 
   /// এই engine-এর label, logging-এর জন্য (যেমন "yt-dlp/windows", "innertube/android")

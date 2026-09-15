@@ -1,8 +1,11 @@
 services:
   - type: web
-    name: teloplay-api
-    runtime: python
-    rootDir: render-api
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    name: teloplay-web
+    runtime: node
+    rootDir: worker
+    buildCommand: npm install
+    startCommand: node worker_runner.js
     plan: free
+    envVars:
+      - key: NODE_VERSION
+        value: 20

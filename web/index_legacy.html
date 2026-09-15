@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="TeloPlay Web - free YouTube music streaming.">
+
+  <!-- iOS PWA + Safari background audio -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TeloPlay">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>TeloPlay Web</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- YouTube Iframe API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+
+  <!-- Service Worker for PWA + background play support -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('sw.js').then(function(registration) {
+          console.log('[TeloPlay] Service Worker registered:', registration.scope);
+        }).catch(function(e) {
+          console.warn('[TeloPlay] Service Worker registration failed:', e.message);
+        });
+      });
+    }
+  </script>
+
+  <!-- PWA Install Prompt (mobile only) -->
+  <script>
+    function isMobile() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+    function isInstalled() {
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+    window.addEventListener('load', function() {
+      if (isMobile() && !isInstalled()) {
+        setTimeout(function() { showInstallBanner(); }, 3000);
+      }
+    });
+    function showInstallBanner() { var b = document.getElementById('install-banner'); if (b) b.style.display = 'block'; }
+    function dismissBanner() { var b = document.getElementById('install-banner'); if (b) b.style.display = 'none'; }
+  </script>
+  <style>
+    #install-banner{display:none;position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,#7C5CFF,#5a3fd9);color:#fff;padding:16px;text-align:center;z-index:1000}
+    #install-banner p{margin:0 0 12px;font-size:14px}
+    #install-banner .buttons{display:flex;gap:10px;justify-content:center}
+    #install-banner button{padding:10px 20px;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600}
+    #install-banner .install-btn{background:#fff;color:#7C5CFF}
+    #install-banner .dismiss-btn{background:rgba(255,255,255,.2);color:#fff}
+
+    /* iOS only: visible mini-player shell so Safari can auto-PiP the embed */
+    body.pip-player #player-shell {
+      position: fixed !important;
+      left: auto !important;
+      right: 12px;
+      bottom: 96px;
+      width: 160px !important;
+      height: 90px !important;
+      overflow: hidden;
+      border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.45);
+      z-index: 500;
+    }
+    body.pip-player #player-shell iframe,
+    body.pip-player #player-shell #youtube-player {
+      width: 100% !important;
+      height: 100% !important;
+      left: 0 !important;
+    }
+    /* Collapsed state (user taps the mini-player to hide it — audio keeps
+       playing as long as PiP was already armed) */
+    body.pip-player.shell-collapsed #player-shell {
+      width: 1px !important;
+      height: 1px !important;
+      opacity: 0.01;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Install Banner (mobile only) -->
+  <div id="install-banner">
+    <p>Install TeloPlay for the best experience!</p>
+    <div class="buttons">
+      <button class="install-btn" onclick="dismissBanner()">Add to Home Screen</button>
+      <button class="dismiss-btn" onclick="dismissBanner()">Later</button>
+    </div>
+  </div>
+
+  <!-- Hidden YouTube player container.
+       On iOS (body.pip-player) the SHELL becomes a visible mini-player so
+       Safari can promote the embed to Picture-in-Picture when the app is
+       backgrounded — the only Apple-sanctioned way to keep iframe media
+       playing in background. The shell wrapper must stay in the DOM because
+       YT.Player() replaces its child (#youtube-player) with an iframe. -->
+  <div id="player-shell" style="width: 1px; height: 1px; overflow: hidden; position: absolute; left: -9999px;">
+    <div id="youtube-player"></div>
+  </div>
+  <!-- Persistent media element. Chrome Android requires this in the document
+       and unlocked during a tap, or play() is rejected after any await. -->
+  <audio id="native-audio" playsinline webkit-playsinline preload="auto" style="display:none"></audio>
+
+  <script>
+    var ytPlayer = null;
+    var ytPlayerReady = false;
+    var currentVideoId = null;
+    var isPlaying = false;
+
+    // Native <audio> fallback state (background play on Android Chrome/iOS).
+    // Declared explicitly — these were previously implicit globals, which
+    // made the Media Session handlers throw ReferenceError on lock screen.
+    var nativeAudio = null;
+    var nativeAudioReady = false;
+    var nativeAudioUnlocked = false;
+    var nativePlayToken = 0;
+    var WORKER_AUDIO_BASE = 'https://teloplay-stream.teloplay-verify.workers.dev/audio/';
+
+    // Mode flag mirrored from Dart (window.setUseNativeAudio). Media Session
+    // handlers read this to route play/pause to the right element.
+    var useNativeAudioJS = false;
+    window.setUseNativeAudio = function(flag) {
+      useNativeAudioJS = !!flag;
+    };
+
+    // Chrome Android blocks audio.play() unless it happens in a user-gesture
+    // turn. Dart `await` + CORS/LAN fetches kill that gesture, so we unlock a
+    // persistent <audio> on the tap itself, then swap src later.
+    function ensureNativeAudio() {
+      if (nativeAudio) return nativeAudio;
+      nativeAudio = document.getElementById('native-audio') || new Audio();
+      nativeAudio.preload = 'auto';
+      nativeAudio.setAttribute('playsinline', 'true');
+      nativeAudio.setAttribute('webkit-playsinline', 'true');
+      nativeAudio.addEventListener('ended', function() {
+        console.log('[TeloPlay] Native audio ended t=' + nativeAudio.currentTime +
+          ' d=' + nativeAudio.duration);
+        isPlaying = false;
+        window.stopAudioKeepAlive();
+      });
+      nativeAudio.addEventListener('error', function() {
+        var err = nativeAudio.error;
+        console.error('[TeloPlay] Native audio error', err && err.code, err && err.message);
+        isPlaying = false;
+        if (currentVideoId) {
+          console.warn('[TeloPlay] Native audio failed — falling back to YouTube iframe');
+          window.playVideo(currentVideoId);
+        }
+      });
+      nativeAudio.addEventListener('stalled', function() {
+        console.warn('[TeloPlay] Native audio stalled t=' + nativeAudio.currentTime);
+      });
+      return nativeAudio;
+    }
+
+    window.unlockNativeAudio = function() {
+      var audio = ensureNativeAudio();
+      if (nativeAudioUnlocked) return true;
+      try {
+        audio.muted = true;
+        if (!audio.src) {
+          audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+        }
+        var p = audio.play();
+        if (p && p.then) {
+          p.then(function() {
+            // Do NOT clear src here — playNativeAudio may already have
+            // swapped in the real worker URL on the same tap.
+            if (audio.src && audio.src.indexOf('data:') === 0) {
+              audio.pause();
+              audio.muted = false;
+            }
+            nativeAudioUnlocked = true;
+            console.log('[TeloPlay] Native audio unlocked');
+          }).catch(function(e) {
+            audio.muted = false;
+            console.warn('[TeloPlay] Native audio unlock failed:', e && e.message);
+          });
+        } else {
+          nativeAudioUnlocked = true;
+        }
+        return true;
+      } catch (e) {
+        console.warn('[TeloPlay] Native audio unlock threw:', e && e.message);
+        return false;
+      }
+    };
+
+    // Mobile browsers: default to native-audio mode. The YouTube iframe
+    // pauses itself on visibilitychange (YouTube policy), while a top-level
+    // <audio> element keeps playing in background/lock screen on Android
+    // Chrome and iOS Safari (Media Session controls attach to it).
+    var IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (IS_MOBILE) {
+      useNativeAudioJS = true;
+    }
+
+    function onYouTubeIframeAPIReady() {
+      ytPlayer = new YT.Player('youtube-player', {
+        width: '1',
+        height: '1',
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          iv_load_policy: 3,
+          modestbranding: 1,
+          rel: 0,
+          showinfo: 0,
+          playsinline: 1,
+          origin: window.location.origin
+        },
+        events: {
+          onReady: function(event) {
+            ytPlayerReady = true;
+            console.log('[TeloPlay] YouTube player ready');
+          },
+          onStateChange: function(event) {
+            isPlaying = (event.data === YT.PlayerState.PLAYING);
+          },
+          onError: function(event) {
+            console.error('[TeloPlay] YouTube player error:', event.data);
+          }
+        }
+      });
+    }
+
+    window.playVideo = function(videoId) {
+      currentVideoId = videoId;
+      if (ytPlayer && ytPlayerReady) {
+        ytPlayer.loadVideoById({ videoId: videoId, startSeconds: 0 });
+        isPlaying = true;
+        // Start AudioContext keepalive for iOS background play
+        window.startAudioKeepAlive();
+      }
+    };
+
+    window.pauseVideo = function() {
+      if (ytPlayer && ytPlayerReady) {
+        ytPlayer.pauseVideo();
+        isPlaying = false;
+        // Stop AudioContext keepalive when paused
+        window.stopAudioKeepAlive();
+      }
+    };
+
+    window.resumeVideo = function() {
+      if (ytPlayer && ytPlayerReady) {
+        ytPlayer.playVideo();
+        isPlaying = true;
+        // Resume AudioContext keepalive
+        window.startAudioKeepAlive();
+      }
+    };
+
+    window.seekTo = function(seconds) {
+      if (ytPlayer && ytPlayerReady) {
+        ytPlayer.seekTo(seconds, true);
+      }
+    };
+
+    window.getCurrentTime = function() {
+      return (ytPlayer && ytPlayerReady) ? ytPlayer.getCurrentTime() : 0;
+    };
+
+    window.getDuration = function() {
+      return (ytPlayer && ytPlayerReady) ? ytPlayer.getDuration() : 0;
+    };
+
+    window.isPlayerReady = function() { return ytPlayerReady; };
+    window.isVideoPlaying = function() { return isPlaying; };
+    window.setVolume = function(v) { if (ytPlayer && ytPlayerReady) ytPlayer.setVolume(Math.max(0, Math.min(100, v))); };
+    window.muteVideo = function() { if (ytPlayer && ytPlayerReady) ytPlayer.mute(); };
+    window.unmuteVideo = function() { if (ytPlayer && ytPlayerReady) ytPlayer.unMute(); };
+
+    // ── iOS background audio via Picture-in-Picture ────────────────────────
+    // iOS Safari suspends JS/media in pages & hidden iframes when the app
+    // backgrounds. The ONLY Apple-sanctioned path that keeps embedded media
+    // alive is Picture-in-Picture: iOS auto-promotes a VISIBLE, playing,
+    // inline (playsinline) video to a system PiP window on app switch, and
+    // that AVPlayer-backed session survives backgrounding + lock screen,
+    // with system play/pause/seek controls.
+    //
+    // Mechanics:
+    // 1. iOS (body.pip-player): the player shell becomes a small visible
+    //    mini-player pinned bottom-right, above Flutter's canvas. This makes
+    //    the embed "PiP-eligible" (visible + inline + playing).
+    // 2. When the user backgrounds the app, iOS Safari auto-promotes it to
+    //    PiP — audio continues, lock screen shows controls.
+    // 3. The embed iframe is cross-origin, so we cannot reach inside to call
+    //    webkitSetPresentationMode from the parent. enterPipMode() is a
+    //    best-effort probe only; the auto-PiP path needs no JS inside.
+    // 4. Desktop/Android: body class never applied → unchanged 1×1 player.
+    const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (IS_IOS) {
+      document.body.classList.add('pip-player');
+    }
+
+    // Best-effort direct PiP trigger. Works only if the browser lets us see
+    // the iframe's video element (same-origin embeds). For youtube.com embeds
+    // this logs the cross-origin block and relies on iOS auto-PiP instead.
+    window.enterPipMode = function() {
+      if (!IS_IOS || !ytPlayer || !ytPlayer.getIframe) {
+        return false;
+      }
+      try {
+        const iframe = ytPlayer.getIframe();
+        const video = iframe.contentDocument
+          ? iframe.contentDocument.querySelector('video')
+          : null;
+        if (video && video.webkitSupportsPresentationMode &&
+            typeof video.webkitSetPresentationMode === 'function') {
+          video.webkitSetPresentationMode('picture-in-picture');
+          console.log('[TeloPlay] PiP entered directly');
+          return true;
+        }
+        console.log('[TeloPlay] PiP: cross-origin embed — iOS auto-PiP will promote it on background');
+        return false;
+      } catch (e) {
+        console.log('[TeloPlay] PiP direct entry blocked:', e.message);
+        return false;
+      }
+    };
+
+    // iOS auto-PiP: when the page becomes hidden (app switcher / lock screen),
+    // iOS Safari automatically promotes a visible, playing, inline video to
+    // PiP. We listen for visibilitychange and try to help it along by entering
+    // PiP on the iframe's video if possible.
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        // Page is hidden — try to enter PiP
+        if (IS_IOS && isPlaying && ytPlayer && ytPlayerReady) {
+          // Small delay to let iOS's own auto-PiP attempt first
+          setTimeout(function() {
+            if (document.hidden) {
+              window.enterPipMode();
+            }
+          }, 100);
+        }
+      }
+    });
+
+    // Listen for PiP changes (for debugging / state tracking)
+    if (document.pictureInPictureEnabled) {
+      document.addEventListener('leavepictureinpicture', function() {
+        console.log('[TeloPlay] Left PiP mode');
+      });
+    }
+
+
+
+    // WHY: googlevideo caps range requests at ~1 MiB when the stream URL is
+    // bound to a Cloudflare/datacenter IP (worker resolution) or requested from
+    // one (WARP). Full-length playback requires the URL to be resolved from the
+    // same residential IP that plays it. CORS proxies cannot do this either —
+    // they resolve from THEIR datacenter IP, so the URL is capped.
+    //
+    // The only browser-viable path is the LAN resolver (lan-server.mjs): a tiny
+    // Node server on your home PC that resolves innertube from your residential
+    // IP. The bound URL then matches your phone's IP on the same Wi-Fi, and
+    // <audio> plays the full track in the background. The page must be served
+    // FROM the LAN server (http://<PC-IP>:8788) so there is no mixed-content
+    // block — that is why Strategy 0 is same-origin.
+    async function resolveAudioUrl(videoId) {
+      // LAN resolver only when THIS PAGE is served by lan-server.mjs.
+      // Flutter Chrome (`localhost:xxxxx`) is NOT that server — hitting
+      // /api/streams there just 404s and wastes the user-gesture window.
+      var isLanPage = location.port === '8788' &&
+        (location.hostname === 'localhost' ||
+          /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(location.hostname));
+      if (isLanPage) {
+        try {
+          const resp = await fetch('/api/streams/' + encodeURIComponent(videoId), {
+            headers: { 'Accept': 'application/json' },
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && data.streamUrl) {
+              console.log('[TeloPlay] LAN resolver -> bound to', data.boundIp);
+              return { url: data.streamUrl, direct: !!data.direct };
+            }
+          }
+        } catch (e) {
+          console.warn('[TeloPlay] LAN resolver failed:', e.message);
+        }
+      }
+
+      // Worker windowed proxy. CORS Innertube proxies are dead in 2026 and
+      // only delay play() past Chrome's user-gesture window on Android.
+      return {
+        url: WORKER_AUDIO_BASE + encodeURIComponent(videoId),
+        direct: false,
+      };
+    }
+
+    window.playNativeAudio = async function(videoId) {
+      currentVideoId = videoId;
+      var token = ++nativePlayToken;
+      if (ytPlayer && ytPlayerReady) {
+        try { ytPlayer.stopVideo(); } catch (_) {}
+      }
+      var audio = ensureNativeAudio();
+      window.unlockNativeAudio();
+      window.startAudioKeepAlive();
+
+      const resolved = await resolveAudioUrl(videoId);
+      if (token !== nativePlayToken) return;
+      const audioUrl = resolved.url;
+      console.log('[TeloPlay] Native audio URL resolved:', audioUrl.substring(0, 120));
+      audio.crossOrigin = resolved.direct ? null : 'anonymous';
+      audio.muted = false;
+      audio.src = audioUrl;
+      try { audio.load(); } catch (_) {}
+      audio.play().then(function() {
+        if (token !== nativePlayToken) return;
+        nativeAudioReady = true;
+        isPlaying = true;
+        console.log('[TeloPlay] Native audio playing');
+        window.startAudioKeepAlive();
+      }).catch(function(e) {
+        console.error('[TeloPlay] Native audio play failed:', e && e.name, e && e.message);
+        isPlaying = false;
+        if (token === nativePlayToken && currentVideoId) {
+          console.warn('[TeloPlay] play() rejected — falling back to YouTube iframe');
+          window.playVideo(currentVideoId);
+        }
+      });
+    };
+
+    window.playNativeAudioWithFallback = async function(videoId) {
+      currentVideoId = videoId;
+      var token = ++nativePlayToken;
+      if (ytPlayer && ytPlayerReady) {
+        try { ytPlayer.stopVideo(); } catch (_) {}
+      }
+      var audio = ensureNativeAudio();
+      window.unlockNativeAudio();
+      window.startAudioKeepAlive();
+
+      try {
+        const resolved = await resolveAudioUrl(videoId);
+        if (token !== nativePlayToken) return;
+        const audioUrl = resolved.url;
+        console.log('[TeloPlay] Native audio URL resolved:', audioUrl.substring(0, 120));
+        audio.crossOrigin = resolved.direct ? null : 'anonymous';
+        audio.muted = false;
+        audio.src = audioUrl;
+        try { audio.load(); } catch (_) {}
+        await audio.play();
+        if (token !== nativePlayToken) return;
+        nativeAudioReady = true;
+        isPlaying = true;
+        console.log('[TeloPlay] Native audio playing');
+        window.startAudioKeepAlive();
+      } catch (e) {
+        console.error('[TeloPlay] Native audio failed:', e && e.name, e && e.message);
+        isPlaying = false;
+        if (token === nativePlayToken && currentVideoId) {
+          console.warn('[TeloPlay] Worker/native audio failed — falling back to YouTube iframe');
+          useNativeAudioJS = false;
+          try { setUseNativeAudio(false); } catch (_) {}
+          window.playVideo(currentVideoId);
+        }
+      }
+    };
+
+    window.pauseNativeAudio = function() {
+      if (nativeAudio) {
+        nativeAudio.pause();
+        isPlaying = false;
+        // Stop AudioContext keepalive when paused
+        window.stopAudioKeepAlive();
+      }
+    };
+
+    window.resumeNativeAudio = function() {
+      if (nativeAudio) {
+        nativeAudio.play().then(function() {
+          isPlaying = true;
+          // Resume AudioContext keepalive
+          window.startAudioKeepAlive();
+        }).catch(function(e) {
+          console.error('[TeloPlay] Native audio resume failed:', e);
+        });
+      }
+    };
+
+    window.getNativeCurrentTime = function() {
+      return nativeAudio ? nativeAudio.currentTime : 0;
+    };
+
+    window.getNativeDuration = function() {
+      return nativeAudio ? nativeAudio.duration : 0;
+    };
+
+    window.isNativePlaying = function() {
+      return nativeAudio ? !nativeAudio.paused : false;
+    };
+
+    // AudioContext keepalive trick for iOS Safari
+    // iOS suspends AudioContext when page is hidden, which can cause audio
+    // interruptions. We keep a silent AudioContext alive and play a dummy
+    // buffer periodically to prevent iOS from suspending it.
+    var audioCtx = null;
+    var audioKeepAliveTimer = null;
+    function initAudioKeepAlive() {
+      if (audioCtx) return;
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('[TeloPlay] AudioContext keepalive initialized');
+      } catch (e) {
+        console.warn('[TeloPlay] AudioContext not supported:', e.message);
+        return;
+      }
+    }
+    function keepAudioAlive() {
+      if (!audioCtx) return;
+      try {
+        // Create and play a silent buffer to keep AudioContext active
+        var buffer = audioCtx.createBuffer(1, 1, 22050);
+        var source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        source.start(0);
+      } catch (e) {
+        // Silently fail — this is just a keepalive trick
+      }
+    }
+    // Start keepalive when playing, stop when paused
+    window.startAudioKeepAlive = function() {
+      initAudioKeepAlive();
+      if (audioKeepAliveTimer) clearInterval(audioKeepAliveTimer);
+      keepAudioAlive(); // Play immediately
+      audioKeepAliveTimer = setInterval(keepAudioAlive, 5000); // Every 5 seconds
+      console.log('[TeloPlay] AudioContext keepalive started');
+    };
+    window.stopAudioKeepAlive = function() {
+      if (audioKeepAliveTimer) {
+        clearInterval(audioKeepAliveTimer);
+        audioKeepAliveTimer = null;
+      }
+      // Do not suspend AudioContext — that can yank the native <audio>
+      // session on Chrome Android.
+    };
+
+    // Media Session API for lock screen controls
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.setActionHandler('play', function() {
+        if (useNativeAudioJS) {
+          if (nativeAudio) {
+            nativeAudio.play().then(function() {
+              isPlaying = true;
+              window.startAudioKeepAlive();
+            });
+          } else if (currentVideoId) {
+            window.playNativeAudio(currentVideoId);
+          }
+        } else if (ytPlayer && ytPlayerReady) {
+          ytPlayer.playVideo();
+          isPlaying = true;
+          window.startAudioKeepAlive();
+        }
+      });
+      navigator.mediaSession.setActionHandler('pause', function() {
+        if (useNativeAudioJS && nativeAudio) {
+          nativeAudio.pause();
+          isPlaying = false;
+          window.stopAudioKeepAlive();
+        } else if (ytPlayer && ytPlayerReady) {
+          ytPlayer.pauseVideo();
+          isPlaying = false;
+          window.stopAudioKeepAlive();
+        }
+      });
+      navigator.mediaSession.setActionHandler('previoustrack', function() {
+        console.log('[TeloPlay] Previous track');
+      });
+      navigator.mediaSession.setActionHandler('nexttrack', function() {
+        console.log('[TeloPlay] Next track');
+      });
+      // Set playback state initially
+      navigator.mediaSession.playbackState = 'none';
+    }
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

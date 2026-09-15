@@ -15,8 +15,13 @@ dependencies:
   # 🎵 Audio Playback
   media_kit: ^1.1.9
   media_kit_libs_windows_audio: ^1.0.9
-
   media_kit_libs_android_audio: ^1.0.5
+
+  # 🌐 Web audio playback for the InnerTube Worker web app
+  just_audio: ^0.9.40
+  cached_network_image: ^3.4.1
+  google_fonts: ^6.2.1
+  rxdart: ^0.28.0
   
   # 🔗 HTTP + Future Sync Prep
   http: ^1.2.2
@@ -92,3 +97,6 @@ flutter:
   assets:
     - .env
     - assets/app_icon.ico
+    - assets/logo.png
+    - assets/icon.png
+    - assets/

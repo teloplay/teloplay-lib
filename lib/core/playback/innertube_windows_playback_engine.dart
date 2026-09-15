@@ -402,6 +402,26 @@ class InnertubeWindowsPlaybackEngine implements PlaybackEngine {
     return response;
   }
 
+  /// Moods and genres (items[] — title, items[])
+  Future<Map<String, dynamic>> getMoodsAndGenres() async {
+    await initialize();
+    final response = await _sendRequest('moods-and-genres', {});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException('moods-and-genres failed: ${response['error']}');
+    }
+    return response;
+  }
+
+  /// New releases (albums[] — albumId, title, year, thumbnail, artists[])
+  Future<Map<String, dynamic>> getNewReleases() async {
+    await initialize();
+    final response = await _sendRequest('new-releases', {});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException('new-releases failed: ${response['error']}');
+    }
+    return response;
+  }
+
   String _findJava() {
     if (_cachedJavaPath != null) return _cachedJavaPath!;
 
@@ -449,6 +469,82 @@ class InnertubeWindowsPlaybackEngine implements PlaybackEngine {
       'innertube-cli.jar পাওয়া যায়নি। assets/innertube-cli.jar আছে কিনা '
       'যাচাই করুন। Checked paths: ${candidates.join(", ")}',
     );
+  }
+
+  @override
+  Future<String?> getLyricsText(String videoId) async {
+    try {
+      final res = await getLyrics(videoId);
+      return res['lyrics'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getAlbum(String albumId) async {
+    try {
+      return await getAlbumTracks(albumId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getArtist(String artistId, {int limit = 0}) async {
+    try {
+      return await getArtistSongs(artistId, limit: limit);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<SearchResult>> getRelatedTracks(String videoId, {int limit = 20}) async {
+    try {
+      final res = await getRelatedSongs(videoId, limit: limit);
+      final raw = res['songs'] as List<dynamic>? ?? [];
+      return raw.map((item) {
+        final map = item as Map<String, dynamic>;
+        final id = map['videoId'] as String? ?? '';
+        return SearchResult(
+          videoId: id,
+          title: (map['title'] as String?) ?? 'Unknown',
+          author: (map['author'] as String?) ?? 'Unknown',
+          thumbnail: (map['thumbnail'] as String?) ?? 'https://img.youtube.com/vi/$id/mqdefault.jpg',
+          duration: map['duration'] != null ? Duration(seconds: map['duration'] as int) : null,
+        );
+      }).where((s) => s.videoId.isNotEmpty).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getPlaylist(String playlistId, {int limit = 0}) async {
+    try {
+      return await getPlaylistTracks(playlistId, limit: limit);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getExplore() async {
+    try {
+      return await getHome();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getChartsData() async {
+    try {
+      return await getCharts();
+    } catch (_) {
+      return null;
+    }
   }
 
   @override

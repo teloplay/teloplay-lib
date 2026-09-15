@@ -7,6 +7,8 @@ import '../../models/history_entry_model.dart';
 import '../../models/favorite_model.dart';
 import '../../models/search_models.dart';
 import '../../services/artwork_resolver.dart';
+import '../../models/statistics_model.dart';
+
 import '../drift/database.dart';
 import 'base_repository.dart';
 import 'sync_queue_helper.dart';
@@ -756,4 +758,243 @@ class LibraryRepository extends BaseRepository {
 
     return result;
   }
+
+
+  // ═══════════════════════════════════════════════════════════════
+  // Statistics & Listening Analytics (Phase 2)
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Calculates the user's current and longest consecutive-day listening streaks.
+  Future<StreakInfo> getStreakInfo() async {
+    final userId = _userId;
+    final rows = await (db.select(db.historyEntries)
+          ..where((t) => t.userId.equals(userId))
+          ..orderBy([(t) => OrderingTerm.desc(t.playedAt)]))
+        .get();
+
+    if (rows.isEmpty) return StreakInfo.empty;
+
+    final activeDays = <DateTime>{};
+    for (final r in rows) {
+      activeDays.add(DateTime(r.playedAt.year, r.playedAt.month, r.playedAt.day));
+    }
+
+    final sortedDays = activeDays.toList()..sort((a, b) => b.compareTo(a));
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    final isActiveToday = sortedDays.isNotEmpty && sortedDays.first == today;
+    final startsFrom = isActiveToday
+        ? today
+        : (sortedDays.isNotEmpty && sortedDays.first == yesterday ? yesterday : null);
+
+    int currentStreak = 0;
+    if (startsFrom != null) {
+      var checkDay = startsFrom;
+      for (final d in sortedDays) {
+        if (d == checkDay) {
+          currentStreak++;
+          checkDay = checkDay.subtract(const Duration(days: 1));
+        } else if (d.isBefore(checkDay)) {
+          break;
+        }
+      }
+    }
+
+    int longestStreak = 0;
+    int tempStreak = 0;
+    DateTime? prevDay;
+
+    for (final d in sortedDays.reversed) {
+      if (prevDay == null) {
+        tempStreak = 1;
+      } else {
+        final diff = d.difference(prevDay).inDays;
+        if (diff == 1) {
+          tempStreak++;
+        } else if (diff > 1) {
+          tempStreak = 1;
+        }
+      }
+      if (tempStreak > longestStreak) longestStreak = tempStreak;
+      prevDay = d;
+    }
+
+    return StreakInfo(
+      currentStreak: currentStreak,
+      longestStreak: longestStreak,
+      lastActiveDate: sortedDays.isNotEmpty ? sortedDays.first : null,
+      isActiveToday: isActiveToday,
+    );
+  }
+
+  List<ListeningPersonalityType> _computePersonalities(
+    int totalPlays,
+    int nightPlays,
+    int weekendPlays,
+    List<GenreStat> topGenres,
+    List<ArtistStat> topArtists,
+    int uniqueArtistsCount,
+  ) {
+    final personalities = <ListeningPersonalityType>[];
+    if (totalPlays > 0) {
+      if ((nightPlays / totalPlays) >= 0.35) personalities.add(ListeningPersonalityType.nightOwl);
+      if ((weekendPlays / totalPlays) >= 0.45) personalities.add(ListeningPersonalityType.weekendListener);
+      if (topGenres.any((g) => g.genre.toLowerCase().contains('rock') || g.genre.toLowerCase().contains('metal'))) {
+        personalities.add(ListeningPersonalityType.rockLover);
+      }
+      if (topGenres.any((g) => g.genre.toLowerCase().contains('chill') || g.genre.toLowerCase().contains('lo-fi') || g.genre.toLowerCase().contains('acoustic'))) {
+        personalities.add(ListeningPersonalityType.chillListener);
+      }
+      if (topGenres.any((g) => g.genre.toLowerCase().contains('electronic') || g.genre.toLowerCase().contains('bass') || g.genre.toLowerCase().contains('hip hop') || g.genre.toLowerCase().contains('edm'))) {
+        personalities.add(ListeningPersonalityType.bassLover);
+      }
+      if (topArtists.isNotEmpty && (topArtists.first.playCount / totalPlays) >= 0.4) {
+        personalities.add(ListeningPersonalityType.devotedFan);
+      }
+      if (uniqueArtistsCount >= 15) personalities.add(ListeningPersonalityType.explorer);
+    }
+    if (personalities.isEmpty) personalities.add(ListeningPersonalityType.explorer);
+    return personalities;
+  }
+
+
+  /// Aggregates detailed listening statistics, genre distribution, artist stats,
+  /// weekly/monthly summaries, and music personality.
+  Future<UserListeningStats> getUserListeningStats() async {
+    final userId = _userId;
+    final historyRows = await (db.select(db.historyEntries)
+          ..where((t) => t.userId.equals(userId)))
+        .get();
+
+    final songIds = historyRows.map((r) => r.songId).toSet().toList();
+    final songRows = songIds.isEmpty
+        ? <Song>[]
+        : await (db.select(db.songs)..where((t) => t.id.isIn(songIds))).get();
+    final songsById = {for (final s in songRows) s.id: s};
+
+    final streak = await getStreakInfo();
+
+    int totalPlays = 0;
+    int totalSkips = 0;
+    int totalDurationMs = 0;
+    int nightPlays = 0;
+    int weekendPlays = 0;
+
+    final artistPlays = <String, int>{};
+    final artistDurations = <String, int>{};
+    final artistThumbnails = <String, String?>{};
+    final artistIds = <String, String?>{};
+    final genrePlays = <String, int>{};
+    final genreDurations = <String, int>{};
+
+    final now = DateTime.now();
+    final oneWeekAgo = now.subtract(const Duration(days: 7));
+    final oneMonthAgo = now.subtract(const Duration(days: 30));
+
+    int weeklyPlays = 0, weeklySkips = 0, weeklyDurationMs = 0;
+    int monthlyPlays = 0, monthlySkips = 0, monthlyDurationMs = 0;
+
+    for (final h in historyRows) {
+      totalPlays++;
+      if (h.skipped == true) totalSkips++;
+      final dur = h.playedDurationMs ?? 0;
+      totalDurationMs += dur;
+
+      final hour = h.playedAt.hour;
+      if (hour >= 22 || hour < 5) nightPlays++;
+      if (h.playedAt.weekday == DateTime.saturday || h.playedAt.weekday == DateTime.sunday) {
+        weekendPlays++;
+      }
+
+      if (h.playedAt.isAfter(oneWeekAgo)) {
+        weeklyPlays++;
+        if (h.skipped == true) weeklySkips++;
+        weeklyDurationMs += dur;
+      }
+      if (h.playedAt.isAfter(oneMonthAgo)) {
+        monthlyPlays++;
+        if (h.skipped == true) monthlySkips++;
+        monthlyDurationMs += dur;
+      }
+
+      final song = songsById[h.songId];
+      if (song != null) {
+        final artist = song.author.isNotEmpty ? song.author : 'Unknown Artist';
+        artistPlays[artist] = (artistPlays[artist] ?? 0) + 1;
+        artistDurations[artist] = (artistDurations[artist] ?? 0) + dur;
+        if (!artistThumbnails.containsKey(artist) || artistThumbnails[artist] == null) {
+          artistThumbnails[artist] = song.thumbnail;
+        }
+        artistIds[artist] = song.artistId;
+
+        final genre = (song.genre != null && song.genre!.trim().isNotEmpty)
+            ? song.genre!.trim()
+            : 'Music';
+        genrePlays[genre] = (genrePlays[genre] ?? 0) + 1;
+        genreDurations[genre] = (genreDurations[genre] ?? 0) + dur;
+      }
+    }
+
+    final sortedArtists = artistPlays.keys.toList()
+      ..sort((a, b) => artistPlays[b]!.compareTo(artistPlays[a]!));
+    final topArtists = sortedArtists.take(10).map((name) {
+      return ArtistStat(
+        artistName: name,
+        artistId: artistIds[name],
+        thumbnail: artistThumbnails[name],
+        playCount: artistPlays[name] ?? 0,
+        totalDuration: Duration(milliseconds: artistDurations[name] ?? 0),
+      );
+    }).toList();
+
+    final totalGenrePlays = genrePlays.values.fold<int>(0, (acc, e) => acc + e);
+    final sortedGenres = genrePlays.keys.toList()
+      ..sort((a, b) => genrePlays[b]!.compareTo(genrePlays[a]!));
+    final topGenres = sortedGenres.take(8).map((g) {
+      final count = genrePlays[g] ?? 0;
+      final percentage = totalGenrePlays == 0 ? 0.0 : (count / totalGenrePlays);
+      return GenreStat(
+        genre: g,
+        playCount: count,
+        totalDuration: Duration(milliseconds: genreDurations[g] ?? 0),
+        percentage: percentage,
+      );
+    }).toList();
+
+    final personalities = _computePersonalities(
+      totalPlays, nightPlays, weekendPlays, topGenres, topArtists, sortedArtists.length,
+    );
+
+    return UserListeningStats(
+      streak: streak,
+      primaryPersonality: personalities.first,
+      secondaryPersonalities: personalities.skip(1).toList(),
+      totalTracksPlayed: totalPlays,
+      totalListeningTime: Duration(milliseconds: totalDurationMs),
+      topGenres: topGenres,
+      topArtists: topArtists,
+      weeklySummary: ListeningPeriodSummary(
+        startDate: oneWeekAgo,
+        endDate: now,
+        totalPlays: weeklyPlays,
+        totalSkips: weeklySkips,
+        totalListeningTime: Duration(milliseconds: weeklyDurationMs),
+        topArtists: topArtists.take(3).toList(),
+        topGenres: topGenres.take(3).toList(),
+      ),
+      monthlySummary: ListeningPeriodSummary(
+        startDate: oneMonthAgo,
+        endDate: now,
+        totalPlays: monthlyPlays,
+        totalSkips: monthlySkips,
+        totalListeningTime: Duration(milliseconds: monthlyDurationMs),
+        topArtists: topArtists.take(5).toList(),
+        topGenres: topGenres.take(5).toList(),
+      ),
+    );
+  }
 }
+
+

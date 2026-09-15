@@ -15,6 +15,11 @@ import '../screens/library/favorites_screen.dart';
 import '../screens/library/history_screen.dart';
 import '../screens/library/playlist_detail_screen.dart';
 import '../screens/library/playlists_screen.dart';
+import '../screens/library/statistics_screen.dart';
+
+import '../screens/library/recently_played_screen.dart';
+import '../screens/library/most_played_screen.dart';
+
 import '../screens/onboarding/getting_started_screen.dart';
 import '../screens/player/player_test_screen.dart';
 import '../screens/search/search_category_results_screen.dart';
@@ -298,6 +303,32 @@ GoRouter appRouter(Ref ref) {
       // ═══════════════════════════════════════════════════════════════
       // End Phase 6.5B
       // ═══════════════════════════════════════════════════════════════
+
+      GoRoute(
+        path: '/library/statistics',
+        pageBuilder: (context, state) => _platformAwarePage(
+          key: state.pageKey,
+          child: const StatisticsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/library/recent',
+        pageBuilder: (context, state) => _platformAwarePage(
+          key: state.pageKey,
+          child: const RecentlyPlayedScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/library/most',
+        pageBuilder: (context, state) => _platformAwarePage(
+          key: state.pageKey,
+          child: const MostPlayedScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/library/most-played',
+        redirect: (context, state) => '/library/most',
+      ),
 
       GoRoute(
         path: '/library/:section',

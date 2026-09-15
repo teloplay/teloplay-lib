@@ -8,6 +8,22 @@
 !render-api/**
 !render.yaml
 
+# Windows desktop runner & resources
+!windows/
+!windows/**
+windows/flutter/ephemeral/
+
+# Render Node.js worker backend
+!worker/
+!worker/**
+worker/node_modules/
+worker/.wrangler/
+
+# Web integration
+!web/
+!web/**
+
+
 # Keep the deployable Cloudflare Worker source/package files in version control.
 !workers/
 !workers/teloplay-stream/

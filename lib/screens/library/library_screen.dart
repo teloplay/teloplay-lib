@@ -14,6 +14,8 @@ import 'favorites_screen.dart';
 import 'history_screen.dart';
 import 'playlist_detail_screen.dart';
 import 'playlists_screen.dart';
+import 'statistics_screen.dart';
+
 
 /// Library central hub — Recently Played, Favorites, Most Played,
 /// Playlists all together in small preview form, each "See all" goes
@@ -69,6 +71,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         break;
       case 'most-played':
         break;
+      case 'statistics':
+        _openStatistics(context);
+        break;
+
     }
   }
 
@@ -103,6 +109,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       MaterialPageRoute(builder: (_) => const DownloadedSongsScreen()),
     );
   }
+
+  void _openStatistics(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const StatisticsScreen()),
+    );
+  }
+
 
   Future<void> _createPlaylist(BuildContext context, WidgetRef ref) async {
     final controller = TextEditingController();

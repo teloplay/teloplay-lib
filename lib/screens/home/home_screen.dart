@@ -14,6 +14,9 @@ import 'widgets/mobile_hero_carousel.dart';
 import 'widgets/smart_welcome_header.dart';
 import 'widgets/smart_welcome_header_mobile.dart';
 
+import '../../core/playback/playback_engine.dart';
+import 'widgets/quick_access_section.dart';
+
 /// Phase 6.5 UI-Batch 4 — HomeScreen এখন platform-branch করে: Desktop
 /// অপরিবর্তিত (compact header + single FeaturedHeroCard), Mobile নতুন
 /// (expanded header + swipeable 3-card carousel)। সব rail (Recently
@@ -86,6 +89,8 @@ class HomeScreen extends ConsumerWidget {
                 error: (_, __) => const SizedBox.shrink(),
               ),
 
+              const QuickAccessSection(),
+
               recentlyPlayed.when(
                 data: (list) => ContentRail(
                   title: 'Recently Played',
@@ -95,7 +100,7 @@ class HomeScreen extends ConsumerWidget {
                         title: e.title,
                         subtitle: e.author,
                         thumbnail: e.thumbnail,
-                        onTap: () => context.push('/history'),
+                        onTap: () => _playTrack(ref, e.songId, e.title, e.author, e.thumbnail),
                       )).toList(),
                 ),
                 loading: () => const SizedBox.shrink(),
@@ -111,7 +116,7 @@ class HomeScreen extends ConsumerWidget {
                         title: e.title,
                         subtitle: e.author,
                         thumbnail: e.thumbnail,
-                        onTap: () => context.push('/favorites'),
+                        onTap: () => _playTrack(ref, e.songId, e.title, e.author, e.thumbnail),
                       )).toList(),
                 ),
                 loading: () => const SizedBox.shrink(),
@@ -121,13 +126,13 @@ class HomeScreen extends ConsumerWidget {
               mostPlayed.when(
                 data: (list) => ContentRail(
                   title: 'Most Played',
-                  onSeeAll: () => context.push('/library/most-played'),
+                  onSeeAll: () => context.push('/library/most'),
                   items: list.map((e) => ContentRailItem(
                         id: e.songId,
                         title: e.title,
                         subtitle: e.author,
                         thumbnail: e.thumbnail,
-                        onTap: () => context.push('/library/most-played'),
+                        onTap: () => _playTrack(ref, e.songId, e.title, e.author, e.thumbnail),
                       )).toList(),
                 ),
                 loading: () => const SizedBox.shrink(),
@@ -143,7 +148,7 @@ class HomeScreen extends ConsumerWidget {
                         title: e.title,
                         subtitle: e.author,
                         thumbnail: e.thumbnail,
-                        onTap: () => context.push('/library'),
+                        onTap: () => _playTrack(ref, e.songId, e.title, e.author, e.thumbnail),
                       )).toList(),
                 ),
                 loading: () => const SizedBox.shrink(),
@@ -173,6 +178,18 @@ class HomeScreen extends ConsumerWidget {
     final manager = ref.read(continueSessionManagerProvider);
     await manager.dismiss(songId);
     ref.invalidate(continueSessionProvider);
+  }
+
+  void _playTrack(WidgetRef ref, String songId, String title, String author, String thumbnail) {
+    ref.read(musicPlayerRepositoryProvider).playVideoId(
+          songId,
+          trackInfo: SearchResult(
+            videoId: songId,
+            title: title,
+            author: author,
+            thumbnail: thumbnail,
+          ),
+        );
   }
 
   /// ৩টা সম্ভাব্য card থেকে যেগুলোর data আছে শুধু সেগুলোই বসানো হয় —

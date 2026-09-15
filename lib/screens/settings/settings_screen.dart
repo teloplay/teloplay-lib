@@ -3,14 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme_extension.dart';
 import '../../core/theme/app_theme.dart';
+import '../../providers/music_player_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../widgets/settings/audio_settings_widget.dart';
 import 'cache_settings_section.dart';
 
-// ⚠️ Phase 3 Item E — প্রকৃত Settings screen। এতদিন
-// `CacheSettingsSection` শুধু `/debug/cache-settings` debug route-এর
-// মাধ্যমে দেখা যেত। এখন এই screen সেই জায়গা নিচ্ছে — user-facing entry point।
-//
-// ভবিষ্যতে এখানে আরও section যোগ হবে (Theme, Account, About ইত্যাদি)।
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -18,6 +15,11 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.aurora;
     final themeMode = ref.watch(themeModeProvider);
+    final repo = ref.watch(musicPlayerRepositoryProvider);
+
+    final volumeNorm = ref.watch(volumeNormalizationProvider).value ?? true;
+    final crossfade = ref.watch(crossfadeEnabledProvider).value ?? true;
+    final crossfadeDuration = ref.watch(crossfadeDurationProvider).value ?? 1.5;
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -30,7 +32,7 @@ class SettingsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Theme Toggle Section
+            // Appearance Section
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Text(
@@ -62,7 +64,26 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            // Existing Cache Section
+
+            // Audio Experience Section (Volume Normalization & Crossfade)
+            AudioSettingsWidget(
+              volumeNormalizationEnabled: volumeNorm,
+              crossfadeEnabled: crossfade,
+              crossfadeDurationSeconds: crossfadeDuration,
+              onVolumeNormalizationChanged: (enabled) {
+                repo.setVolumeNormalizationEnabled(enabled);
+              },
+              onCrossfadeEnabledChanged: (enabled) {
+                repo.setCrossfadeEnabled(enabled);
+              },
+              onCrossfadeDurationChanged: (duration) {
+                repo.setCrossfadeDuration(duration);
+              },
+            ),
+
+            const SizedBox(height: 8),
+
+            // Cache Section
             const CacheSettingsSection(),
             const SizedBox(height: 24),
           ],

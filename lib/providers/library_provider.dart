@@ -40,6 +40,13 @@ final recentlyPlayedProvider =
   final repo = ref.watch(libraryRepositoryProvider);
   return repo.getRecentlyPlayed();
 });
+/// Most Played — Behaviour Tracking play-count query
+final mostPlayedProvider =
+    FutureProvider.autoDispose<List<RecentlyPlayedEntry>>((ref) async {
+  final repo = ref.watch(libraryRepositoryProvider);
+  return repo.getMostPlayed();
+});
+
 
 // ─────────────────────────────────────────────────────────────────────────
 // Favorites

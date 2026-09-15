@@ -98,6 +98,8 @@ class BehaviourStats {
     required this.completeCount,
     required this.totalListenDuration,
   });
+  double get skipRate => playCount == 0 ? 0.0 : (skipCount / playCount).clamp(0.0, 1.0);
+
 }
 
 /// একটা locally cached (downloaded) গান — Library-র "Downloaded Songs"
