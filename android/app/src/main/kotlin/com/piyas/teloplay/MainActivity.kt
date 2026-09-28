@@ -6,6 +6,11 @@ import com.arturo254.opentune.innertube.YouTube
 import com.arturo254.opentune.innertube.NewPipeUtils
 import com.arturo254.opentune.innertube.models.YouTubeClient
 import com.arturo254.opentune.innertube.models.SongItem
+import com.arturo254.opentune.innertube.models.AlbumItem
+import com.arturo254.opentune.innertube.models.ArtistItem
+import com.arturo254.opentune.innertube.models.PlaylistItem
+import com.arturo254.opentune.innertube.models.YTItem
+import com.arturo254.opentune.innertube.models.BrowseEndpoint
 import com.arturo254.opentune.innertube.models.WatchEndpoint
 import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -364,6 +369,76 @@ class MainActivity : AudioServiceFragmentActivity() {
         return result.queries
     }
 
+    // ========== SHARED ITEM MAPPERS (Windows CLI parity, additive only) ==========
+
+    private fun songToFullMap(song: SongItem): Map<String, Any?> = mapOf(
+        "type" to "song",
+        "videoId" to song.id,
+        "title" to song.title,
+        "author" to (song.artists.firstOrNull()?.name ?: "Unknown"),
+        "artistId" to song.artists.firstOrNull()?.id,
+        "allArtistNames" to song.artists.map { it.name },
+        "allArtistIds" to song.artists.map { it.id },
+        "thumbnail" to song.thumbnail,
+        "duration" to (song.duration ?: 0),
+        "albumId" to song.album?.id,
+        "albumName" to song.album?.name,
+        "explicit" to song.explicit,
+        "chartPosition" to song.chartPosition,
+        "chartChange" to song.chartChange,
+        "setVideoId" to song.setVideoId,
+    )
+
+    private fun albumItemToMap(album: AlbumItem): Map<String, Any?> = mapOf(
+        "type" to "album",
+        "albumId" to album.browseId,
+        "playlistId" to album.playlistId,
+        "title" to album.title,
+        "artists" to (album.artists?.map { a -> mapOf("name" to a.name, "id" to a.id) } ?: emptyList<Map<String, Any?>>()),
+        "year" to (album.year ?: 0),
+        "thumbnail" to album.thumbnail,
+        "explicit" to album.explicit,
+        "releaseType" to album.releaseType.name,
+    )
+
+    private fun artistItemToMap(artist: ArtistItem): Map<String, Any?> = mapOf(
+        "type" to "artist",
+        "artistId" to artist.id,
+        "title" to artist.title,
+        "thumbnail" to artist.thumbnail,
+        "channelId" to artist.channelId,
+        "subscriberCountText" to artist.subscriberCountText,
+        "monthlyListenerCountText" to artist.monthlyListenerCountText,
+    )
+
+    private fun playlistItemToMap(playlist: PlaylistItem): Map<String, Any?> = mapOf(
+        "type" to "playlist",
+        "playlistId" to playlist.id,
+        "title" to playlist.title,
+        "author" to (playlist.author?.name ?: ""),
+        "authorId" to playlist.author?.id,
+        "songCountText" to playlist.songCountText,
+        "thumbnail" to playlist.thumbnail,
+        "isEditable" to playlist.isEditable,
+    )
+
+    private fun ytItemToMap(item: YTItem): Map<String, Any?> = when (item) {
+        is SongItem -> songToFullMap(item)
+        is AlbumItem -> albumItemToMap(item)
+        is ArtistItem -> artistItemToMap(item)
+        is PlaylistItem -> playlistItemToMap(item)
+    }
+
+    private fun searchFilterFromName(name: String): YouTube.SearchFilter? = when (name.lowercase()) {
+        "song", "songs" -> YouTube.SearchFilter.FILTER_SONG
+        "video", "videos" -> YouTube.SearchFilter.FILTER_VIDEO
+        "album", "albums" -> YouTube.SearchFilter.FILTER_ALBUM
+        "artist", "artists" -> YouTube.SearchFilter.FILTER_ARTIST
+        "featured", "featured_playlist", "featured-playlist" -> YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST
+        "community", "community_playlist", "community-playlist" -> YouTube.SearchFilter.FILTER_COMMUNITY_PLAYLIST
+        else -> null
+    }
+
     // ========== NEW COMMANDS (main.kt থেকে পোর্ট করা) ==========
 
     // 1. VIDEO DETAILS — YouTube.next() + WatchEndpoint ব্যবহার করে
@@ -407,6 +482,7 @@ class MainActivity : AudioServiceFragmentActivity() {
             "year" to (album.year ?: 0),
             "trackCount" to songs.size,
             "tracks" to songs.map { track -> songToMap(track) },
+            "otherVersions" to albumPage.otherVersions.map { album -> albumItemToMap(album) },
         )
     }
 
@@ -431,8 +507,20 @@ class MainActivity : AudioServiceFragmentActivity() {
             "artistId" to artistId,
             "artistName" to artist.title,
             "thumbnail" to (artist.thumbnail ?: ""),
+            "channelId" to artist.channelId,
+            "subscriberCountText" to artist.subscriberCountText,
+            "monthlyListenerCountText" to artist.monthlyListenerCountText,
+            "description" to artistPage.description,
             "songCount" to limited.size,
             "songs" to limited.map { song -> songToMap(song) },
+            "sections" to artistPage.sections.map { section ->
+                mapOf(
+                    "title" to section.title,
+                    "moreBrowseId" to section.moreEndpoint?.browseId,
+                    "moreParams" to section.moreEndpoint?.params,
+                    "items" to section.items.map { item -> ytItemToMap(item) },
+                )
+            },
         )
     }
 
@@ -466,6 +554,9 @@ class MainActivity : AudioServiceFragmentActivity() {
                     "duration" to (song.duration ?: 0),
                 )
             },
+            "albums" to relatedPage.albums.map { album -> albumItemToMap(album) },
+            "artists" to relatedPage.artists.map { artist -> artistItemToMap(artist) },
+            "playlists" to relatedPage.playlists.map { playlist -> playlistItemToMap(playlist) },
         )
     }
 
@@ -488,6 +579,8 @@ class MainActivity : AudioServiceFragmentActivity() {
             "thumbnail" to (playlist.thumbnail ?: ""),
             "trackCount" to limited.size,
             "tracks" to limited.map { track -> songToMap(track) },
+            "songsContinuation" to playlistPage.songsContinuation,
+            "continuation" to playlistPage.continuation,
         )
     }
 
@@ -548,6 +641,7 @@ class MainActivity : AudioServiceFragmentActivity() {
 
         return mapOf(
             "ok" to true,
+            "continuation" to chartsPage.continuation,
             "sections" to chartsPage.sections.map { section ->
                 mapOf(
                     "title" to section.title,
@@ -567,6 +661,14 @@ class MainActivity : AudioServiceFragmentActivity() {
 
         return mapOf(
             "ok" to true,
+            "continuation" to homePage.continuation,
+            "chips" to (homePage.chips.orEmpty().map { chip ->
+                mapOf(
+                    "title" to chip.title,
+                    "browseId" to chip.endpoint?.browseId,
+                    "params" to chip.endpoint?.params,
+                )
+            }),
             "sections" to homePage.sections.map { section ->
                 mapOf(
                     "title" to section.title,
@@ -622,6 +724,444 @@ class MainActivity : AudioServiceFragmentActivity() {
                 )
             }
         )
+    }
+
+    // 12. EXPLORE — YouTube.explore()
+    private suspend fun getExplore(): Map<String, Any?> {
+        ensureVisitorData()
+
+        val page = YouTube.explore().getOrNull()
+            ?: return mapOf("ok" to false, "error" to "EXPLORE_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "newReleaseAlbums" to page.newReleaseAlbums.map { album -> albumItemToMap(album) },
+            "moodAndGenres" to page.moodAndGenres.map { item ->
+                mapOf(
+                    "title" to item.title,
+                    "stripeColor" to item.stripeColor,
+                    "browseId" to item.endpoint.browseId,
+                    "params" to item.endpoint.params,
+                )
+            },
+        )
+    }
+
+    // 13. BROWSE — generic drill-down (moods/genres chips, section endpoints)
+    private suspend fun browsePage(browseId: String, params: String?): Map<String, Any?> {
+        ensureVisitorData()
+
+        val result = YouTube.browse(browseId, params).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "BROWSE_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "browseId" to browseId,
+            "title" to result.title,
+            "thumbnail" to result.thumbnail,
+            "items" to result.items.map { section ->
+                mapOf(
+                    "title" to section.title,
+                    "items" to section.items.map { item -> ytItemToMap(item) },
+                )
+            },
+        )
+    }
+
+    // 14. FILTERED SEARCH — YouTube.search() with SearchFilter
+    private suspend fun searchFiltered(query: String, filterName: String, limit: Int = 0): Map<String, Any?> {
+        ensureVisitorData()
+
+        val filter = searchFilterFromName(filterName)
+            ?: return mapOf("ok" to false, "error" to "UNKNOWN_FILTER: $filterName")
+
+        val page = YouTube.search(query, filter).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "SEARCH_FAILED")
+
+        val items = if (limit <= 0) page.items else page.items.take(limit)
+
+        return mapOf(
+            "ok" to true,
+            "query" to query,
+            "filter" to filterName,
+            "continuation" to page.continuation,
+            "results" to items.map { item -> ytItemToMap(item) },
+        )
+    }
+
+    // 15. SEARCH CONTINUATION
+    private suspend fun searchContinuationPage(continuation: String, limit: Int = 0): Map<String, Any?> {
+        ensureVisitorData()
+
+        val page = YouTube.searchContinuation(continuation).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "SEARCH_CONTINUATION_FAILED")
+
+        val items = if (limit <= 0) page.items else page.items.take(limit)
+
+        return mapOf(
+            "ok" to true,
+            "continuation" to page.continuation,
+            "results" to items.map { item -> ytItemToMap(item) },
+        )
+    }
+
+    // 16. PLAYLIST CONTINUATION
+    private suspend fun playlistContinuationPage(continuation: String, limit: Int = 0): Map<String, Any?> {
+        ensureVisitorData()
+
+        val page = YouTube.playlistContinuation(continuation).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "PLAYLIST_CONTINUATION_FAILED")
+
+        val songs = if (limit <= 0) page.songs else page.songs.take(limit)
+
+        return mapOf(
+            "ok" to true,
+            "continuation" to page.continuation,
+            "tracks" to songs.map { song -> songToFullMap(song) },
+        )
+    }
+
+    // 17. ALBUM SONGS via playlistId — YouTube.albumSongs()
+    private suspend fun albumSongsPage(playlistId: String, limit: Int = 0): Map<String, Any?> {
+        ensureVisitorData()
+
+        val songs = YouTube.albumSongs(playlistId).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "ALBUM_SONGS_FAILED")
+
+        val limited = if (limit <= 0) songs else songs.take(limit)
+
+        return mapOf(
+            "ok" to true,
+            "playlistId" to playlistId,
+            "trackCount" to limited.size,
+            "tracks" to limited.map { song -> songToFullMap(song) },
+        )
+    }
+
+    // 18. ARTIST ITEMS — full discography section drill-down
+    private suspend fun artistItemsPage(browseId: String, params: String?, limit: Int = 0): Map<String, Any?> {
+        ensureVisitorData()
+
+        val endpoint = BrowseEndpoint(browseId = browseId, params = params)
+        val page = YouTube.artistItems(endpoint).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "ARTIST_ITEMS_FAILED")
+
+        val items = if (limit <= 0) page.items else page.items.take(limit)
+
+        return mapOf(
+            "ok" to true,
+            "title" to page.title,
+            "continuation" to page.continuation,
+            "items" to items.map { item -> ytItemToMap(item) },
+        )
+    }
+
+    // 19. ARTIST ITEMS CONTINUATION
+    private suspend fun artistItemsContinuationPage(continuation: String, limit: Int = 0): Map<String, Any?> {
+        ensureVisitorData()
+
+        val page = YouTube.artistItemsContinuation(continuation).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "ARTIST_ITEMS_CONTINUATION_FAILED")
+
+        val items = if (limit <= 0) page.items else page.items.take(limit)
+
+        return mapOf(
+            "ok" to true,
+            "continuation" to page.continuation,
+            "items" to items.map { item -> ytItemToMap(item) },
+        )
+    }
+
+    // 20. LIBRARY — logged-in user library (needs cookie, else LIBRARY_FAILED)
+    private suspend fun libraryPage(browseId: String, tabIndex: Int = 0): Map<String, Any?> {
+        ensureVisitorData()
+
+        val page = YouTube.library(browseId, tabIndex).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "LIBRARY_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "continuation" to page.continuation,
+            "items" to page.items.map { item -> ytItemToMap(item) },
+        )
+    }
+
+    // 21. LIBRARY CONTINUATION
+    private suspend fun libraryContinuationPage(continuation: String): Map<String, Any?> {
+        ensureVisitorData()
+
+        val page = YouTube.libraryContinuation(continuation).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "LIBRARY_CONTINUATION_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "continuation" to page.continuation,
+            "items" to page.items.map { item -> ytItemToMap(item) },
+        )
+    }
+
+    // 22. LIBRARY RECENT ACTIVITY
+    private suspend fun libraryRecentActivityPage(): Map<String, Any?> {
+        ensureVisitorData()
+
+        val page = YouTube.libraryRecentActivity().getOrNull()
+            ?: return mapOf("ok" to false, "error" to "LIBRARY_RECENT_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "continuation" to page.continuation,
+            "items" to page.items.map { item -> ytItemToMap(item) },
+        )
+    }
+
+    // 23. HISTORY — YT Music watch history (needs login)
+    private suspend fun historyPage(): Map<String, Any?> {
+        ensureVisitorData()
+
+        val page = YouTube.musicHistory().getOrNull()
+            ?: return mapOf("ok" to false, "error" to "HISTORY_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "sections" to (page.sections.orEmpty().map { section ->
+                mapOf(
+                    "title" to section.title,
+                    "songs" to section.songs.map { song -> songToFullMap(song) },
+                )
+            }),
+        )
+    }
+
+    // 24. ACCOUNT INFO — logged-in account (needs cookie)
+    private suspend fun accountInfoPage(): Map<String, Any?> {
+        ensureVisitorData()
+
+        val info = YouTube.accountInfo().getOrNull()
+            ?: return mapOf("ok" to false, "error" to "ACCOUNT_INFO_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "name" to info.name,
+            "email" to info.email,
+            "channelHandle" to info.channelHandle,
+            "thumbnailUrl" to info.thumbnailUrl,
+        )
+    }
+
+    // 25. QUEUE — resolve SongItems for videoIds / playlistId
+    private suspend fun queueSongs(videoIds: List<String>, playlistId: String?, limit: Int = 0): Map<String, Any?> {
+        ensureVisitorData()
+
+        val songs = YouTube.queue(
+            videoIds = videoIds.ifEmpty { null },
+            playlistId = playlistId,
+        ).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "QUEUE_FAILED")
+
+        val limited = if (limit <= 0) songs else songs.take(limit)
+
+        return mapOf(
+            "ok" to true,
+            "songs" to limited.map { song -> songToFullMap(song) },
+        )
+    }
+
+    // 26. TRANSCRIPT — timed captions (synced-lyrics source)
+    private suspend fun transcriptText(videoId: String): Map<String, Any?> {
+        ensureVisitorData()
+
+        val text = YouTube.transcript(videoId).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "TRANSCRIPT_NOT_FOUND")
+
+        return mapOf(
+            "ok" to true,
+            "videoId" to videoId,
+            "transcript" to text,
+            "isSynced" to true,
+        )
+    }
+
+    // 27. WATCH NEXT — full up-next queue with continuation + endpoint flags
+    private suspend fun watchNext(videoId: String, playlistId: String?, params: String?, continuation: String?): Map<String, Any?> {
+        ensureVisitorData()
+
+        val endpoint = WatchEndpoint(videoId = videoId, playlistId = playlistId, params = params)
+        val next = YouTube.next(endpoint, continuation).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "NEXT_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "videoId" to videoId,
+            "title" to next.title,
+            "currentIndex" to next.currentIndex,
+            "continuation" to next.continuation,
+            "hasLyrics" to (next.lyricsEndpoint != null),
+            "hasRelated" to (next.relatedEndpoint != null),
+            "lyricsBrowseId" to next.lyricsEndpoint?.browseId,
+            "lyricsParams" to next.lyricsEndpoint?.params,
+            "relatedBrowseId" to next.relatedEndpoint?.browseId,
+            "songs" to next.items.map { song -> songToFullMap(song) },
+        )
+    }
+
+    // 28. LIKE VIDEO — toggle (needs login)
+    private suspend fun likeVideoToggle(videoId: String, like: Boolean): Map<String, Any?> {
+        ensureVisitorData()
+
+        val result = YouTube.likeVideo(videoId, like)
+        return if (result.isSuccess) {
+            mapOf("ok" to true, "videoId" to videoId, "liked" to like)
+        } else {
+            mapOf("ok" to false, "error" to "LIKE_VIDEO_FAILED")
+        }
+    }
+
+    // 29. LIKE PLAYLIST — toggle (needs login)
+    private suspend fun likePlaylistToggle(playlistId: String, like: Boolean): Map<String, Any?> {
+        ensureVisitorData()
+
+        val result = YouTube.likePlaylist(playlistId, like)
+        return if (result.isSuccess) {
+            mapOf("ok" to true, "playlistId" to playlistId, "liked" to like)
+        } else {
+            mapOf("ok" to false, "error" to "LIKE_PLAYLIST_FAILED")
+        }
+    }
+
+    // 30. SUBSCRIBE CHANNEL — toggle (needs login)
+    private suspend fun subscribeToggle(channelId: String, subscribe: Boolean): Map<String, Any?> {
+        ensureVisitorData()
+
+        val result = YouTube.subscribeChannel(channelId, subscribe)
+        return if (result.isSuccess) {
+            mapOf("ok" to true, "channelId" to channelId, "subscribed" to subscribe)
+        } else {
+            mapOf("ok" to false, "error" to "SUBSCRIBE_FAILED")
+        }
+    }
+
+    // 31. CHANNEL ID — resolve artist browseId to channelId
+    private suspend fun channelIdOf(browseId: String): Map<String, Any?> {
+        ensureVisitorData()
+
+        return try {
+            val channelId = YouTube.getChannelId(browseId)
+            mapOf("ok" to true, "browseId" to browseId, "channelId" to channelId)
+        } catch (e: Exception) {
+            mapOf("ok" to false, "error" to "CHANNEL_ID_FAILED")
+        }
+    }
+
+    // 32. PLAYLIST CREATE (needs login)
+    private suspend fun playlistCreate(title: String): Map<String, Any?> {
+        ensureVisitorData()
+
+        val playlistId = YouTube.createPlaylist(title).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "PLAYLIST_CREATE_FAILED")
+
+        return mapOf("ok" to true, "playlistId" to playlistId)
+    }
+
+    // 33. PLAYLIST DELETE (needs login)
+    private suspend fun playlistDelete(playlistId: String): Map<String, Any?> {
+        ensureVisitorData()
+
+        val result = YouTube.deletePlaylist(playlistId)
+        return if (result.isSuccess) {
+            mapOf("ok" to true, "playlistId" to playlistId)
+        } else {
+            mapOf("ok" to false, "error" to "PLAYLIST_DELETE_FAILED")
+        }
+    }
+
+    // 34. PLAYLIST RENAME (needs login)
+    private suspend fun playlistRename(playlistId: String, name: String): Map<String, Any?> {
+        ensureVisitorData()
+
+        val result = YouTube.renamePlaylist(playlistId, name)
+        return if (result.isSuccess) {
+            mapOf("ok" to true, "playlistId" to playlistId, "name" to name)
+        } else {
+            mapOf("ok" to false, "error" to "PLAYLIST_RENAME_FAILED")
+        }
+    }
+
+    // 35. PLAYLIST ADD SONG (needs login)
+    private suspend fun playlistAdd(playlistId: String, videoId: String): Map<String, Any?> {
+        ensureVisitorData()
+
+        val setVideoId = YouTube.addToPlaylist(playlistId, videoId).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "PLAYLIST_ADD_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "playlistId" to playlistId,
+            "videoId" to videoId,
+            "setVideoId" to setVideoId,
+        )
+    }
+
+    // 36. PLAYLIST ADD PLAYLIST (needs login)
+    private suspend fun playlistAddPlaylist(playlistId: String, addPlaylistId: String): Map<String, Any?> {
+        ensureVisitorData()
+
+        val result = YouTube.addPlaylistToPlaylist(playlistId, addPlaylistId)
+        return if (result.isSuccess) {
+            mapOf("ok" to true, "playlistId" to playlistId)
+        } else {
+            mapOf("ok" to false, "error" to "PLAYLIST_ADD_PLAYLIST_FAILED")
+        }
+    }
+
+    // 37. PLAYLIST REMOVE SONG (needs login)
+    private suspend fun playlistRemove(playlistId: String, videoId: String, setVideoId: String): Map<String, Any?> {
+        ensureVisitorData()
+
+        val result = YouTube.removeFromPlaylist(playlistId, videoId, setVideoId)
+        return if (result.isSuccess) {
+            mapOf("ok" to true, "playlistId" to playlistId)
+        } else {
+            mapOf("ok" to false, "error" to "PLAYLIST_REMOVE_FAILED")
+        }
+    }
+
+    // 38. PLAYLIST MOVE SONG (needs login)
+    private suspend fun playlistMove(playlistId: String, setVideoId: String, successorSetVideoId: String?): Map<String, Any?> {
+        ensureVisitorData()
+
+        val result = YouTube.moveSongPlaylist(playlistId, setVideoId, successorSetVideoId)
+        return if (result.isSuccess) {
+            mapOf("ok" to true, "playlistId" to playlistId)
+        } else {
+            mapOf("ok" to false, "error" to "PLAYLIST_MOVE_FAILED")
+        }
+    }
+
+    // 39. PLAYLIST ENTRY SET-VIDEO-IDS
+    private suspend fun playlistEntrySetVideoIds(playlistId: String, videoId: String): Map<String, Any?> {
+        ensureVisitorData()
+
+        val ids = YouTube.playlistEntrySetVideoIds(playlistId, videoId).getOrNull()
+            ?: return mapOf("ok" to false, "error" to "PLAYLIST_ENTRY_LOOKUP_FAILED")
+
+        return mapOf(
+            "ok" to true,
+            "playlistId" to playlistId,
+            "videoId" to videoId,
+            "setVideoIds" to ids,
+        )
+    }
+
+    // 40. REGISTER PLAYBACK — playback stats ping
+    private suspend fun registerPlaybackEvent(playbackTracking: String, playlistId: String?): Map<String, Any?> {
+        ensureVisitorData()
+
+        val result = YouTube.registerPlayback(playlistId = playlistId, playbackTracking = playbackTracking)
+        return if (result.isSuccess) {
+            mapOf("ok" to true)
+        } else {
+            mapOf("ok" to false, "error" to "REGISTER_PLAYBACK_FAILED")
+        }
     }
 
     // ========== GENERIC COMMAND DISPATCH (main.kt এর handleCommand() এর সমতুল্য) ==========
@@ -691,10 +1231,210 @@ class MainActivity : AudioServiceFragmentActivity() {
                     ?: return mapOf("ok" to false, "error" to "videoId missing")
                 getMediaInfo(videoId)
             }
-            "charts" -> getCharts()
-            "home" -> getHome()
+            "charts" -> {
+                val continuation = (params["continuation"] as? String)?.takeUnless { it.isBlank() }
+                if (continuation != null) {
+                    val page = YouTube.getChartsPage(continuation).getOrNull()
+                        ?: return mapOf("ok" to false, "error" to "CHARTS_FAILED")
+                    mapOf(
+                        "ok" to true,
+                        "continuation" to page.continuation,
+                        "sections" to page.sections.map { section ->
+                            mapOf(
+                                "title" to section.title,
+                                "chartType" to section.chartType.name,
+                                "songs" to section.items.filterIsInstance<SongItem>().map { song -> songToFullMap(song) },
+                            )
+                        },
+                    )
+                } else getCharts()
+            }
+            "home" -> {
+                val continuation = (params["continuation"] as? String)?.takeUnless { it.isBlank() }
+                val homeParams = (params["params"] as? String)?.takeUnless { it.isBlank() }
+                if (continuation != null || homeParams != null) {
+                    val page = YouTube.home(continuation, homeParams).getOrNull()
+                        ?: return mapOf("ok" to false, "error" to "HOME_FAILED")
+                    mapOf(
+                        "ok" to true,
+                        "continuation" to page.continuation,
+                        "sections" to page.sections.map { section ->
+                            mapOf(
+                                "title" to section.title,
+                                "songs" to section.items.filterIsInstance<SongItem>().map { song -> songToFullMap(song) },
+                            )
+                        },
+                    )
+                } else getHome()
+            }
             "moods-and-genres" -> getMoodAndGenres()
             "new-releases" -> getNewReleases()
+            "explore" -> getExplore()
+            "browse" -> {
+                val browseId = params["browseId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "browseId missing")
+                val browseParams = (params["params"] as? String)?.takeUnless { it.isBlank() }
+                browsePage(browseId, browseParams)
+            }
+            "search-filter" -> {
+                val query = params["query"] as? String
+                    ?: return mapOf("ok" to false, "error" to "query missing")
+                val filter = params["filter"] as? String ?: "song"
+                val limit = (params["limit"] as? Int) ?: 0
+                searchFiltered(query, filter, limit)
+            }
+            "search-continuation" -> {
+                val continuation = params["continuation"] as? String
+                    ?: return mapOf("ok" to false, "error" to "continuation missing")
+                val limit = (params["limit"] as? Int) ?: 0
+                searchContinuationPage(continuation, limit)
+            }
+            "playlist-continuation" -> {
+                val continuation = params["continuation"] as? String
+                    ?: return mapOf("ok" to false, "error" to "continuation missing")
+                val limit = (params["limit"] as? Int) ?: 0
+                playlistContinuationPage(continuation, limit)
+            }
+            "album-songs" -> {
+                val playlistId = params["playlistId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "playlistId missing")
+                val limit = (params["limit"] as? Int) ?: 0
+                albumSongsPage(playlistId, limit)
+            }
+            "artist-items" -> {
+                val browseId = params["browseId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "browseId missing")
+                val itemParams = (params["params"] as? String)?.takeUnless { it.isBlank() }
+                val limit = (params["limit"] as? Int) ?: 0
+                artistItemsPage(browseId, itemParams, limit)
+            }
+            "artist-items-continuation" -> {
+                val continuation = params["continuation"] as? String
+                    ?: return mapOf("ok" to false, "error" to "continuation missing")
+                val limit = (params["limit"] as? Int) ?: 0
+                artistItemsContinuationPage(continuation, limit)
+            }
+            "library" -> {
+                val browseId = (params["browseId"] as? String)?.takeUnless { it.isBlank() }
+                    ?: "FEmusic_library_landing"
+                val tabIndex = (params["tabIndex"] as? Int) ?: 0
+                libraryPage(browseId, tabIndex)
+            }
+            "library-continuation" -> {
+                val continuation = params["continuation"] as? String
+                    ?: return mapOf("ok" to false, "error" to "continuation missing")
+                libraryContinuationPage(continuation)
+            }
+            "library-recent" -> libraryRecentActivityPage()
+            "history" -> historyPage()
+            "account-info" -> accountInfoPage()
+            "queue" -> {
+                @Suppress("UNCHECKED_CAST")
+                val videoIds = (params["videoIds"] as? List<*>)?.mapNotNull { it as? String }.orEmpty()
+                val queuePlaylistId = (params["playlistId"] as? String)?.takeUnless { it.isBlank() }
+                if (videoIds.isEmpty() && queuePlaylistId == null) {
+                    return mapOf("ok" to false, "error" to "videoIds or playlistId missing")
+                }
+                val limit = (params["limit"] as? Int) ?: 0
+                queueSongs(videoIds, queuePlaylistId, limit)
+            }
+            "transcript" -> {
+                val videoId = params["videoId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "videoId missing")
+                transcriptText(videoId)
+            }
+            "next" -> {
+                val videoId = params["videoId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "videoId missing")
+                val nextPlaylistId = (params["playlistId"] as? String)?.takeUnless { it.isBlank() }
+                val nextParams = (params["params"] as? String)?.takeUnless { it.isBlank() }
+                val nextContinuation = (params["continuation"] as? String)?.takeUnless { it.isBlank() }
+                watchNext(videoId, nextPlaylistId, nextParams, nextContinuation)
+            }
+            "like-video" -> {
+                val videoId = params["videoId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "videoId missing")
+                val like = (params["like"] as? Boolean) ?: true
+                likeVideoToggle(videoId, like)
+            }
+            "like-playlist" -> {
+                val playlistId = params["playlistId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "playlistId missing")
+                val like = (params["like"] as? Boolean) ?: true
+                likePlaylistToggle(playlistId, like)
+            }
+            "subscribe" -> {
+                val channelId = params["channelId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "channelId missing")
+                val subscribe = (params["subscribe"] as? Boolean) ?: true
+                subscribeToggle(channelId, subscribe)
+            }
+            "channel-id" -> {
+                val browseId = params["browseId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "browseId missing")
+                channelIdOf(browseId)
+            }
+            "playlist-create" -> {
+                val title = params["title"] as? String
+                    ?: return mapOf("ok" to false, "error" to "title missing")
+                playlistCreate(title)
+            }
+            "playlist-delete" -> {
+                val playlistId = params["playlistId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "playlistId missing")
+                playlistDelete(playlistId)
+            }
+            "playlist-rename" -> {
+                val playlistId = params["playlistId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "playlistId missing")
+                val name = params["name"] as? String
+                    ?: return mapOf("ok" to false, "error" to "name missing")
+                playlistRename(playlistId, name)
+            }
+            "playlist-add" -> {
+                val playlistId = params["playlistId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "playlistId missing")
+                val videoId = params["videoId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "videoId missing")
+                playlistAdd(playlistId, videoId)
+            }
+            "playlist-add-playlist" -> {
+                val playlistId = params["playlistId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "playlistId missing")
+                val addPlaylistId = params["addPlaylistId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "addPlaylistId missing")
+                playlistAddPlaylist(playlistId, addPlaylistId)
+            }
+            "playlist-remove" -> {
+                val playlistId = params["playlistId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "playlistId missing")
+                val videoId = params["videoId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "videoId missing")
+                val setVideoId = params["setVideoId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "setVideoId missing")
+                playlistRemove(playlistId, videoId, setVideoId)
+            }
+            "playlist-move" -> {
+                val playlistId = params["playlistId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "playlistId missing")
+                val setVideoId = params["setVideoId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "setVideoId missing")
+                val successorSetVideoId = (params["successorSetVideoId"] as? String)?.takeUnless { it.isBlank() }
+                playlistMove(playlistId, setVideoId, successorSetVideoId)
+            }
+            "playlist-entry-set-video-ids" -> {
+                val playlistId = params["playlistId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "playlistId missing")
+                val videoId = params["videoId"] as? String
+                    ?: return mapOf("ok" to false, "error" to "videoId missing")
+                playlistEntrySetVideoIds(playlistId, videoId)
+            }
+            "register-playback" -> {
+                val playbackTracking = params["playbackTracking"] as? String
+                    ?: return mapOf("ok" to false, "error" to "playbackTracking missing")
+                val trackingPlaylistId = (params["playlistId"] as? String)?.takeUnless { it.isBlank() }
+                registerPlaybackEvent(playbackTracking, trackingPlaylistId)
+            }
             else -> mapOf("ok" to false, "error" to "unknown cmd: $cmd")
         }
     }

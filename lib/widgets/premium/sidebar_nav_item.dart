@@ -24,7 +24,7 @@ class SidebarSectionHeader extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
-          color: aurora.textDisabled,
+          color: aurora.textTertiary,
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.1,

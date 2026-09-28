@@ -37,7 +37,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   bool get _isGoogleSignInSupportedOnThisPlatform =>
       kIsWeb ||
       defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.iOS;
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.windows;
 
   Future<void> _continueAsGuest() async {
     setState(() {

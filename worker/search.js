@@ -345,7 +345,9 @@ export function rendererToTrack(renderer) {
   }
 
   const info = extractTrackInfo(renderer.flexColumns || []);
-  const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  // hq720 (1280x720, 16:9 clean) — NOT hqdefault (480x360 letterboxed,
+  // black bars get cropped by cover-fit artwork widgets).
+  const thumbnail = `https://i.ytimg.com/vi/${videoId}/hq720.jpg`;
   const plays = extractPlays(renderer);
 
   return {
@@ -367,7 +369,8 @@ export function cardShelfToTrack(item) {
 
   const subtitleGroups = item?.subtitle?.runs || [];
   const info = extractTrackInfo([{ musicResponsiveListItemFlexColumnRenderer: { text: { runs: titleRuns } } }, { musicResponsiveListItemFlexColumnRenderer: { text: { runs: subtitleGroups } } }]);
-  const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  // hq720 (1280x720, 16:9 clean) — see note in rendererToTrack.
+  const thumbnail = `https://i.ytimg.com/vi/${videoId}/hq720.jpg`;
   const plays = extractPlays(item);
 
   return {
@@ -418,7 +421,8 @@ function webVideoRendererToTrack(renderer) {
     }
   }
   
-  const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  // hq720 (1280x720, 16:9 clean) — see note in rendererToTrack.
+  const thumbnail = `https://i.ytimg.com/vi/${videoId}/hq720.jpg`;
 
   return {
     videoId,

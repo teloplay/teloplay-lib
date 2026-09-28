@@ -66,20 +66,12 @@ class PremiumSidebar extends StatelessWidget {
                     compact: collapsed,
                     onTap: () => onDestinationSelected(0),
                   ),
-                  SidebarNavItem(
-                    icon: Icons.search_outlined,
-                    selectedIcon: Icons.search,
-                    label: 'Search',
-                    selected: selectedIndex == 1,
-                    compact: collapsed,
-                    onTap: () => onDestinationSelected(1),
-                  ),
                   const SizedBox(height: 8),
-                  SidebarSectionHeader(label: 'YOUR SPACE'),
+                  const SidebarSectionHeader(label: 'YOUR SPACE'),
                   SidebarNavItem(
                     icon: Icons.library_music_outlined,
                     selectedIcon: Icons.library_music,
-                    label: 'Library',
+                    label: 'Library Overview',
                     selected: _onLibraryTab && activeLibrarySection == null,
                     compact: collapsed,
                     onTap: () {
@@ -87,55 +79,62 @@ class PremiumSidebar extends StatelessWidget {
                       onLibrarySectionSelected('root');
                     },
                   ),
-                  SidebarNavItem(
-                    icon: Icons.favorite_border,
-                    selectedIcon: Icons.favorite,
-                    label: 'Favorites',
-                    selected: _onLibraryTab && activeLibrarySection == 'favorites',
-                    compact: collapsed,
-                    onTap: () {
-                      onDestinationSelected(2);
-                      onLibrarySectionSelected('favorites');
-                    },
-                  ),
-                  SidebarNavItem(
-                    icon: Icons.playlist_play_outlined,
-                    selectedIcon: Icons.playlist_play,
-                    label: 'Playlists',
-                    selected: _onLibraryTab && activeLibrarySection == 'playlists',
-                    compact: collapsed,
-                    onTap: () {
-                      onDestinationSelected(2);
-                      onLibrarySectionSelected('playlists');
-                    },
-                  ),
-                  SidebarNavItem(
-                    icon: Icons.download_outlined,
-                    selectedIcon: Icons.download_done,
-                    label: 'Offline',
-                    selected: _onLibraryTab &&
-                        (activeLibrarySection == 'offline' ||
-                            activeLibrarySection == 'offline/downloaded' ||
-                            activeLibrarySection == 'offline/cached'),
-                    compact: collapsed,
-                    onTap: () {
-                      onDestinationSelected(2);
-                      onLibrarySectionSelected('offline');
-                    },
-                  ),
-                  SidebarNavItem(
-                    icon: Icons.history,
-                    selectedIcon: Icons.history,
-                    label: 'Recently Played',
-                    selected: _onLibraryTab && activeLibrarySection == 'recent',
-                    compact: collapsed,
-                    onTap: () {
-                      onDestinationSelected(2);
-                      onLibrarySectionSelected('recent');
-                    },
+                  Padding(
+                    padding: EdgeInsets.only(left: collapsed ? 0 : 6),
+                    child: Column(
+                      children: [
+                        SidebarNavItem(
+                          icon: Icons.favorite_border,
+                          selectedIcon: Icons.favorite,
+                          label: 'Favorites',
+                          selected: _onLibraryTab && activeLibrarySection == 'favorites',
+                          compact: collapsed,
+                          onTap: () {
+                            onDestinationSelected(2);
+                            onLibrarySectionSelected('favorites');
+                          },
+                        ),
+                        SidebarNavItem(
+                          icon: Icons.playlist_play_outlined,
+                          selectedIcon: Icons.playlist_play,
+                          label: 'Playlists',
+                          selected: _onLibraryTab && activeLibrarySection == 'playlists',
+                          compact: collapsed,
+                          onTap: () {
+                            onDestinationSelected(2);
+                            onLibrarySectionSelected('playlists');
+                          },
+                        ),
+                        SidebarNavItem(
+                          icon: Icons.download_outlined,
+                          selectedIcon: Icons.download_done,
+                          label: 'Offline',
+                          selected: _onLibraryTab &&
+                              (activeLibrarySection == 'offline' ||
+                                  activeLibrarySection == 'offline/downloaded' ||
+                                  activeLibrarySection == 'offline/cached'),
+                          compact: collapsed,
+                          onTap: () {
+                            onDestinationSelected(2);
+                            onLibrarySectionSelected('offline');
+                          },
+                        ),
+                        SidebarNavItem(
+                          icon: Icons.history,
+                          selectedIcon: Icons.history,
+                          label: 'Recently Played',
+                          selected: _onLibraryTab && activeLibrarySection == 'recent',
+                          compact: collapsed,
+                          onTap: () {
+                            onDestinationSelected(2);
+                            onLibrarySectionSelected('recent');
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  SidebarSectionHeader(label: 'COLLECTIONS'),
+                  const SidebarSectionHeader(label: 'COLLECTIONS'),
                   SidebarNavItem(
                     icon: Icons.local_fire_department_outlined,
                     selectedIcon: Icons.local_fire_department,
@@ -156,17 +155,9 @@ class PremiumSidebar extends StatelessWidget {
               child: Column(
                 children: [
                   SidebarNavItem(
-                    icon: Icons.settings_outlined,
-                    selectedIcon: Icons.settings,
-                    label: 'Settings',
-                    selected: false,
-                    compact: collapsed,
-                    onTap: onSettingsTap,
-                  ),
-                  SidebarNavItem(
                     icon: Icons.person_outline,
                     selectedIcon: Icons.person,
-                    label: 'Profile',
+                    label: 'Profile & Settings',
                     selected: selectedIndex == 3,
                     compact: collapsed,
                     onTap: () => onDestinationSelected(3),

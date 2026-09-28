@@ -1,6 +1,10 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/config/env_config.dart';
 
@@ -101,18 +105,26 @@ class AuthService {
   }
 
   /// Google দিয়ে sign in করে।
-  /// Android/iOS-এ native GoogleSignIn, Web-এ Supabase OAuth।
+  /// Android/iOS-এ native GoogleSignIn, Web-এ Supabase OAuth,
+  /// Windows-এ local server দিয়ে browser-based OAuth flow।
   Future<void> signInWithGoogle() async {
     if (kIsWeb) {
       await signInWithOAuthWeb(OAuthProvider.google);
       return;
     }
 
+    // Windows desktop: local server দিয়ে OAuth
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      await _signInWithGoogleDesktop();
+      return;
+    }
+
+    // Android/iOS: native Google Sign-In
     if (!(defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS)) {
       throw UnsupportedError(
         'Google Sign-In এই platform-এ এখনো সাপোর্টেড না। '
-        'শুধু Android/iOS/Web-এ কাজ করে।',
+        'শুধু Android/iOS/Web/Windows-এ কাজ করে।',
       );
     }
 
@@ -141,6 +153,119 @@ class AuthService {
       provider: OAuthProvider.google,
       idToken: idToken,
     );
+  }
+
+  /// Windows desktop এর জন্য Google Sign-In:
+  /// 1. Local HTTP server start করে (localhost:8080)
+  /// 2. Browser open করে Google OAuth URL-এ
+  /// 3. Callback URL থেকে authorization code পায়
+  /// 4. Supabase-এ session তৈরি করে
+  Future<void> _signInWithGoogleDesktop() async {
+    const redirectPort = 8080;
+    const redirectUri = 'http://localhost:$redirectPort/auth/callback';
+
+    // Local server start
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, redirectPort);
+
+    try {
+      // Supabase OAuth URL তৈরি
+      final authResponse = await _client.auth.getOAuthSignInUrl(
+        provider: OAuthProvider.google,
+        redirectTo: redirectUri,
+      );
+      final authUrl = authResponse.url;
+
+      // Browser open করে OAuth flow শুরু
+      final uri = Uri.parse(authUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        throw Exception('Browser খুলতে পারেনি। URL: $authUrl');
+      }
+
+      // Callback শোনা শুরু (timeout: 5 minutes)
+      final request = await server.first.timeout(
+        const Duration(minutes: 5),
+        onTimeout: () => throw TimeoutException('Sign-in timeout হয়ে গেছে'),
+      );
+
+      // Query parameters থেকে code/error নেওয়া
+      final queryParams = request.uri.queryParameters;
+
+      if (queryParams.containsKey('error')) {
+        final error = queryParams['error'];
+        final errorDescription = queryParams['error_description'] ?? error;
+        throw Exception('OAuth error: $errorDescription');
+      }
+
+      final code = queryParams['code'];
+      if (code == null) {
+        throw Exception('Authorization code পাওয়া যায়নি');
+      }
+
+      // Success response পাঠানো browser-এ
+      request.response
+        ..statusCode = HttpStatus.ok
+        ..headers.contentType = ContentType.html
+        ..write('''
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Sign In Successful</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              }
+              .card {
+                background: white;
+                padding: 40px;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                text-align: center;
+                max-width: 400px;
+              }
+              .success-icon {
+                width: 60px;
+                height: 60px;
+                background: #4CAF50;
+                border-radius: 50%;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 20px;
+              }
+              h1 { color: #333; margin: 0 0 10px; font-size: 24px; }
+              p { color: #666; margin: 0; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="success-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <h1>✅ Sign In Successful!</h1>
+              <p>You can now close this window and return to TeloPlay.</p>
+            </div>
+          </body>
+          </html>
+        ''');
+      await request.response.close();
+
+      // Supabase session তৈরি করা authorization code দিয়ে
+      await _client.auth.exchangeCodeForSession(code);
+
+    } finally {
+      // Server বন্ধ করা
+      await server.close();
+    }
   }
 
   // ─────────────────────────────────────────────────────────

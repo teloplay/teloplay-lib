@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme_extension.dart';
 import '../../models/playlist_model.dart';
 import '../../providers/playlist_provider.dart';
 import '../../widgets/cached_artwork.dart';
-import 'playlist_detail_screen.dart';
 
 /// সব playlist-এর full list — Library "Playlists → See all" থেকে খোলা
 /// হয়, এবং এখান থেকেই নতুন playlist তৈরি করা যায় (FAB)।
@@ -53,11 +53,7 @@ class PlaylistsScreen extends ConsumerWidget {
         .createPlaylist(name: name.trim());
 
     if (!context.mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PlaylistDetailScreen(playlistId: playlistId),
-      ),
-    );
+    context.push('/library/playlists/$playlistId');
   }
 
   Future<void> _showRenameDialog(
@@ -249,14 +245,7 @@ class PlaylistsScreen extends ConsumerWidget {
                     child: Icon(Icons.more_vert, color: theme.textSecondary),
                   ),
                 ),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          PlaylistDetailScreen(playlistId: playlist.id),
-                    ),
-                  );
-                },
+                onTap: () => context.push('/library/playlists/${playlist.id}'),
               );
             },
           );

@@ -32,10 +32,19 @@ class AuroraColors extends ThemeExtension<AuroraColors> {
   final Color secondary;
   final Color textPrimary;
   final Color textSecondary;
+  final Color textTertiary;
   final Color textDisabled;
+  /// Pure white — small/emphasis text only, never large body copy.
+  final Color textEmphasis;
   final Color error;
   final Color success;
   final Color glassTint;
+  /// Panel fill for [GlassContainer]. Split out from [glassTint] because
+  /// the old single token was used at `withOpacity(0.06)`, which is
+  /// effectively invisible on #0A0C10 — the frosted panels read as empty
+  /// space instead of as glass. These are the resolved alphas.
+  final Color glassFill;
+  final Color glassFillStrong;
   final Color glassBorder;
   final Color shadowColor;
   final Gradient accentGradient;
@@ -55,10 +64,14 @@ class AuroraColors extends ThemeExtension<AuroraColors> {
     required this.secondary,
     required this.textPrimary,
     required this.textSecondary,
+    required this.textTertiary,
     required this.textDisabled,
+    required this.textEmphasis,
     required this.error,
     required this.success,
     required this.glassTint,
+    required this.glassFill,
+    required this.glassFillStrong,
     required this.glassBorder,
     required this.shadowColor,
     required this.accentGradient,
@@ -78,10 +91,14 @@ class AuroraColors extends ThemeExtension<AuroraColors> {
     secondary: AppColors.secondary,
     textPrimary: AppColors.textPrimary,
     textSecondary: AppColors.textSecondary,
+    textTertiary: AppColors.textTertiary,
     textDisabled: AppColors.textDisabled,
+    textEmphasis: AppColors.textEmphasis,
     error: AppColors.error,
     success: AppColors.success,
     glassTint: AppColors.glassTintDark,
+    glassFill: AppColors.glassFillHigh,
+    glassFillStrong: AppColors.glassFillHighStrong,
     glassBorder: AppColors.glassBorderDark,
     shadowColor: AppColors.shadowColor,
     accentGradient: AppColors.accentGradient,
@@ -97,10 +114,14 @@ class AuroraColors extends ThemeExtension<AuroraColors> {
     secondary: AppColors.secondary,
     textPrimary: AppColors.textPrimary,
     textSecondary: AppColors.textSecondary,
+    textTertiary: AppColors.textTertiary,
     textDisabled: AppColors.textDisabled,
+    textEmphasis: AppColors.textEmphasis,
     error: AppColors.error,
     success: AppColors.success,
     glassTint: AppColors.glassTintDark,
+    glassFill: AppColors.glassFillAmoled,
+    glassFillStrong: AppColors.glassFillAmoledStrong,
     glassBorder: AppColors.glassBorderDark,
     shadowColor: AppColors.shadowColor,
     accentGradient: AppColors.accentGradient,
@@ -117,10 +138,14 @@ class AuroraColors extends ThemeExtension<AuroraColors> {
     Color? secondary,
     Color? textPrimary,
     Color? textSecondary,
+    Color? textTertiary,
     Color? textDisabled,
+    Color? textEmphasis,
     Color? error,
     Color? success,
     Color? glassTint,
+    Color? glassFill,
+    Color? glassFillStrong,
     Color? glassBorder,
     Color? shadowColor,
     Gradient? accentGradient,
@@ -137,10 +162,14 @@ class AuroraColors extends ThemeExtension<AuroraColors> {
       secondary: secondary ?? this.secondary,
       textPrimary: textPrimary ?? this.textPrimary,
       textSecondary: textSecondary ?? this.textSecondary,
+      textTertiary: textTertiary ?? this.textTertiary,
       textDisabled: textDisabled ?? this.textDisabled,
+      textEmphasis: textEmphasis ?? this.textEmphasis,
       error: error ?? this.error,
       success: success ?? this.success,
       glassTint: glassTint ?? this.glassTint,
+      glassFill: glassFill ?? this.glassFill,
+      glassFillStrong: glassFillStrong ?? this.glassFillStrong,
       glassBorder: glassBorder ?? this.glassBorder,
       shadowColor: shadowColor ?? this.shadowColor,
       accentGradient: accentGradient ?? this.accentGradient,
@@ -161,10 +190,14 @@ class AuroraColors extends ThemeExtension<AuroraColors> {
       secondary: Color.lerp(secondary, other.secondary, t)!,
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
+      textTertiary: Color.lerp(textTertiary, other.textTertiary, t)!,
       textDisabled: Color.lerp(textDisabled, other.textDisabled, t)!,
+      textEmphasis: Color.lerp(textEmphasis, other.textEmphasis, t)!,
       error: Color.lerp(error, other.error, t)!,
       success: Color.lerp(success, other.success, t)!,
       glassTint: Color.lerp(glassTint, other.glassTint, t)!,
+      glassFill: Color.lerp(glassFill, other.glassFill, t)!,
+      glassFillStrong: Color.lerp(glassFillStrong, other.glassFillStrong, t)!,
       glassBorder: Color.lerp(glassBorder, other.glassBorder, t)!,
       shadowColor: Color.lerp(shadowColor, other.shadowColor, t)!,
       // Gradients don't lerp meaningfully between two fixed brand

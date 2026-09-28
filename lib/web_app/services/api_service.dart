@@ -127,6 +127,9 @@ class ApiService {
 
       final queryParams = <String, String>{'id': videoId};
       if (songQuery.isNotEmpty) queryParams['q'] = songQuery;
+      // Explicit parts enable the server Saavn fallback with duration match.
+      if (title != null && title.trim().isNotEmpty) queryParams['title'] = title.trim();
+      if (artist != null && artist.trim().isNotEmpty) queryParams['artist'] = artist.trim();
 
       final uri = Uri.parse('$_baseUrl/api/resolve').replace(queryParameters: queryParams);
 
@@ -137,20 +140,17 @@ class ApiService {
         final data = jsonDecode(response.body);
         if (data['ok'] == true) {
           final provider = data['provider'] as String? ?? '';
-          final directUrl = data['url'] as String? ?? '';
+          final directUrl = (data['directUrl'] as String?)?.isNotEmpty == true
+              ? data['directUrl'] as String
+              : (data['url'] as String? ?? '');
 
           // Zero-Bandwidth Optimization:
-          // If the resolved audio URL is a direct CDN/media URL (Paulin, Ricky, Savenow, etc.),
-          // play it directly on the client. Render consumes ZERO audio bandwidth!
-          // Only fallback to the backend stream proxy if direct URL is not available.
-          if (directUrl.isNotEmpty && !directUrl.contains('googlevideo.com')) {
-            _log('RESOLVE', 'OK: using direct stream (0 server bandwidth) ($provider) for $videoId');
+          // Play directly from the resolved direct CDN/media URL.
+          // Render consumes ZERO audio bandwidth!
+          if (directUrl.isNotEmpty) {
+            _log('RESOLVE', 'OK: Zero-Bandwidth Direct Stream ($provider) -> $directUrl');
             return directUrl;
           }
-
-          final proxyUrl = '$_baseUrl/api/stream/$videoId';
-          _log('RESOLVE', 'OK: using stream proxy $proxyUrl ($provider) for $videoId');
-          return proxyUrl;
         }
       }
     } catch (e) {

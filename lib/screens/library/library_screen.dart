@@ -1,20 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/playback/playback_engine.dart';
 import '../../core/theme/app_theme_extension.dart';
-import '../../models/history_entry_model.dart';
 import '../../models/playlist_model.dart';
 import '../../providers/library_provider.dart';
 import '../../providers/music_player_provider.dart';
 import '../../providers/playlist_provider.dart';
 import '../../widgets/cached_artwork.dart';
-import 'downloaded_songs_screen.dart';
-import 'favorites_screen.dart';
-import 'history_screen.dart';
-import 'playlist_detail_screen.dart';
-import 'playlists_screen.dart';
-import 'statistics_screen.dart';
 
 
 /// Library central hub — Recently Played, Favorites, Most Played,
@@ -78,43 +72,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     }
   }
 
-  void _openFavorites(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const FavoritesScreen()),
-    );
-  }
+  void _openFavorites(BuildContext context) => context.push('/library/favorites');
 
-  void _openHistory(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const HistoryScreen()),
-    );
-  }
+  void _openHistory(BuildContext context) => context.push('/library/history');
 
-  void _openPlaylists(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PlaylistsScreen()),
-    );
-  }
+  void _openPlaylists(BuildContext context) => context.push('/library/playlists');
 
-  void _openPlaylistDetail(BuildContext context, String playlistId) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PlaylistDetailScreen(playlistId: playlistId),
-      ),
-    );
-  }
+  void _openPlaylistDetail(BuildContext context, String playlistId) =>
+      context.push('/library/playlists/$playlistId');
 
-  void _openDownloadedSongs(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DownloadedSongsScreen()),
-    );
-  }
+  void _openDownloadedSongs(BuildContext context) =>
+      context.push('/library/offline/downloaded');
 
-  void _openStatistics(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const StatisticsScreen()),
-    );
-  }
+  void _openStatistics(BuildContext context) => context.push('/library/statistics');
 
 
   Future<void> _createPlaylist(BuildContext context, WidgetRef ref) async {

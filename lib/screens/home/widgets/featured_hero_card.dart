@@ -155,18 +155,30 @@ class _ResumePillState extends State<_ResumePill> {
           transformAlignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
           decoration: BoxDecoration(
-            color: Colors.white,
+            gradient: context.aurora.accentGradient,
             borderRadius: BorderRadius.circular(999),
             boxShadow: [
-              BoxShadow(color: Colors.white.withOpacity(_hovered ? 0.3 : 0.15), blurRadius: 18, spreadRadius: -2),
+              BoxShadow(
+                color: context.aurora.primary.withOpacity(_hovered ? 0.6 : 0.35),
+                blurRadius: _hovered ? 20 : 14,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.play_arrow_rounded, color: Colors.black, size: 20),
+              Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
               SizedBox(width: 6),
-              Text('Resume', style: TextStyle(color: Colors.black, fontSize: 13.5, fontWeight: FontWeight.w800)),
+              Text(
+                'Resume',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.3,
+                ),
+              ),
             ],
           ),
         ),

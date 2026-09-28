@@ -21,6 +21,10 @@ dependencies:
   just_audio: ^0.9.40
   cached_network_image: ^3.4.1
   google_fonts: ^6.2.1
+  # 🎬 Declarative micro-interactions (hover/press/entrance). Used by the
+  # responsive shell + Home carousels/grid. Kept to animation primitives
+  # only — no new state-management or layout dependency.
+  flutter_animate: ^4.5.0
   rxdart: ^0.28.0
   
   # 🔗 HTTP + Future Sync Prep
@@ -73,6 +77,7 @@ dependencies:
   go_router: ^17.3.0
   google_sign_in: ^7.2.0
   logger: ^2.7.0
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

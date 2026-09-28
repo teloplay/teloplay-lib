@@ -119,14 +119,30 @@ class ContinueSection extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: FilledButton.icon(
-                    onPressed: onResume,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: theme.primary,
-                      foregroundColor: Colors.white,
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: theme.accentGradient,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: theme.primary.withOpacity(0.35),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                    label: const Text('Continue'),
+                    child: ElevatedButton.icon(
+                      onPressed: onResume,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                      label: const Text('Continue', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),

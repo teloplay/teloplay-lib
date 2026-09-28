@@ -62,7 +62,12 @@ class GlassContainer extends StatelessWidget {
           height: height,
           padding: padding,
           decoration: BoxDecoration(
-            color: aurora.glassTint.withOpacity(enableBlur ? 0.06 : 0.14),
+            // ⚠️ Was `glassTint.withOpacity(enableBlur ? 0.06 : 0.14)` —
+            // 6% white on a #0A0C10 base is invisible, so every frosted
+            // panel in the app read as empty space. Now uses resolved
+            // glassFill tokens (12%/18%, higher for AMOLED) so the blur
+            // has something to actually frost.
+            color: enableBlur ? aurora.glassFill : aurora.glassFillStrong,
             borderRadius: borderRadius,
             border: Border.all(color: aurora.glassBorder, width: 1),
           ),

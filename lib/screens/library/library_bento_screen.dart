@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme_extension.dart';
 import '../../widgets/bento/bento_grid_card.dart';
-import 'downloaded_songs_screen.dart';
-import 'favorites_screen.dart';
-import 'history_screen.dart';
-import 'library_screen.dart';
-import 'playlists_screen.dart';
 
 /// Phase 6.5 UI-Batch 4 — Library-এর নতুন bento-grid landing (Mobile)।
 ///
@@ -33,49 +29,37 @@ class LibraryBentoScreen extends StatelessWidget {
         icon: Icons.favorite_rounded,
         label: 'Favorites',
         accent: accents[0 % accents.length],
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const FavoritesScreen()),
-        ),
+        onTap: () => context.push('/library/favorites'),
       ),
       _BentoItem(
         icon: Icons.playlist_play_rounded,
         label: 'Playlists',
         accent: accents[1 % accents.length],
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const PlaylistsScreen()),
-        ),
+        onTap: () => context.push('/library/playlists'),
       ),
       _BentoItem(
         icon: Icons.history_rounded,
         label: 'Recently Played',
         accent: accents[2 % accents.length],
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const HistoryScreen()),
-        ),
+        onTap: () => context.push('/library/recent'),
       ),
       _BentoItem(
         icon: Icons.local_fire_department_rounded,
         label: 'Most Played',
         accent: accents[3 % accents.length],
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const LibraryScreen(section: 'most-played')),
-        ),
+        onTap: () => context.push('/library/most'),
       ),
       _BentoItem(
         icon: Icons.download_done_rounded,
         label: 'Offline',
         accent: accents[4 % accents.length],
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const DownloadedSongsScreen()),
-        ),
+        onTap: () => context.push('/library/offline/downloaded'),
       ),
       _BentoItem(
         icon: Icons.sd_storage_rounded,
         label: 'Cached Songs',
         accent: accents[5 % accents.length],
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const DownloadedSongsScreen()),
-        ),
+        onTap: () => context.push('/library/offline/cached'),
       ),
     ];
 

@@ -11,6 +11,7 @@ import '../providers/auth_providers.dart';
 import '../screens/auth/welcome_screen.dart';
 import '../screens/auth/email_input_screen.dart';
 import '../screens/auth/otp_verify_screen.dart';
+import '../screens/library/downloaded_songs_screen.dart';
 import '../screens/library/favorites_screen.dart';
 import '../screens/library/history_screen.dart';
 import '../screens/library/playlist_detail_screen.dart';
@@ -31,6 +32,7 @@ import '../screens/album/album_details_screen.dart';
 import '../screens/artist/artist_page_screen.dart';
 import '../ui/shell/platform_shell.dart';
 import '../ui/shell/desktop_shell.dart';
+import '../ui/shell/desktop_content_frame.dart';
 import '../ui/shell/mobile_shell.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/search/search_screen.dart';
@@ -121,6 +123,10 @@ CustomTransitionPage _tabFadePage({
         FadeTransition(opacity: animation, child: c),
   );
 }
+
+/// Desktop/web: detail screens stay in the middle pane (sidebar + player
+/// bar kept). Phones: unchanged full-screen push.
+Widget _inFrame(Widget child) => DesktopContentFrame(child: child);
 
 @Riverpod(keepAlive: true)
 GoRouter appRouter(Ref ref) {
@@ -216,21 +222,21 @@ GoRouter appRouter(Ref ref) {
         path: '/library/favorites',
         pageBuilder: (context, state) => _platformAwarePage(
           key: state.pageKey,
-          child: const FavoritesScreen(),
+          child: _inFrame(const FavoritesScreen()),
         ),
       ),
       GoRoute(
         path: '/library/history',
         pageBuilder: (context, state) => _platformAwarePage(
           key: state.pageKey,
-          child: const HistoryScreen(),
+          child: _inFrame(const HistoryScreen()),
         ),
       ),
       GoRoute(
         path: '/library/playlists',
         pageBuilder: (context, state) => _platformAwarePage(
           key: state.pageKey,
-          child: const PlaylistsScreen(),
+          child: _inFrame(const PlaylistsScreen()),
         ),
       ),
       GoRoute(
@@ -239,7 +245,7 @@ GoRouter appRouter(Ref ref) {
           final playlistId = state.pathParameters['id']!;
           return _platformAwarePage(
             key: state.pageKey,
-            child: PlaylistDetailScreen(playlistId: playlistId),
+            child: _inFrame(PlaylistDetailScreen(playlistId: playlistId)),
           );
         },
       ),
@@ -270,7 +276,7 @@ GoRouter appRouter(Ref ref) {
           final songId = state.pathParameters['id']!;
           return _platformAwarePage(
             key: state.pageKey,
-            child: SongDetailsScreen(songId: songId),
+            child: _inFrame(SongDetailsScreen(songId: songId)),
           );
         },
       ),
@@ -280,7 +286,7 @@ GoRouter appRouter(Ref ref) {
           final albumId = state.pathParameters['id']!;
           return _platformAwarePage(
             key: state.pageKey,
-            child: AlbumDetailsScreen(albumId: albumId),
+            child: _inFrame(AlbumDetailsScreen(albumId: albumId)),
           );
         },
       ),
@@ -290,7 +296,7 @@ GoRouter appRouter(Ref ref) {
           final artistId = state.pathParameters['id']!;
           return _platformAwarePage(
             key: state.pageKey,
-            child: ArtistPageScreen(artistId: artistId),
+            child: _inFrame(ArtistPageScreen(artistId: artistId)),
           );
         },
       ),
@@ -308,21 +314,21 @@ GoRouter appRouter(Ref ref) {
         path: '/library/statistics',
         pageBuilder: (context, state) => _platformAwarePage(
           key: state.pageKey,
-          child: const StatisticsScreen(),
+          child: _inFrame(const StatisticsScreen()),
         ),
       ),
       GoRoute(
         path: '/library/recent',
         pageBuilder: (context, state) => _platformAwarePage(
           key: state.pageKey,
-          child: const RecentlyPlayedScreen(),
+          child: _inFrame(const RecentlyPlayedScreen()),
         ),
       ),
       GoRoute(
         path: '/library/most',
         pageBuilder: (context, state) => _platformAwarePage(
           key: state.pageKey,
-          child: const MostPlayedScreen(),
+          child: _inFrame(const MostPlayedScreen()),
         ),
       ),
       GoRoute(
@@ -330,6 +336,23 @@ GoRouter appRouter(Ref ref) {
         redirect: (context, state) => '/library/most',
       ),
 
+      GoRoute(
+        path: '/library/offline/downloaded',
+        pageBuilder: (context, state) => _platformAwarePage(
+          key: state.pageKey,
+          child: _inFrame(const DownloadedSongsScreen()),
+        ),
+      ),
+      GoRoute(
+        path: '/library/offline/cached',
+        pageBuilder: (context, state) => _platformAwarePage(
+          key: state.pageKey,
+          child: _inFrame(const DownloadedSongsScreen()),
+        ),
+      ),
+      // ⚠️ Must stay LAST among the /library routes. A parameter route
+      // matches anything, so declared above the specific ones it swallows
+      // /library/offline/* and nothing below it is ever reached.
       GoRoute(
         path: '/library/:section',
         pageBuilder: (context, state) {
@@ -344,30 +367,10 @@ GoRouter appRouter(Ref ref) {
         },
       ),
       GoRoute(
-        path: '/library/offline/downloaded',
-        pageBuilder: (context, state) => _platformAwarePage(
-          key: state.pageKey,
-          child: PlatformShell(
-            mobileChild: const MobileShell(initialLibrarySection: 'offline/downloaded'),
-            desktopChild: const DesktopShell(initialLibrarySection: 'offline/downloaded'),
-          ),
-        ),
-      ),
-      GoRoute(
-        path: '/library/offline/cached',
-        pageBuilder: (context, state) => _platformAwarePage(
-          key: state.pageKey,
-          child: PlatformShell(
-            mobileChild: const MobileShell(initialLibrarySection: 'offline/cached'),
-            desktopChild: const DesktopShell(initialLibrarySection: 'offline/cached'),
-          ),
-        ),
-      ),
-      GoRoute(
         path: '/settings',
         pageBuilder: (context, state) => _platformAwarePage(
           key: state.pageKey,
-          child: const SettingsScreen(),
+          child: _inFrame(const SettingsScreen()),
         ),
       ),
       GoRoute(
@@ -388,7 +391,7 @@ GoRouter appRouter(Ref ref) {
           );
           return _platformAwarePage(
             key: state.pageKey,
-            child: SearchCategoryResultsScreen(query: query, category: category),
+            child: _inFrame(SearchCategoryResultsScreen(query: query, category: category)),
           );
         },
       ),

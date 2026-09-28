@@ -1,4 +1,4 @@
-﻿import { searchYouTubeMusic, getVisitorData } from './search.js';
+﻿import { searchYouTubeMusic, getVisitorData, YT_HDRS } from './search.js';
 import { resolveStreamUrl, handleStreamProxy, STREAM_CACHE, prewarmStreamUrl } from './stream.js';
 import { getSongLyrics, getArtistDetails, getExplorePage, getSongDetails } from './metadata.js';
 
@@ -46,10 +46,9 @@ export default {
       }
 
       if (path === '/api/diag') {
-        const id = url.searchParams.get('id') || 'zAiIgYOH4Ys';
-        const { tryDirectResolver } = await import('./stream.js');
-        const r = await tryDirectResolver(id);
-        return jsonRes({ ok: r.ok, provider: r.provider, attempts: r.attempts });
+        const id = url.searchParams.get('id') || 'kJQP7kiw5Fk';
+        const r = await resolveStreamUrl(id);
+        return jsonRes({ ok: r.ok, provider: r.provider, title: r.title, url: r.url });
       }
 
       if (path === '/api/errors') {
@@ -92,8 +91,14 @@ export default {
         const id = url.searchParams.get('id') || url.searchParams.get('videoId') || '';
         if (!id) return jsonRes({ ok: false, error: 'Missing ?id=' }, 400);
         const data = await resolveStreamUrl(id);
-        logInfo('/api/resolve', `${data.ok ? data.provider : data.error} in ${Date.now() - t0}ms`);
-        return jsonRes(data);
+        const resPayload = { ...data };
+        // Zero-Bandwidth Direct Stream: Deliver direct CDN URL to client (0 Render bandwidth)
+        if (resPayload.ok && resPayload.url) {
+          resPayload.directUrl = resPayload.url;
+          resPayload.proxied = false;
+        }
+        logInfo('/api/resolve', `${resPayload.ok ? resPayload.provider : resPayload.error} in ${Date.now() - t0}ms`);
+        return jsonRes(resPayload);
       }
 
       if (path.startsWith('/api/stream/')) {

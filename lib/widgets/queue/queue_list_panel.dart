@@ -132,21 +132,29 @@ class _QueueRowState extends State<_QueueRow> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      widget.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: widget.isCurrent ? aurora.primary : aurora.textPrimary,
-                        fontSize: 12.5,
-                        fontWeight: widget.isCurrent ? FontWeight.w700 : FontWeight.w600,
+                    Tooltip(
+                      message: widget.title,
+                      waitDuration: const Duration(milliseconds: 600),
+                      child: Text(
+                        widget.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: widget.isCurrent ? aurora.primary : aurora.textPrimary,
+                          fontSize: 12.5,
+                          fontWeight: widget.isCurrent ? FontWeight.w700 : FontWeight.w600,
+                        ),
                       ),
                     ),
-                    Text(
-                      widget.author,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: aurora.textSecondary, fontSize: 11),
+                    Tooltip(
+                      message: widget.author,
+                      waitDuration: const Duration(milliseconds: 600),
+                      child: Text(
+                        widget.author,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: aurora.textSecondary, fontSize: 11),
+                      ),
                     ),
                   ],
                 ),

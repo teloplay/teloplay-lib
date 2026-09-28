@@ -89,7 +89,9 @@ class HomeScreen extends ConsumerWidget {
                 error: (_, __) => const SizedBox.shrink(),
               ),
 
-              const QuickAccessSection(),
+              // Desktop-e sidebar already provides direct shortcuts to these sections.
+              // Mobile-e easy thumb-tap shortcut thakbe.
+              if (!_isDesktop) const QuickAccessSection(),
 
               recentlyPlayed.when(
                 data: (list) => ContentRail(

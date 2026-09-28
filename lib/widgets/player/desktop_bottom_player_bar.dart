@@ -8,7 +8,6 @@ import '../../models/now_playing_model.dart';
 import '../../providers/album_accent_provider.dart';
 import '../../providers/music_player_provider.dart';
 import '../cached_artwork.dart';
-import '../player/speed_sleep_sheets.dart';
 
 /// Phase 6.5 — Spotify-style Desktop player bar.
 /// 3-column single row: [artwork+meta] [transport+progress] [utility+volume]
@@ -50,7 +49,7 @@ class DesktopBottomPlayerBar extends ConsumerWidget {
 
     if (track == null) {
       return Container(
-        height: 78,
+        height: 84,
         color: aurora.surface,
         alignment: Alignment.center,
         child: Text('Nothing playing', style: TextStyle(color: aurora.textSecondary)),
@@ -58,12 +57,12 @@ class DesktopBottomPlayerBar extends ConsumerWidget {
     }
 
     return Container(
-      height: 78,
+      height: 84,
       decoration: BoxDecoration(
         color: aurora.surface,
         border: Border(top: BorderSide(color: aurora.glassBorder, width: 1)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
           // ── LEFT: artwork + title/artist + favorite/add ──
@@ -93,25 +92,33 @@ class DesktopBottomPlayerBar extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        track.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: aurora.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.1,
+                      Tooltip(
+                        message: track.title,
+                        waitDuration: const Duration(milliseconds: 600),
+                        child: Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: aurora.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.1,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 3),
-                      Text(
-                        track.author,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: aurora.textSecondary,
-                          fontSize: 11,
+                      Tooltip(
+                        message: track.author,
+                        waitDuration: const Duration(milliseconds: 600),
+                        child: Text(
+                          track.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: aurora.textSecondary,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ],
@@ -287,24 +294,32 @@ const SizedBox(width: 6),  // was 4
 GestureDetector(
   onTap: onTogglePause,
   child: Container(
-    width: 38,   // was 32
-    height: 38,  // was 32
-    decoration: const BoxDecoration(
+    width: 44,
+    height: 44,
+    decoration: BoxDecoration(
       shape: BoxShape.circle,
-      color: Colors.white,
+      gradient: aurora.accentGradient,
+      boxShadow: [
+        BoxShadow(
+          color: aurora.primary.withOpacity(0.4),
+          blurRadius: 14,
+          spreadRadius: -1,
+          offset: const Offset(0, 3),
+        ),
+      ],
     ),
     child: isBuffering || isResolving
         ? const Padding(
-            padding: EdgeInsets.all(9),
+            padding: EdgeInsets.all(11),
             child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.black,
+              strokeWidth: 2.5,
+              color: Colors.white,
             ),
           )
         : Icon(
-            isPlaying ? Icons.pause : Icons.play_arrow,
-            color: Colors.black,
-            size: 22,  // was 18
+            isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            color: Colors.white,
+            size: 26,
           ),
   ),
 ),
