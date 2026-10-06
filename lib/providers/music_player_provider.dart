@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import '../core/platform/platform_info.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/audio/audio_handler_registry.dart' show globalAudioHandler;
 import '../core/audio/windows_media_service.dart';
+import '../core/window/windows_taskbar_service.dart';
 import '../core/logging/app_logger.dart';
 import '../core/playback/playback_engine.dart';
 import '../data/repositories/music_player_repository.dart';
@@ -13,6 +14,12 @@ import '../data/repositories/queue_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../models/now_playing_model.dart';
 import 'smart_queue_provider.dart';
+import 'library_provider.dart'
+    show
+        historyProvider,
+        recentlyPlayedProvider,
+        mostPlayedProvider,
+        libraryRepositoryProvider;
 
 import 'database_provider.dart';
 import 'playback_engine_provider.dart';
@@ -84,6 +91,16 @@ final musicPlayerRepositoryProvider = Provider<MusicPlayerRepository>((ref) {
     cacheService,
   );
 
+  // P1-E — session-end staleness hook: history/recent/most providers
+  // refresh when a playback session actually ends (not by polling).
+  // Assigned here (provider layer owns invalidation); the repository only
+  // exposes the hook and never imports providers.
+  repo.onPlaybackHistoryChanged = () {
+    ref.invalidate(historyProvider);
+    ref.invalidate(recentlyPlayedProvider);
+    ref.invalidate(mostPlayedProvider);
+  };
+
   // Provider তৈরি হওয়ার সাথে সাথেই আগের session-এর queue restore করার
   // চেষ্টা — fire-and-forget, কারণ Provider-এর build() sync হতে হবে।
 
@@ -98,7 +115,7 @@ final musicPlayerRepositoryProvider = Provider<MusicPlayerRepository>((ref) {
   // restoreQueue() নিজেই সব error handle করে (crash করবে না)।
   unawaited(repo.restoreQueue());
 
-  if (!kIsWeb && Platform.isAndroid) {
+  if (!kIsWeb && PlatformInfo.isAndroid) {
     // main_android.dart-এ AudioService.init()-এর মাধ্যমে তৈরি হওয়া handler-এর
     // সাথে এই (একমাত্র) repository bind করা — এখান থেকেই notification/
     // lock screen/Bluetooth সব repository-এর real state পাবে।
@@ -128,11 +145,20 @@ final musicPlayerRepositoryProvider = Provider<MusicPlayerRepository>((ref) {
         null,
       );
     }());
-  } else if (!kIsWeb && Platform.isWindows) {
+  } else if (!kIsWeb && PlatformInfo.isWindows) {
     final windowsMediaService = WindowsMediaService(repo);
     unawaited(windowsMediaService.initialize());
+    // Taskbar hover preview-তে Spotify-style thumbnail toolbar
+    // ([+] Fav / Prev / Play-Pause / Next) — SMTC flyout থেকে আলাদা,
+    // favorite-এর জন্য LibraryRepository-ও লাগে বলে এখানে দুটোই inject।
+    // canonical instance repository_providers.dart থেকে আসে (P0-11) —
+    // library_provider.dart সেটাই re-export করে।
+    final libraryRepo = ref.watch(libraryRepositoryProvider);
+    final taskbarService = WindowsTaskbarService(repo, libraryRepo);
+    unawaited(taskbarService.initialize());
     ref.onDispose(() {
       unawaited(windowsMediaService.dispose());
+      unawaited(taskbarService.dispose());
     });
   }
 
@@ -166,6 +192,14 @@ final playbackBufferingProvider = StreamProvider<bool>((ref) {
 final playbackErrorProvider = StreamProvider<String>((ref) {
   final repo = ref.watch(musicPlayerRepositoryProvider);
   return repo.errorStream;
+});
+
+/// P0-12 — typed error events for user-visible error UI. The legacy string
+/// `playbackErrorProvider` stays untouched; new UI consumes this one and
+/// switches on `PlaybackError.kind` (never on message text).
+final typedPlaybackErrorProvider = StreamProvider<PlaybackError>((ref) {
+  final repo = ref.watch(musicPlayerRepositoryProvider);
+  return repo.playbackErrorStream;
 });
 
 final nowPlayingProvider = StreamProvider<NowPlaying>((ref) {

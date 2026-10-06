@@ -8,7 +8,6 @@ import '../../providers/library_provider.dart';
 import '../../providers/music_player_provider.dart';
 import '../../widgets/cached_artwork.dart';
 import '../../widgets/context_menu.dart';
-import '../../widgets/sort/track_sort_bottom_sheet.dart';
 
 /// Phase 3 — Recently Played Screen
 class RecentlyPlayedScreen extends ConsumerStatefulWidget {
@@ -19,19 +18,9 @@ class RecentlyPlayedScreen extends ConsumerStatefulWidget {
 }
 
 class _RecentlyPlayedScreenState extends ConsumerState<RecentlyPlayedScreen> {
-  TrackSortOption _sortOption = TrackSortOption.recentlyAdded;
-
-  void _showSortSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => TrackSortBottomSheet(
-        currentSort: _sortOption,
-        onSortChanged: (s) => setState(() => _sortOption = s),
-      ),
-    );
-  }
-
+  // A7 — sort control removed: the repository exposes fixed ordering
+  // (getRecentlyPlayed orders by recency) with no sort API, so the
+  // button promised unavailable behavior. List order unchanged.
   void _play(List<RecentlyPlayedEntry> list, int index) {
     final tracks = list
         .map((e) => SearchResult(
@@ -60,12 +49,6 @@ class _RecentlyPlayedScreenState extends ConsumerState<RecentlyPlayedScreen> {
         elevation: 0,
         title: Text('Recently Played', style: TextStyle(color: aurora.textPrimary)),
         iconTheme: IconThemeData(color: aurora.textPrimary),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.sort_rounded, color: aurora.textSecondary),
-            onPressed: () => _showSortSheet(context),
-          ),
-        ],
       ),
       body: recentAsync.when(
         data: (list) {
@@ -85,6 +68,8 @@ class _RecentlyPlayedScreenState extends ConsumerState<RecentlyPlayedScreen> {
                 thumbnail: item.thumbnail,
               );
               return ListTile(
+                // P1-M — desktop hover affordance.
+                hoverColor: aurora.surfaceElevated,
                 onTap: () => _play(list, index),
                 onLongPress: () => showContextMenu(
                   context: context,

@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/theme/app_theme_extension.dart';
+import 'window_chrome_stub.dart'
+    if (dart.library.io) 'window_chrome_windows.dart';
 
 /// ⚠️ UI-Batch 2 — desktop top bar per locked spec:
-/// [← →]  [🔍 centered search bar + Ctrl K hint]  [🔔] [⚙] [👤 avatar]
+/// [← →]  [🔍 centered search bar + Ctrl K hint]  [⚙] [👤 avatar]
 ///
 /// Back/forward use simple `canGoBack`/`canGoForward` booleans passed in
 /// (DesktopShell derives these from its own _index history stack — no
@@ -17,8 +19,8 @@ import '../../core/theme/app_theme_extension.dart';
 /// CallbackShortcuts map: `SingleActivator(LogicalKeyboardKey.keyK,
 /// control: true): onSearchTap`.
 ///
-/// Notification bell — UI placeholder only, no badge (no notification
-/// system yet, per locked spec).
+/// Gate 0 (CS-04) — notification bell removed (was UI placeholder only,
+/// no notification system exists). Re-add with a real system in P2.
 class DesktopTopBar extends StatelessWidget {
   final bool canGoBack;
   final bool canGoForward;
@@ -68,9 +70,17 @@ class DesktopTopBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Expanded(
-            child: DragToMoveArea(
-              child: Row(
+          Expanded(child: MoveWindow(child: _topBarContent(context))),
+          const SizedBox(width: 8),
+          const WindowChrome(),
+        ],
+      ),
+    );
+  }
+
+  Widget _topBarContent(BuildContext context) {
+    final aurora = context.aurora;
+    return Row(
                 children: [
                   IconButton(
                     icon: const Icon(Icons.chevron_left),
@@ -92,11 +102,9 @@ class DesktopTopBar extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.notifications_outlined),
-                    color: aurora.textSecondary,
-                    onPressed: () {}, // placeholder — no notification system yet
-                  ),
+                  // Gate 0 (CS-04) — notification bell removed: no
+                  // notification system exists; a no-op bell is a fake
+                  // affordance. Re-add with a real system in P2.
                   IconButton(
                     icon: const Icon(Icons.settings_outlined),
                     color: aurora.textSecondary,
@@ -105,13 +113,6 @@ class DesktopTopBar extends StatelessWidget {
                   const SizedBox(width: 4),
                   _Avatar(url: avatarUrl, onTap: onProfileTap),
                 ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          const WindowControls(),
-        ],
-      ),
     );
   }
 }

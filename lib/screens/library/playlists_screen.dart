@@ -207,6 +207,8 @@ class PlaylistsScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final playlist = playlists[index];
               return ListTile(
+                // P1-M — desktop hover affordance.
+                hoverColor: theme.surfaceElevated,
                 leading: playlist.coverThumbnail != null
                     ? CachedArtwork(
                         imageUrl: playlist.coverThumbnail!,

@@ -1,10 +1,8 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme_extension.dart';
-
-bool get _isDesktop => Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+import '../../../ui/shell/platform_shell.dart';
 
 class QuickAccessSection extends StatelessWidget {
   const QuickAccessSection({super.key});
@@ -15,12 +13,15 @@ class QuickAccessSection extends StatelessWidget {
     (icon: Icons.history_rounded, label: 'Recently Played', route: '/library/recent', color: Color(0xFF3B82F6)),
     (icon: Icons.local_fire_department_rounded, label: 'Most Played', route: '/library/most', color: Color(0xFFF59E0B)),
     (icon: Icons.download_done_rounded, label: 'Downloaded', route: '/library/offline/downloaded', color: Color(0xFF10B981)),
-    (icon: Icons.cloud_done_rounded, label: 'Cached Songs', route: '/library/offline/cached', color: Color(0xFF6366F1)),
+    // D3 — duplicate "Cached Songs" tile removed: it pointed at the
+    // same canonical destination as "Downloaded" (Gate 0 removed the
+    // cached route), implying two storage systems that don't exist.
   ];
 
   @override
   Widget build(BuildContext context) {
-    final columns = _isDesktop ? 3 : 2;
+    final columns =
+        PlatformShell.isDesktopLayout(MediaQuery.sizeOf(context).width) ? 3 : 2;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),

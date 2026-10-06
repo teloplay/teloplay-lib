@@ -56,8 +56,20 @@ class SettingsScreen extends ConsumerWidget {
                       themeMode == AppThemeMode.amoled ? 'AMOLED' : 'Dark',
                       style: TextStyle(color: theme.textSecondary),
                     ),
-                    onTap: () {
-                      ref.read(themeModeProvider.notifier).toggle();
+                    onTap: () async {
+                      // P1-C — state flips instantly; only persistence can
+                      // fail (surfaced, not silent).
+                      final ok = await ref
+                          .read(themeModeProvider.notifier)
+                          .toggle();
+                      if (!ok && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                "Couldn't save theme choice — will reset on restart"),
+                          ),
+                        );
+                      }
                     },
                   ),
                 ],

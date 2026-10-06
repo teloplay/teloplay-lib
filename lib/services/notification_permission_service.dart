@@ -12,7 +12,7 @@
 // Windows/অন্য প্ল্যাটফর্মে এই permission concept-ই প্রযোজ্য না, তাই
 // early-return করা হয়েছে।
 
-import 'dart:io' show Platform;
+import '../core/platform/platform_info.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:permission_handler/permission_handler.dart';
@@ -28,7 +28,7 @@ class NotificationPermissionService {
   /// নেয় — app এর কোনো ফিচার ব্লক হবে না, শুধু background notification
   /// না-ও দেখা যেতে পারে। জোর করে বারবার চাওয়া হয় না (এটা bad UX)।
   static Future<void> requestIfNeeded() async {
-    if (kIsWeb || !Platform.isAndroid) return;
+    if (kIsWeb || !PlatformInfo.isAndroid) return;
 
     try {
       final status = await Permission.notification.status;

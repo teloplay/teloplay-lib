@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -24,8 +26,15 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
 
   String? _infoMessage;
 
+  /// P1-D — resend cooldown (anti-spam). Starts on successful resend only;
+  /// failed resends stay immediately retryable. Timer cancelled on dispose.
+  static const _resendCooldownSeconds = 30;
+  Timer? _cooldownTimer;
+  int _cooldownSeconds = 0;
+
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     _otpController.dispose();
     super.dispose();
   }
@@ -68,6 +77,8 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
   }
 
   Future<void> _resendOtp() async {
+    // P1-D — cooldown active: ignore taps (button is also disabled).
+    if (_cooldownSeconds > 0) return;
     setState(() {
       _isResending = true;
       _errorMessage = null;
@@ -80,6 +91,7 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
         setState(() {
           _infoMessage = 'A fresh confirmation code has been sent!';
         });
+        _startCooldown();
       }
     } catch (e) {
       debugPrint('[Auth] resendOtp error: $e');
@@ -94,6 +106,24 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
         setState(() => _isResending = false);
       }
     }
+  }
+
+  /// P1-D — starts/restarts the resend cooldown countdown.
+  void _startCooldown() {
+    _cooldownTimer?.cancel();
+    setState(() => _cooldownSeconds = _resendCooldownSeconds);
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_cooldownSeconds <= 1) {
+        timer.cancel();
+        setState(() => _cooldownSeconds = 0);
+      } else {
+        setState(() => _cooldownSeconds--);
+      }
+    });
   }
 
   @override
@@ -390,8 +420,10 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
   }
 
   Widget _buildResendButton() {
+    // P1-D — disabled while sending or cooling down; countdown shown.
+    final coolingDown = _cooldownSeconds > 0;
     return TextButton(
-      onPressed: _isResending ? null : _resendOtp,
+      onPressed: (_isResending || coolingDown) ? null : _resendOtp,
       child: _isResending
           ? const SizedBox(
               height: 16,
@@ -401,9 +433,11 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
                 valueColor: AlwaysStoppedAnimation(AppColors.textSecondary),
               ),
             )
-          : const Text(
-              'Didn\'t receive code? Resend',
-              style: TextStyle(
+          : Text(
+              coolingDown
+                  ? 'Resend code in $_cooldownSeconds s'
+                  : 'Didn\'t receive code? Resend',
+              style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,

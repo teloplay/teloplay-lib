@@ -108,7 +108,7 @@ class AccountSection extends ConsumerWidget {
               : (displayName != null && displayName.isNotEmpty
                   ? '$displayName (${user?.email ?? '—'})'
                   : (user?.email ?? '—')),
-          onTap: () {},
+          // Gate 0 (CS-18) — display-only: no onTap, so no chevron.
         ),
         ProfileTile(
           icon: Icons.login,

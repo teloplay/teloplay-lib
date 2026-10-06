@@ -123,12 +123,23 @@ class ContextMenu extends StatelessWidget {
   }
 
   List<_MenuItemData> _buildItems() {
-    final items = <_MenuItemData>[
-      _MenuItemData(Icons.play_arrow, 'Play Next', 'N', onPlayNext),
-      _MenuItemData(Icons.add, 'Add To Queue', 'Q', onAddToQueue),
-      _MenuItemData(Icons.playlist_add, 'Add To Playlist', null, onAddToPlaylist),
-      _MenuItemData(Icons.favorite_border, 'Favorite', 'S', onToggleFavorite),
-    ];
+    // P1-L — rows without handlers are hidden, never dead. (Previously the
+    // first four rows + Share always rendered even with null callbacks.)
+    final items = <_MenuItemData>[];
+    if (onPlayNext != null) {
+      items.add(_MenuItemData(Icons.play_arrow, 'Play Next', 'N', onPlayNext));
+    }
+    if (onAddToQueue != null) {
+      items.add(_MenuItemData(Icons.add, 'Add To Queue', 'Q', onAddToQueue));
+    }
+    if (onAddToPlaylist != null) {
+      items.add(_MenuItemData(
+          Icons.playlist_add, 'Add To Playlist', null, onAddToPlaylist));
+    }
+    if (onToggleFavorite != null) {
+      items.add(_MenuItemData(
+          Icons.favorite_border, 'Favorite', 'S', onToggleFavorite));
+    }
 
     if (onGoToArtist != null) {
       items.add(_MenuItemData(Icons.person, 'Go To Artist', null, onGoToArtist));
@@ -137,7 +148,9 @@ class ContextMenu extends StatelessWidget {
       items.add(_MenuItemData(Icons.album, 'Go To Album', null, onGoToAlbum));
     }
 
-    items.add(_MenuItemData(Icons.share, 'Share', null, onShare));
+    if (onShare != null) {
+      items.add(_MenuItemData(Icons.share, 'Share', null, onShare));
+    }
 
     // Context-specific additions
     if (type == ContextMenuType.playlistTrack && onRemove != null) {

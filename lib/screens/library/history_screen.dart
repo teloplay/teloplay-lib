@@ -146,6 +146,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   });
                 },
                 child: ListTile(
+                  // P1-M — desktop hover affordance.
+                  hoverColor: theme.surfaceElevated,
                   onTap: () => _play(entry),
                   leading: CachedArtwork(
                     imageUrl: entry.thumbnail,

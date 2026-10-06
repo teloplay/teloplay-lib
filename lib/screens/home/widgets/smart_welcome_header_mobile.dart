@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme_extension.dart';
-import '../../../widgets/onboarding/checklist_badge.dart';
 
-/// Phase 6.5 UI-Batch 4 — Mobile-only expanded welcome header।
-/// Desktop-এর SmartWelcomeHeader (compact single-row) থেকে ইচ্ছাকৃতভাবে
-/// আলাদা ফাইল — Mobile-এ vertical space বেশি available, তাই greeting
-/// বড় typography + bell icon (notification placeholder, এখন শুধু UI,
-/// কোনো backend/notification system নেই)।
+// Phase 6.5 UI-Batch 4 — Mobile-only expanded welcome header.
+// Desktop-এর SmartWelcomeHeader (compact single-row) থেকে ইচ্ছাকৃতভাবে
+// আলাদা ফাইল — Mobile-এ vertical space বেশি available, তাই greeting
+// বড় typography।
 class SmartWelcomeHeaderMobile extends StatelessWidget {
-  const SmartWelcomeHeaderMobile({super.key, this.onBellTap});
-
-  final VoidCallback? onBellTap;
+  const SmartWelcomeHeaderMobile({super.key});
 
   String _greeting() {
     final hour = DateTime.now().hour;
@@ -56,35 +52,9 @@ class SmartWelcomeHeaderMobile extends StatelessWidget {
               ],
             ),
           ),
-          // ⚠️ v11 Onboarding (roadmap Section 13) — renders nothing
-          // once dismissed or all 5 items complete.
-          const ChecklistBadge(),
-          const SizedBox(width: 8),
-          _BellButton(onTap: onBellTap),
+          // Gate 0 (D2/CS-04) — onboarding badge removed with its route;
+          // notification bell removed (no notification system exists).
         ],
-      ),
-    );
-  }
-}
-
-class _BellButton extends StatelessWidget {
-  const _BellButton({this.onTap});
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final aurora = context.aurora;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: aurora.surfaceElevated,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withOpacity(0.06)),
-        ),
-        child: Icon(Icons.notifications_none_rounded, color: aurora.textPrimary, size: 20),
       ),
     );
   }

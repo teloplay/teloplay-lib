@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme_extension.dart';
 import '../../providers/music_player_provider.dart';
+import '../../providers/smart_queue_provider.dart';
 import '../cached_artwork.dart';
 
 /// Phase 6.5 UI-Batch 3 (Context Panel polish) — visual-only rewrite.
@@ -20,6 +21,7 @@ class QueueListPanel extends ConsumerWidget {
     final repo = ref.watch(musicPlayerRepositoryProvider);
     final currentTrack = ref.watch(currentTrackProvider).value;
     final queue = ref.watch(queueProvider).value ?? const [];
+    final smartState = ref.watch(smartQueueProvider);
 
     if (queue.isEmpty) {
       return Center(
@@ -40,12 +42,21 @@ class QueueListPanel extends ConsumerWidget {
       itemBuilder: (context, index) {
         final t = queue[index];
         final isCurrent = currentTrack != null && t.videoId == currentTrack.videoId;
+        // P1-N — truthful attribution only: shown when the repo flags
+        // this id as SmartQueue-queued AND the notifier holds the actual
+        // recorded reason. Otherwise null → no caption (never invented).
+        final attribution = resolveQueueAttribution(
+          attributions: smartState.attributions,
+          autoQueuedIds: repo.autoQueuedIds,
+          videoId: t.videoId,
+        );
         return _QueueRow(
           title: t.title,
           author: t.author,
           thumbnail: t.thumbnail,
           videoId: t.videoId,
           isCurrent: isCurrent,
+          attributionLabel: attribution?.contextLabel ?? attribution?.reason.label,
           onTap: () => repo.playFromQueue(index),
         );
       },
@@ -60,6 +71,7 @@ class _QueueRow extends StatefulWidget {
     required this.thumbnail,
     required this.videoId,
     required this.isCurrent,
+    this.attributionLabel,
     required this.onTap,
   });
 
@@ -68,6 +80,10 @@ class _QueueRow extends StatefulWidget {
   final String thumbnail;
   final String videoId;
   final bool isCurrent;
+
+  /// P1-N — SmartQueue reason caption, or null when no truthful reason
+  /// exists (row then renders exactly as before).
+  final String? attributionLabel;
   final VoidCallback onTap;
 
   @override
@@ -156,6 +172,19 @@ class _QueueRowState extends State<_QueueRow> {
                         style: TextStyle(color: aurora.textSecondary, fontSize: 11),
                       ),
                     ),
+                    // P1-N — lightweight reason caption; only present
+                    // when attribution is truthful (see builder above).
+                    if (widget.attributionLabel != null)
+                      Text(
+                        '✦ ${widget.attributionLabel!}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: aurora.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                   ],
                 ),
               ),

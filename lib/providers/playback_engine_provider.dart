@@ -1,22 +1,25 @@
-import 'dart:io' show Platform;
+import '../core/platform/platform_info.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/playback/android_playback_engine.dart';
 import '../core/playback/playback_engine.dart';
-import '../core/playback/windows_playback_engine.dart';
-import '../core/playback/innertube_windows_playback_engine.dart'; // ← নতুন import
+import '../core/playback/web_playback_engine.dart';
+import '../core/playback/innertube_windows_playback_engine.dart';
 
 final playbackEngineProvider = Provider<PlaybackEngine>((ref) {
   final PlaybackEngine engine;
 
-  if (Platform.isWindows) {
-    engine = InnertubeWindowsPlaybackEngine(); // ← এই লাইনটা বদলাও (আগে ছিল WindowsPlaybackEngine())
-  } else if (Platform.isAndroid) {
+  if (kIsWeb) {
+    engine = WebPlaybackEngine();
+  } else if (PlatformInfo.isWindows) {
+    engine = InnertubeWindowsPlaybackEngine();
+  } else if (PlatformInfo.isAndroid) {
     engine = AndroidPlaybackEngine();
   } else {
     throw UnsupportedError(
-      'TeloPlay এই platform সাপোর্ট করে না: ${Platform.operatingSystem}',
+      'TeloPlay: no playback engine for this platform',
     );
   }
 

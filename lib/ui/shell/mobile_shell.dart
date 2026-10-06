@@ -11,16 +11,23 @@ import '../../widgets/mini_player/floating_mini_player.dart';
 
 /// Phase 3 — Android/Mobile Shell with Liquid/Water Frosted Glass Navigation Bar.
 class MobileShell extends StatefulWidget {
-  const MobileShell({super.key, this.initialLibrarySection});
+  const MobileShell({super.key, this.initialLibrarySection, this.initialTab = 0});
 
   final String? initialLibrarySection;
+
+  /// P0-06/07 — one-shot selected tab for `?tab=` deep-addressing. Mirrors
+  /// the existing `initialLibrarySection` pattern; local taps still own
+  /// `_index` afterwards (no global tab state).
+  final int initialTab;
 
   @override
   State<MobileShell> createState() => _MobileShellState();
 }
 
 class _MobileShellState extends State<MobileShell> {
-  late int _index = widget.initialLibrarySection != null ? 2 : 0;
+  late int _index = widget.initialTab != 0
+      ? widget.initialTab
+      : (widget.initialLibrarySection != null ? 2 : 0);
 
   static const _destinations = [
     _NavDestination(icon: Icons.home_outlined, selectedIcon: Icons.home_rounded, label: 'Home'),

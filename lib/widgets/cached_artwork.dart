@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' show File;
 import 'skeleton_loader.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -145,6 +146,11 @@ class _CachedArtworkState extends ConsumerState<CachedArtwork> {
       return;
     }
 
+    // Web-e CacheService bootstrap-ee hoy na (main_common: !kIsWeb guard)
+    // + MediaAssetManager dart:io file API — ekhane dhukle crash/exception.
+    // build()-er kIsWeb branch network image dekhabe, ekhane early-return.
+    if (kIsWeb) return;
+
     final cacheService = ref.read(cacheServiceProvider);
 
     // ⚠️ FIX: CacheService cold-start-এ async initialize হয় — ready না
@@ -208,7 +214,25 @@ class _CachedArtworkState extends ConsumerState<CachedArtwork> {
 
     Widget child;
 
-    if (_localPath != null) {
+    if (kIsWeb) {
+      // Web: CacheService/MediaAssetManager native file-cache (dart:io
+      // File) web-e chole na — file-path resolve-er ashay skeleton-e atke na
+      // theke direct network image dekhao (browser nijer HTTP cache use kore).
+      // ponytail: web-e kono disk budget/eviction nei (browser cache-eri
+      // upor nirbhor). Upgrade path: IndexedDB-backed thumb store.
+      child = Image.network(
+        widget.imageUrl,
+        width: widget.width,
+        height: widget.height,
+        fit: widget.fit,
+        cacheWidth: _effectiveCacheWidth(),
+        cacheHeight: _effectiveCacheHeight(),
+        errorBuilder: (context, error, stackTrace) => _errorFallback(
+          bgColor,
+          icColor,
+        ),
+      );
+    } else if (_localPath != null) {
       // ✅ Cache hit — local file থেকে decode, কোনো network call না।
       child = Image.file(
         File(_localPath!),

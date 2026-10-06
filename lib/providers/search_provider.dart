@@ -12,7 +12,7 @@ import '../services/cache/metadata_cache_service.dart';
 import '../services/metadata/deezer_client.dart';
 import '../services/search/stream_matcher.dart';
 import 'database_provider.dart';
-import 'library_provider.dart';
+import 'repository_providers.dart' show libraryRepositoryProvider;
 import 'music_player_provider.dart';
 import 'playlist_provider.dart';
 
@@ -124,6 +124,58 @@ class SearchOrchestrator {
     return all.skip(page * pageSize).take(pageSize).toList();
   }
 
+  /// Batch C — local-library category See-All (albums/artists/playlists).
+  ///
+  /// The existing repo methods return the FULL filtered local set (no
+  /// pagination params — local DB sets are small), so the category
+  /// screen slices in memory with the same page/pageSize contract as
+  /// songs. No YouTube/catalog API is involved: these three categories
+  /// are own-library data by architecture (same fan-out as
+  /// [searchPreview]). Per-source failures yield `[]` (caller shows the
+  /// named empty state, never raw errors).
+  Future<List<AlbumSearchResult>> searchCategoryAlbums(
+    String query, {
+    int page = 0,
+    int pageSize = 20,
+  }) async {
+    if (query.trim().isEmpty) return const [];
+    final libraryRepo = _ref.read(libraryRepositoryProvider);
+    final all = await libraryRepo
+        .searchAlbums(query)
+        .catchError((_) => <AlbumSearchResult>[]);
+    return all.skip(page * pageSize).take(pageSize).toList();
+  }
+
+  /// Batch C — see [searchCategoryAlbums]; artist variant.
+  Future<List<ArtistSearchResult>> searchCategoryArtists(
+    String query, {
+    int page = 0,
+    int pageSize = 20,
+  }) async {
+    if (query.trim().isEmpty) return const [];
+    final libraryRepo = _ref.read(libraryRepositoryProvider);
+    final all = await libraryRepo
+        .searchArtists(query)
+        .catchError((_) => <ArtistSearchResult>[]);
+    return all.skip(page * pageSize).take(pageSize).toList();
+  }
+
+  /// Batch C — see [searchCategoryAlbums]; own-playlists variant.
+  /// Empty for signed-out users (playlist query is user-scoped) — the
+  /// caller renders the named empty state, never a login wall here.
+  Future<List<PlaylistSearchResult>> searchCategoryPlaylists(
+    String query, {
+    int page = 0,
+    int pageSize = 20,
+  }) async {
+    if (query.trim().isEmpty) return const [];
+    final playlistRepo = _ref.read(playlistRepositoryProvider);
+    final all = await playlistRepo
+        .searchPlaylists(query)
+        .catchError((_) => <PlaylistSearchResult>[]);
+    return all.skip(page * pageSize).take(pageSize).toList();
+  }
+
   Future<List<EnrichedSearchResult>> _enrichedSongs(
     String query, {
     required int limit,
@@ -204,6 +256,12 @@ final recentSearchesProvider =
 
 class SearchState {
   final String query;
+
+  /// P1-K — typo correction: when the displayed results come from a
+  /// server-suggested correction, this holds the ORIGINAL typed query
+  /// (null = results are for [query] itself). UI shows a one-line banner;
+  /// never auto-loops (correction runs at most once per submit).
+  final String? correctedFrom;
   final List<SearchResult> songs;
   final List<AlbumSearchResult> albums;
   final List<ArtistSearchResult> artists;
@@ -213,6 +271,7 @@ class SearchState {
 
   const SearchState({
     this.query = '',
+    this.correctedFrom,
     this.songs = const [],
     this.albums = const [],
     this.artists = const [],
@@ -242,6 +301,7 @@ class SearchState {
 
   SearchState copyWith({
     String? query,
+    String? correctedFrom,
     List<SearchResult>? songs,
     List<AlbumSearchResult>? albums,
     List<ArtistSearchResult>? artists,
@@ -251,6 +311,7 @@ class SearchState {
   }) {
     return SearchState(
       query: query ?? this.query,
+      correctedFrom: correctedFrom,
       songs: songs ?? this.songs,
       albums: albums ?? this.albums,
       artists: artists ?? this.artists,
@@ -266,13 +327,31 @@ class _CachedSearch {
   final List<AlbumSearchResult> albums;
   final List<ArtistSearchResult> artists;
   final List<PlaylistSearchResult> playlists;
+  final String? correctedFrom;
 
   const _CachedSearch({
     required this.songs,
     required this.albums,
     required this.artists,
     required this.playlists,
+    this.correctedFrom,
   });
+}
+
+/// P1-K — bounded typo tolerance, pure (unit-tested, no seams).
+/// Returns the first server suggestion that differs from the typed query
+/// (case-insensitive), else null. The caller runs at most ONE follow-up
+/// search with it, only when the exact query returned zero results —
+/// no extra latency when suggestions are absent, no loops by construction.
+String? correctionCandidate(String query, List<String> suggestions) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return null;
+  for (final s in suggestions) {
+    final t = s.trim();
+    if (t.isEmpty) continue;
+    if (t.toLowerCase() != q) return t;
+  }
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -303,19 +382,27 @@ class SearchController extends Notifier<SearchState> {
     _debounce = Timer(_debounceDuration, () => search(query));
   }
 
-  Future<void> search(String rawQuery) async {
+  Future<void> search(String rawQuery) {
     final query = rawQuery.trim();
     if (query.isEmpty) {
       state = const SearchState();
-      return;
+      return Future.value();
     }
+    return _searchInternal(query, isCorrection: false, originalQuery: null);
+  }
 
+  Future<void> _searchInternal(
+    String query, {
+    required bool isCorrection,
+    required String? originalQuery,
+  }) async {
     _debounce?.cancel();
 
     final cached = _cache[query];
     if (cached != null) {
       state = SearchState(
         query: query,
+        correctedFrom: cached.correctedFrom,
         songs: cached.songs,
         albums: cached.albums,
         artists: cached.artists,
@@ -328,26 +415,81 @@ class SearchController extends Notifier<SearchState> {
 
     try {
       final musicRepo = ref.read(musicPlayerRepositoryProvider);
-      final libraryRepo = ref.read(libraryRepositoryProvider);
-      final playlistRepo = ref.read(playlistRepositoryProvider);
 
-      final results = await Future.wait([
-        musicRepo.search(query).catchError((_) => <SearchResult>[]),
-        libraryRepo.searchAlbums(query).catchError((_) => <AlbumSearchResult>[]),
-        libraryRepo.searchArtists(query).catchError((_) => <ArtistSearchResult>[]),
-        playlistRepo.searchPlaylists(query).catchError((_) => <PlaylistSearchResult>[]),
-      ]);
+      // ⚠️ OpenTune-parity: use rich multi-entity searchSections instead of
+      // song-only search(). Searches YouTube across all types (songs/albums/
+      // artists/playlists/videos) in one call, matching OpenTune's behavior.
+      // limitPerSection=0 means NO LIMIT (show all results like OpenTune).
+      final sections = await musicRepo.searchSections(query, limitPerSection: 0);
 
-      final songs = results[0] as List<SearchResult>;
-      final albums = results[1] as List<AlbumSearchResult>;
-      final artists = results[2] as List<ArtistSearchResult>;
-      final playlists = results[3] as List<PlaylistSearchResult>;
+      final songs = <SearchResult>[];
+      final albums = <AlbumSearchResult>[];
+      final artists = <ArtistSearchResult>[];
+      final playlists = <PlaylistSearchResult>[];
+
+      // Parse sections into typed lists
+      for (final section in sections) {
+        for (final item in section.items) {
+          switch (item.type) {
+            case 'song':
+              songs.add(SearchResult(
+                videoId: item.id,
+                title: item.title,
+                author: item.subtitle ?? 'Unknown',
+                thumbnail: item.thumbnail,
+                duration: item.duration,
+              ));
+            case 'album':
+              albums.add(AlbumSearchResult(
+                albumId: item.id,
+                albumName: item.title,
+                artworkUrl: item.thumbnail,
+                artistName: item.subtitle,
+              ));
+            case 'artist':
+              artists.add(ArtistSearchResult(
+                artistId: item.id,
+                artistName: item.title,
+                artworkUrl: item.thumbnail,
+              ));
+            case 'playlist':
+              playlists.add(PlaylistSearchResult(
+                playlistId: item.id,
+                name: item.title,
+                itemCount: int.tryParse(item.subtitle?.split(' ').first ?? '0') ?? 0,
+                coverThumbnail: item.thumbnail,
+              ));
+          }
+        }
+      }
+
+      final isEmptyResult =
+          songs.isEmpty && albums.isEmpty && artists.isEmpty && playlists.isEmpty;
+
+      // P1-K — single bounded correction: exact query empty + a distinct
+      // server suggestion exists → one follow-up search, then stop
+      // (isCorrection guard forbids recursion).
+      if (isEmptyResult && !isCorrection) {
+        final candidate = correctionCandidate(
+          query,
+          ref.read(suggestionControllerProvider).suggestions,
+        );
+        if (candidate != null) {
+          await _searchInternal(
+            candidate,
+            isCorrection: true,
+            originalQuery: query,
+          );
+          return;
+        }
+      }
 
       _cache[query] = _CachedSearch(
         songs: songs,
         albums: albums,
         artists: artists,
         playlists: playlists,
+        correctedFrom: isCorrection ? originalQuery : null,
       );
 
       if (state.query != query) return;
@@ -357,6 +499,7 @@ class SearchController extends Notifier<SearchState> {
         albums: albums,
         artists: artists,
         playlists: playlists,
+        correctedFrom: isCorrection ? originalQuery : null,
         isLoading: false,
       );
 
@@ -493,17 +636,23 @@ class SuggestionController extends Notifier<SuggestionState> {
     final repo = ref.read(musicPlayerRepositoryProvider);
 
     try {
-      final Future<List<String>> suggestionsFuture =
-          repo.searchSuggestions(query).catchError((_) => <String>[]);
-      final Future<List<SearchResult>> songPreviewsFuture = repo
-          .search(query, limit: _songPreviewLimit)
-          .catchError((e, st) {
-        AppLogger.error('[suggestion] songPreview search FAILED', e, st);
-        return <SearchResult>[];
-      });
+      // ⚠️ OpenTune-parity: use rich suggestions (queries + item previews)
+      // in a single call instead of separate text + song search calls.
+      // This matches OpenTune's SearchSuggestions(queries, recommendedItems).
+      final richSuggestions = await repo.searchSuggestionsRich(query);
 
-      final suggestions = await suggestionsFuture;
-      final songPreviews = await songPreviewsFuture;
+      final suggestions = richSuggestions.queries;
+      final songPreviews = richSuggestions.items
+          .where((item) => item.type == 'song')
+          .take(_songPreviewLimit)
+          .map((item) => SearchResult(
+                videoId: item.id,
+                title: item.title,
+                author: item.subtitle ?? 'Unknown',
+                thumbnail: item.thumbnail,
+                duration: item.duration,
+              ))
+          .toList();
 
       AppLogger.playback(
         '[suggestion] _fetch RESULT query="$query" '

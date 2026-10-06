@@ -54,7 +54,13 @@ class AboutSection extends StatelessWidget {
         ProfileTile(
           icon: Icons.code,
           label: 'Open source credits',
-          onTap: () => _showComingSoon(context, 'Open source credits'),
+          // Gate 0 — same standard license page as Licenses above;
+          // Flutter already tracks all package licenses, no new screen.
+          onTap: () => showLicensePage(
+            context: context,
+            applicationName: 'TeloPlay',
+            applicationVersion: '1.0.0',
+          ),
         ),
         ProfileTile(
           icon: Icons.mail_outline,

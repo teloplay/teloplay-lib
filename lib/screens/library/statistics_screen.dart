@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme_extension.dart';
+import '../../data/repositories/recommendation_repository.dart';
 import '../../models/statistics_model.dart';
 import '../../providers/smart_queue_provider.dart';
 import '../../widgets/glass_container.dart';
@@ -56,6 +57,11 @@ class StatisticsScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             children: [
               _buildStreakCard(context, stats.streak),
+              const SizedBox(height: 16),
+              // P1-P — maturity card owns its own future (separate
+              // lightweight aggregate; keeps the existing stats future
+              // untouched).
+              _MaturityCard(repo: repo),
               const SizedBox(height: 16),
               _buildPersonalityCard(context, stats.primaryPersonality, stats.secondaryPersonalities),
               const SizedBox(height: 16),
@@ -303,6 +309,202 @@ class StatisticsScreen extends ConsumerWidget {
               ),
             );
           }),
+        ],
+      ),
+    );
+  }
+}
+
+/// P1-P — listening-maturity card. Internal listening-behavior metric
+/// only (framed as activity, never as a scientific/personal assessment).
+/// Shows the deterministic score plus its exact component breakdown, or
+/// a "not enough data" state when the sample is too small.
+class _MaturityCard extends StatelessWidget {
+  const _MaturityCard({required this.repo});
+
+  final RecommendationRepository repo;
+
+  @override
+  Widget build(BuildContext context) {
+    final aurora = context.aurora;
+    final accent = aurora.effectiveAccent;
+
+    return FutureBuilder<ListeningMaturity>(
+      future: repo.getListeningMaturity(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return GlassContainer(
+            padding: const EdgeInsets.all(20),
+            borderRadius: BorderRadius.circular(16),
+            child: Center(
+              child: CircularProgressIndicator(color: accent),
+            ),
+          );
+        }
+        final maturity = snapshot.data;
+        if (maturity == null || !maturity.hasEnoughData) {
+          return GlassContainer(
+            padding: const EdgeInsets.all(20),
+            borderRadius: BorderRadius.circular(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'LISTENING ACTIVITY',
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Not enough listening yet',
+                  style: TextStyle(
+                    color: aurora.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Play a few songs and this activity summary will appear.',
+                  style:
+                      TextStyle(color: aurora.textSecondary, fontSize: 13),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return GlassContainer(
+          padding: const EdgeInsets.all(20),
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'LISTENING ACTIVITY',
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Text(
+                    '${maturity.score}',
+                    style: TextStyle(
+                      color: aurora.textPrimary,
+                      fontSize: 34,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '/ 100',
+                    style: TextStyle(
+                        color: aurora.textSecondary, fontSize: 14),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      maturity.bandLabel,
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Based on ${maturity.windowPlays} plays in the last 30 days.',
+                style: TextStyle(color: aurora.textSecondary, fontSize: 12),
+              ),
+              const SizedBox(height: 14),
+              _MaturityBar(
+                label: 'Completion',
+                points: maturity.completionPoints,
+                max: 40,
+                accent: accent,
+              ),
+              _MaturityBar(
+                label: 'Artist diversity',
+                points: maturity.diversityPoints,
+                max: 25,
+                accent: accent,
+              ),
+              _MaturityBar(
+                label: 'Favorites',
+                points: maturity.favoritesPoints,
+                max: 20,
+                accent: accent,
+              ),
+              _MaturityBar(
+                label: 'Consistency',
+                points: maturity.consistencyPoints,
+                max: 15,
+                accent: accent,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MaturityBar extends StatelessWidget {
+  const _MaturityBar({
+    required this.label,
+    required this.points,
+    required this.max,
+    required this.accent,
+  });
+
+  final String label;
+  final int points;
+  final int max;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final aurora = context.aurora;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: TextStyle(color: aurora.textPrimary, fontSize: 13),
+              ),
+              Text(
+                '$points / $max',
+                style: TextStyle(color: aurora.textSecondary, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: max == 0 ? 0 : (points / max).clamp(0.0, 1.0),
+              backgroundColor: aurora.surface,
+              valueColor: AlwaysStoppedAnimation<Color>(accent),
+              minHeight: 5,
+            ),
+          ),
         ],
       ),
     );

@@ -36,19 +36,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Ctrl+arrows for next/prev, Ctrl+Up/Down for volume, Ctrl+M for
 /// mute, bare arrows for seek ±10s).
 class DesktopShell extends ConsumerStatefulWidget {
-  const DesktopShell({super.key, this.initialLibrarySection});
+  const DesktopShell({super.key, this.initialLibrarySection, this.initialTab = 0});
 
   /// Router Shell Bug fix — /library/:section deep-link থেকে chrome-wrap
   /// হয়ে এলে শুরুতেই এই section সিলেক্টেড থাকবে (Library tab + সঠিক
   /// sub-section, PremiumSidebar-এর হাইলাইটও ম্যাচ করবে)।
   final String? initialLibrarySection;
 
+  /// P0-06/07 — one-shot tab for `?tab=` deep-addressing (0=home, 1=search,
+  /// 2=library, 3=profile). Takes precedence over the section-implied tab.
+  final int initialTab;
+
   @override
   ConsumerState<DesktopShell> createState() => _DesktopShellState();
 }
 
 class _DesktopShellState extends ConsumerState<DesktopShell> {
-  late int _index = widget.initialLibrarySection != null ? 2 : 0;
+  late int _index = widget.initialTab != 0
+      ? widget.initialTab
+      : (widget.initialLibrarySection != null ? 2 : 0);
 
   // ⚠️ Locked decision (this batch): collapsible via a simple toggle
   // button + AnimatedContainer width animation. No drag-resize
@@ -78,7 +84,12 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
   // lightweight in-memory implementation (GoRouter migration ছাড়াই)।
   // প্রতিটা entry: (tabIndex, librarySection)
   late final List<_NavEntry> _history = [
-    _NavEntry(widget.initialLibrarySection != null ? 2 : 0, widget.initialLibrarySection),
+    _NavEntry(
+      widget.initialTab != 0
+          ? widget.initialTab
+          : (widget.initialLibrarySection != null ? 2 : 0),
+      widget.initialLibrarySection,
+    ),
   ];
   int _historyPointer = 0;
 

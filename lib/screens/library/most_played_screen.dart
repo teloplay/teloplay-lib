@@ -8,7 +8,6 @@ import '../../providers/library_provider.dart';
 import '../../providers/music_player_provider.dart';
 import '../../widgets/cached_artwork.dart';
 import '../../widgets/context_menu.dart';
-import '../../widgets/sort/track_sort_bottom_sheet.dart';
 
 /// Phase 3 — Most Played Screen
 class MostPlayedScreen extends ConsumerStatefulWidget {
@@ -19,19 +18,9 @@ class MostPlayedScreen extends ConsumerStatefulWidget {
 }
 
 class _MostPlayedScreenState extends ConsumerState<MostPlayedScreen> {
-  TrackSortOption _sortOption = TrackSortOption.customOrder;
-
-  void _showSortSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => TrackSortBottomSheet(
-        currentSort: _sortOption,
-        onSortChanged: (s) => setState(() => _sortOption = s),
-      ),
-    );
-  }
-
+  // A7 — sort control removed: the repository exposes fixed ordering
+  // (getMostPlayed orders by play count) with no sort API, so the
+  // button promised unavailable behavior. List order unchanged.
   void _play(List<RecentlyPlayedEntry> list, int index) {
     final tracks = list
         .map((e) => SearchResult(
@@ -60,12 +49,6 @@ class _MostPlayedScreenState extends ConsumerState<MostPlayedScreen> {
         elevation: 0,
         title: Text('Most Played', style: TextStyle(color: aurora.textPrimary)),
         iconTheme: IconThemeData(color: aurora.textPrimary),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.sort_rounded, color: aurora.textSecondary),
-            onPressed: () => _showSortSheet(context),
-          ),
-        ],
       ),
       body: mostPlayedAsync.when(
         data: (list) {
@@ -85,6 +68,8 @@ class _MostPlayedScreenState extends ConsumerState<MostPlayedScreen> {
                 thumbnail: item.thumbnail,
               );
               return ListTile(
+                // P1-M — desktop hover affordance.
+                hoverColor: aurora.surfaceElevated,
                 onTap: () => _play(list, index),
                 onLongPress: () => showContextMenu(
                   context: context,

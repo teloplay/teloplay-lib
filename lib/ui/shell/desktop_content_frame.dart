@@ -47,18 +47,21 @@ class _DesktopContentFrameState extends ConsumerState<DesktopContentFrame> {
   }
 
   void _onDestinationSelected(int index) {
+    // P0-06/07 — tabs are ADDRESSED via `?tab=`, not routed. `go()` replaces
+    // the detail route with the shell on the right tab (new shell instance
+    // via the tab-keyed page, so `initialTab` applies). No new providers.
     switch (index) {
       case 0:
         context.go('/home');
         break;
       case 1:
-        context.go('/home');
+        context.go('/home?tab=search');
         break;
       case 2:
-        context.go('/library');
+        context.go('/home?tab=library');
         break;
       case 3:
-        context.go('/home');
+        context.go('/home?tab=profile');
         break;
     }
   }
@@ -73,10 +76,8 @@ class _DesktopContentFrameState extends ConsumerState<DesktopContentFrame> {
         break;
       case 'offline':
       case 'offline/downloaded':
-        context.go('/library/offline/downloaded');
-        break;
       case 'offline/cached':
-        context.go('/library/offline/cached');
+        context.go('/library/offline/downloaded');
         break;
       case 'recent':
         context.go('/library/recent');
@@ -85,13 +86,15 @@ class _DesktopContentFrameState extends ConsumerState<DesktopContentFrame> {
         context.go('/library/most');
         break;
       default:
-        context.go('/library');
+        context.go('/home?tab=library');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!PlatformShell.isDesktopPlatform) return widget.child;
+    if (!PlatformShell.isDesktopLayout(MediaQuery.sizeOf(context).width)) {
+      return widget.child;
+    }
 
     final aurora = context.aurora;
     final repo = ref.watch(musicPlayerRepositoryProvider);
@@ -145,9 +148,9 @@ class _DesktopContentFrameState extends ConsumerState<DesktopContentFrame> {
                 canGoForward: false,
                 onBack: () => context.canPop() ? context.pop() : context.go('/home'),
                 onForward: () {},
-                onSearchTap: () => context.go('/home'),
+                onSearchTap: () => context.go('/home?tab=search'),
                 onSettingsTap: () => context.push('/settings'),
-                onProfileTap: () => context.go('/home'),
+                onProfileTap: () => context.go('/home?tab=profile'),
               ),
               Divider(height: 1, color: aurora.glassBorder),
               Expanded(

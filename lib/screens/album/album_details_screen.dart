@@ -70,21 +70,30 @@ class _AlbumContent extends ConsumerWidget {
 
   // ─── Derived header data — no separate Albums row exists, so
   // everything comes from the track list itself.
+  //
+  // A1 — real name: first non-empty albumName carried by the rows
+  // (populated by getSongsByAlbumId). Older rows without album metadata
+  // fall back to 'Unknown Album', matching the existing 'Unknown Artist'
+  // convention — never a hardcoded title pretending to be data.
   String get _albumName {
     for (final t in tracks) {
-      // SearchResult doesn't carry albumName directly (that's
-      // SongMetadata-only) — AlbumDetailsScreen is opened with a
-      // resolved albumId, so we fall back to a generic label if the
-      // list itself can't tell us the name. In practice, callers
-      // (Album card taps) should pass a display name via route extra
-      // in a future batch; for now this stays honest rather than
-      // guessing.
-      break;
+      final name = t.albumName;
+      if (name != null && name.trim().isNotEmpty) return name;
     }
-    return 'Album';
+    return 'Unknown Album';
   }
 
   String get _artistName => tracks.first.author;
+
+  /// A2 — first non-empty artistId carried by the rows, or null when no
+  /// row has artist metadata (section then hides).
+  String? get _artistIdForMore {
+    for (final t in tracks) {
+      final id = t.artistId;
+      if (id != null && id.trim().isNotEmpty) return id;
+    }
+    return null;
+  }
 
   int get _trackCount => tracks.length;
 
@@ -299,19 +308,16 @@ class _AlbumContent extends ConsumerWidget {
           ),
         ),
 
-        // ─── Future sections — More From Artist / Similar Albums.
-        // Deliberately NOT implemented in this batch (same discipline
-        // as SongDetailsScreen's _MoreFromArtistSection) — needs
-        // LibraryRepository.getSongsByArtist(artistId), which doesn't
-        // exist yet. Rendering headers now with "Coming soon" to avoid
-        // Artist Page (next locked step) having to duplicate/reconcile
-        // this query later.
-        SliverToBoxAdapter(
-          child: _ComingSoonSection(title: 'More from this artist'),
-        ),
-        SliverToBoxAdapter(
-          child: _ComingSoonSection(title: 'Similar albums'),
-        ),
+        // ─── A2 — More From Artist (real, via the existing artist
+        // query). "Similar albums" had no data path (P2 discovery) and
+        // is removed rather than left as "Coming soon".
+        // Artist identity rides on the rows (see getSongsByAlbumId
+        // mapping); without it the section hides — never invented.
+        if (_artistIdForMore != null)
+          _MoreFromArtistSliver(
+            artistId: _artistIdForMore!,
+            excludeAlbumId: albumId,
+          ),
 
         const SliverToBoxAdapter(child: SizedBox(height: 32)),
       ],
@@ -435,6 +441,9 @@ class _TrackRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        // P1-M — desktop hover affordance (InkWell has no theme-level
+        // hoverColor equivalent used here; token fill, instant, no motion).
+        hoverColor: aurora.surfaceElevated,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
@@ -491,33 +500,94 @@ class _TrackRow extends StatelessWidget {
   }
 }
 
-class _ComingSoonSection extends StatelessWidget {
-  const _ComingSoonSection({required this.title});
-  final String title;
+/// A2 — real "More from this artist" sliver backed by the existing
+/// `artistTracksProvider` (same query Artist Page uses — no new API).
+/// Tracks from the current album are excluded; empty/error hides the
+/// section (honest empty = omit, never "Coming soon"). Rows play from
+/// the artist context. This widget itself is a sliver.
+class _MoreFromArtistSliver extends ConsumerWidget {
+  const _MoreFromArtistSliver({
+    required this.artistId,
+    required this.excludeAlbumId,
+  });
+  final String artistId;
+  final String excludeAlbumId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final aurora = context.aurora;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: aurora.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+    final moreAsync = ref.watch(artistTracksProvider(artistId));
+
+    return moreAsync.when(
+      loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+      error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+      data: (tracks) {
+        final others = tracks
+            .where((t) => t.albumId != excludeAlbumId)
+            .take(5)
+            .toList();
+        if (others.isEmpty) {
+          return const SliverToBoxAdapter(child: SizedBox.shrink());
+        }
+        return SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'More from this artist',
+                  style: TextStyle(
+                    color: aurora.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                ...others.asMap().entries.map((entry) {
+                  final t = entry.value;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    hoverColor: aurora.surfaceElevated,
+                    leading: CachedArtwork(
+                      imageUrl: t.thumbnail,
+                      cacheKey: t.videoId,
+                      width: 40,
+                      height: 40,
+                      borderRadius: BorderRadius.circular(6),
+                      memCacheWidth: 80,
+                      memCacheHeight: 80,
+                      placeholderIcon: Icons.music_note,
+                    ),
+                    title: Text(
+                      t.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: aurora.textPrimary, fontSize: 13.5),
+                    ),
+                    subtitle: Text(
+                      t.author,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: aurora.textSecondary, fontSize: 12),
+                    ),
+                    onTap: () => ref
+                        .read(musicPlayerRepositoryProvider)
+                        .playFromContext(
+                          tracks: others,
+                          startIndex: entry.key,
+                          source: QueueSource.artist,
+                        ),
+                  );
+                }),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Coming soon',
-            style: TextStyle(color: aurora.textSecondary, fontSize: 13),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

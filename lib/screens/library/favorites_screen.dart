@@ -6,6 +6,7 @@ import '../../core/theme/app_theme_extension.dart';
 import '../../providers/library_provider.dart';
 import '../../providers/music_player_provider.dart';
 import '../../widgets/cached_artwork.dart';
+import '../../widgets/track_menu.dart';
 
 /// All favorite songs — reactive, heart button toggles instantly
 /// (favoritesProvider is Stream-based so no manual refresh needed).
@@ -41,6 +42,19 @@ class FavoritesScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final fav = favorites[index];
               return ListTile(
+                // P1-M — desktop hover affordance.
+                hoverColor: aurora.surfaceElevated,
+                // P1-L — long-press menu (same actions as other song rows).
+                onLongPress: () => showTrackMenu(
+                  context: context,
+                  ref: ref,
+                  track: SearchResult(
+                    videoId: fav.songId,
+                    title: fav.title,
+                    author: fav.author,
+                    thumbnail: fav.thumbnail,
+                  ),
+                ),
                 leading: CachedArtwork(
                   imageUrl: fav.thumbnail,
                   width: 48,

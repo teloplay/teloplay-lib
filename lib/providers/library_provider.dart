@@ -1,18 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/playback/playback_engine.dart';
-import '../data/repositories/library_repository.dart';
 import '../models/history_entry_model.dart';
 import '../models/favorite_model.dart';
-import 'database_provider.dart';
-
-/// পুরো app-এ single [LibraryRepository] instance — Favorites/Playlists/
-/// History/Recently Played সবকিছুর জন্য (পরের ব্যাচে Favorites/Playlists
-/// methods একই repository-তে যোগ হবে, provider বদলাবে না)।
-final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
-  final db = ref.watch(appDatabaseProvider);
-  return LibraryRepository(db);
-});
+// P0-11 — single canonical definition lives in repository_providers.dart;
+// imported for internal use AND re-exported so existing importers keep
+// resolving the SAME instance (no second definition anywhere).
+import 'repository_providers.dart' show libraryRepositoryProvider;
+export 'repository_providers.dart' show libraryRepositoryProvider;
 
 /// পূর্ণ, raw History — History screen-এর জন্য। FutureProvider.autoDispose
 /// ব্যবহার করা হয়েছে recentSearchesProvider-এর মতোই একই কারণে (fresh

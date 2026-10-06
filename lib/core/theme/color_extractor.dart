@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:palette_generator/palette_generator.dart';
 
@@ -43,6 +44,13 @@ class ColorExtractor {
   }) async {
     final cached = _cache[trackId];
     if (cached != null) return cached;
+
+    // P1-I — capability-safe web fallback (NOT blind): `FileImage(File())`
+    // cannot run on web, and the caller (`AlbumAccentNotifier`) treats null
+    // as "keep previous accent" (copyWith `?? this`), identical to the
+    // extraction-failure path below. No new framework, no behavior change
+    // on Android/Windows.
+    if (kIsWeb) return null;
 
     try {
       final imageProvider = FileImage(File(localImagePath));

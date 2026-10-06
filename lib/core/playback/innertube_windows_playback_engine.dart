@@ -299,6 +299,149 @@ class InnertubeWindowsPlaybackEngine implements PlaybackEngine {
     }
   }
 
+  // ==========================================================================
+  // ⚠️ OpenTune-parity multi-entity search (v11)
+  // ==========================================================================
+  //
+  // ⚠️ গুরুত্বপূর্ণ সীমাবদ্ধতা: `innertube-cli.jar` একটা prebuilt binary,
+  // তার Main.kt source repo-তে নেই — তাই jar rebuild করা সম্ভব নয়। কিন্তু
+  // **rebuild লাগেই না** — daemon-এর `handleCommand()` ইতিমধ্যেই OpenTune-এর
+  // প্রতিটা filter আলাদা command হিসেবে expose করে:
+  //
+  //   search-filter {query, filter, limit} → {ok, query, filter,
+  //                                          continuation, results:[...]}
+  //
+  // আর `results`-এর প্রতিটা item `ytItemToJsonObject()` দিয়ে serialise হয়,
+  // অর্থাৎ typed (`"type": song|album|artist|playlist`) — live probe-এ
+  // verified (দেখো `tool/search_parity_check.mjs`)। OpenTune-এর own
+  // `OnlineSearchResult.kt` allModeSections-ও ঠিক এই একই filter-গুলো
+  // iterate করে। তাই parity শুধু Dart side-এ filter গুলো জোড়া লাগালেই
+  // পাওয়া যায়।
+  //
+  // ⚠️ কেন `search` command ব্যবহার করা হয়নি "Top results"-এর জন্য: সেই
+  // path `searchSummary()`-এর `musicCardShelfRenderer` দিয়ে যায়, আর
+  // probe-এ দেখা গেছে সেখানে UGC video-র subtitle ভুলভাবে artist হিসেবে
+  // parse হয় (`author: "Apr 10"`, `album: "INCOGLY"`) — এটাই user-এর
+  // "title refine/clean" complaint। তাই "Top results" canonical (filtered)
+  // section থেকেই derive করা হচ্ছে — এই app-এর নিজের
+  // `SearchState.topResult` getter-এর মতোই priority: song → album →
+  // artist → playlist।
+  static const _sectionFilters = <(String, String)>[
+    ('song', 'Songs'),
+    ('video', 'Videos'),
+    ('album', 'Albums'),
+    ('artist', 'Artists'),
+    ('community-playlist', 'Community playlists'),
+    ('featured-playlist', 'Featured playlists'),
+  ];
+
+  Future<List<SearchSection>> _sectionFor(
+    String query,
+    String filter,
+    String title,
+    int limit,
+  ) async {
+    try {
+      final response = await _sendRequest('search-filter', {
+        'query': query,
+        'filter': filter,
+        'limit': limit,
+      });
+      if (response['ok'] != true) return const [];
+      final raw = response['results'] as List<dynamic>? ?? const [];
+      final items = raw
+          .whereType<Map<String, dynamic>>()
+          .map(RichSearchItem.fromJson)
+          .toList();
+      return [SearchSection(title: title, items: items)];
+    } catch (e) {
+      // এক filter fail করলে বাকি section-গুলো যেন না হারায় — OpenTune-ও
+      // প্রতি-section আলাদা `onFailure` handle করে (reportException)।
+      AppLogger.playback('[$engineLabel] search-filter "$filter" failed: $e');
+      return const [];
+    }
+  }
+
+  @override
+  Future<List<SearchSection>> searchSections(
+    String query, {
+    int limitPerSection = 20,
+  }) async {
+    await initialize();
+    AppLogger.playback('[$engineLabel] searchSections: $query');
+
+    // সব filter parallel — OpenTune-ও per-filter আলাদা request পাঠায়, আর
+    // এখানে daemon একসাথে একাধিক request handle করতে পারে (stdin write
+    // serialized, pending-request map id-based)।
+    final results = await Future.wait([
+      for (final (filter, title) in _sectionFilters)
+        _sectionFor(query, filter, title, limitPerSection),
+    ]);
+
+    final sections = refineSections(results.expand((s) => s).toList());
+    final top = _topResults(sections, 4);
+
+    return [
+      if (top.isNotEmpty) SearchSection(title: 'Top results', items: top),
+      ...sections,
+    ];
+  }
+
+  /// OpenTune/Spotify-স্টাইল "Top results" — canonical section থেকে priority
+  /// অনুযায়ী প্রথম কয়েকটা (song → album → artist → playlist)। Section-এর
+  /// নিচে item-টা repeat হবে, ঠিক Spotify/OpenTune-এর মতোই।
+  static List<RichSearchItem> _topResults(
+    List<SearchSection> sections,
+    int count,
+  ) {
+    final byTitle = {for (final s in sections) s.title: s.items};
+    final picked = <RichSearchItem>[];
+    for (final title in const [
+      'Songs',
+      'Albums',
+      'Artists',
+      'Community playlists',
+      'Featured playlists',
+    ]) {
+      final items = byTitle[title];
+      if (items == null) continue;
+      for (final item in items) {
+        if (picked.length >= count) return picked;
+        picked.add(item);
+      }
+    }
+    return picked;
+  }
+
+  @override
+  Future<SearchSuggestions> searchSuggestionsRich(String query) async {
+    try {
+      await initialize();
+
+      // OpenTune-এর `searchSuggestions()` দুইটা অংশ ফেরত দেয় —
+      // `queries` (text) আর `recommendedItems` (item preview)। Daemon-এর
+      // `suggest` command শুধু text দেয় (jar-এর `getSearchSuggestions`
+      // `List<String>` ফেরত দেয়), তাই item preview-টা canonical song search
+      // দিয়ে ভরা হয় — হুবহু Flutter `SuggestionController` যেভাবে
+      // `_songPreviewLimit = 5` দিয়ে preview আনে, সেভাবেই।
+      final suggestionsFuture = searchSuggestions(query);
+      final previewFuture = _sectionFor(query, 'song', 'Songs', 5);
+
+      final queries = await suggestionsFuture;
+      final preview = await previewFuture;
+
+      return SearchSuggestions(
+        queries: queries,
+        items: preview.isEmpty
+            ? const []
+            : cleanSections(preview).expand((s) => s.items).take(5).toList(),
+      );
+    } catch (e) {
+      AppLogger.playback('[$engineLabel] searchSuggestionsRich failed: $e');
+      return const SearchSuggestions();
+    }
+  }
+
   // ========== NEW COMMANDS (Extended Version) ==========
 
   /// Video details (title, author, thumbnail, duration, explicit)

@@ -30,6 +30,11 @@ class MusicPlayerRepository {
   Future<List<SearchResult>> Function(SearchResult? currentTrack, List<String> currentQueueIds)?
       smartQueueAutoFillHandler;
 
+  /// P1-E — invoked (guarded) when a playback session ends and its history
+  /// write was issued. Assigned by the provider layer (same precedent as
+  /// [smartQueueAutoFillHandler]); the repository never imports providers.
+  void Function()? onPlaybackHistoryChanged;
+
   bool _initialized = false;
 
   bool _disposed = false;
@@ -81,6 +86,18 @@ class MusicPlayerRepository {
   List<SearchResult> get queue => List.unmodifiable(_queue);
   int _queueIndex = -1;
   int get queueIndex => _queueIndex;
+
+  // P1-O/P1-N — ids currently in [_queue] that entered via SmartQueue
+  // auto-fill ([_trySmartQueueAutoFill]). In-memory only (like
+  // [_queueSource]) — never persisted. Cleared whenever the queue is
+  // replaced ([playFromContext]) or dropped ([stopAndClear]); a manual
+  // [addToQueue]/[playNext] of the same id revokes the flag so P1-N
+  // attribution ("why is this queued") stays truthful about the cause
+  // of the track's presence, not just about the algorithm having once
+  // recommended it.
+  final Set<String> _autoQueuedIds = {};
+  Set<String> get autoQueuedIds => Set.unmodifiable(_autoQueuedIds);
+  bool isAutoQueued(String videoId) => _autoQueuedIds.contains(videoId);
 
   // ⚠️ Context-based Queue (Phase 1 fix) — কোন context থেকে বর্তমান
   // queue populate হয়েছে (search/favorites/playlist ইত্যাদি)। এটা
@@ -383,6 +400,15 @@ class MusicPlayerRepository {
       outcome: outcome,
       playedDuration: playedDuration,
     ));
+
+    // P1-E — session-end hook (same precedent as smartQueueAutoFillHandler):
+    // history/recent/most providers refresh only here, never by polling.
+    // Guarded: refresh must never break playback.
+    try {
+      onPlaybackHistoryChanged?.call();
+    } catch (e) {
+      AppLogger.error('onPlaybackHistoryChanged hook failed', e);
+    }
   }
 
   void _subscribeAudioFocus() {
@@ -524,6 +550,12 @@ class MusicPlayerRepository {
         unawaited(playFromQueue(_queueIndex));
         return;
       }
+
+      // P1-O — natural exhaustion with repeat off goes through the same
+      // SmartQueue authority as manual next(). When the fill produces
+      // nothing (handler absent/disabled/empty pool/error), fall through
+      // to the historical stop-on-last-track behavior below.
+      if (await _trySmartQueueAutoFill()) return;
 
       _setNowPlaying(
         NowPlaying(
@@ -862,6 +894,23 @@ class MusicPlayerRepository {
 
   Future<List<String>> searchSuggestions(String query) {
     return _engine.searchSuggestions(query);
+  }
+
+  // ⚠️ OpenTune-parity multi-entity search (v11) — engine যে section-wise
+  // typed item (Song/Album/Artist/Playlist) দিতে পারে তা সরাসরি expose।
+  // rich search না থাকলে `sectionsOrFallback()` নিজেই song-only `search()`-এ
+  // নেমে যায়, তাই caller-এর একটাই data shape handle করা লাগে।
+  Future<List<SearchSection>> searchSections(
+    String query, {
+    int limitPerSection = 20,
+  }) {
+    return sectionsOrFallback(_engine, query, limitPerSection: limitPerSection);
+  }
+
+  /// OpenTune-এর `SearchSuggestions(queries, recommendedItems)` —
+  /// suggestion dropdown-এর text + item preview।
+  Future<SearchSuggestions> searchSuggestionsRich(String query) {
+    return _engine.searchSuggestionsRich(query);
   }
 
   static const _maxRetries = 2;
@@ -1482,12 +1531,7 @@ _setNowPlaying(
       // ⚠️ Structured, user-friendly error event — UI নিজে ঠিক করবে কীভাবে
       // দেখাবে (Snackbar/Toast)। Technical exception message এখানে UI-কে
       // পাঠানো হচ্ছে না।
-      _playbackErrorController.add(
-        PlaybackError(
-          'Unable to play this song',
-          cause: e,
-        ),
-      );
+      _playbackErrorController.add(playbackErrorFor(e));
 
       // rethrow করা হচ্ছে না ইচ্ছাকৃতভাবে — caller (_play() UI method)
       // আগে raw exception ধরে setState(_error) করত, এখন সেটা আর দরকার
@@ -1548,6 +1592,7 @@ _setNowPlaying(
       ..clear()
       ..addAll(tracks);
     _queueSource = source;
+    _autoQueuedIds.clear();
     _notifyQueueChanged();
     unawaited(_persistQueue());
 
@@ -1577,9 +1622,32 @@ _setNowPlaying(
 
   void addToQueue(SearchResult track) {
     _queue.add(track);
+    // P1-N — a manual add revokes any SmartQueue-attribution flag for
+    // this id (the track's presence is now user-caused).
+    _autoQueuedIds.remove(track.videoId);
     if (_queue.length == 1) {
       _queueIndex = 0;
     }
+    _notifyQueueChanged();
+    unawaited(_persistQueue());
+
+    if (_shuffleEnabled) {
+      _regenerateShuffleOrder();
+    }
+  }
+
+  /// P1-L — queue a track to play immediately after the current one.
+  /// Same notify/persist/shuffle discipline as [addToQueue]; never
+  /// auto-plays (it plays when the current track ends). Empty/idle queue
+  /// degrades to plain [addToQueue].
+  void playNext(SearchResult track) {
+    if (_queue.isEmpty || _queueIndex < 0 || _queueIndex >= _queue.length) {
+      addToQueue(track);
+      return;
+    }
+    _queue.insert(_queueIndex + 1, track);
+    // P1-N — same manual-cause revocation as [addToQueue].
+    _autoQueuedIds.remove(track.videoId);
     _notifyQueueChanged();
     unawaited(_persistQueue());
 
@@ -1616,7 +1684,11 @@ _setNowPlaying(
           _shufflePosition = 0;
           final targetIndex = _shuffleOrder![_shufflePosition];
           await playFromQueue(targetIndex);
+          return;
         }
+        // P1-O — shuffle exhaustion with repeat off falls through to
+        // the same SmartQueue authority as the linear path below.
+        await _trySmartQueueAutoFill();
         return;
       }
       _shufflePosition++;
@@ -1635,23 +1707,43 @@ _setNowPlaying(
     // শেষে থাকলে কিছুই হতো না, repeat-all mode-এ থাকা সত্ত্বেও। এখন
     // manual next এবং auto-next দুটোই একই wrap-around behavior পাবে।
     // Phase 2: Smart Auto-Queue injection when queue is exhausted and repeat is off
-    if (smartQueueAutoFillHandler != null && _repeatMode != PlaybackRepeatMode.all) {
+    await _trySmartQueueAutoFill();
+  }
+
+  /// P1-O — single SmartQueue exhaustion authority shared by manual
+  /// [next] (linear + shuffle paths) and the natural-completion listener.
+  /// Appends the handler's additions to the existing [_queue] (never a
+  /// second queue) and starts the first addition. Extends [_shuffleOrder]
+  /// so shuffle mode keeps working after the append. Returns true when a
+  /// track started playing. Repeat-all never reaches here (wrap-around is
+  /// handled by the callers before the queue is considered exhausted).
+  Future<bool> _trySmartQueueAutoFill() async {
+    if (smartQueueAutoFillHandler != null &&
+        _repeatMode != PlaybackRepeatMode.all) {
       try {
         final current = currentTrack;
         final currentIds = _queue.map((t) => t.videoId).toList();
-        final additions = await smartQueueAutoFillHandler!(current, currentIds);
+        final additions =
+            await smartQueueAutoFillHandler!(current, currentIds);
         if (additions.isNotEmpty) {
           final nextIndex = _queue.length;
           _queue.addAll(additions);
+          _autoQueuedIds.addAll(additions.map((t) => t.videoId));
+          if (_shuffleOrder != null) {
+            for (var i = 0; i < additions.length; i++) {
+              _shuffleOrder!.add(nextIndex + i);
+            }
+          }
           _notifyQueueChanged();
           unawaited(_persistQueue());
           await playFromQueue(nextIndex);
-          return;
+          return true;
         }
       } catch (e) {
         AppLogger.playback('SmartQueue auto-inject fallback error: $e');
       }
     }
+    return false;
   }
 
   Future<void> previous() async {
@@ -1764,6 +1856,7 @@ _setNowPlaying(
     _queue.clear();
     _queueIndex = -1;
     _queueSource = QueueSource.unknown;
+    _autoQueuedIds.clear();
     _notifyQueueChanged();
 
     if (_queueRepository != null) {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_theme_extension.dart';
+import '../../../providers/theme_provider.dart' as appTheme;
 import '../profile_settings_providers.dart';
 import 'profile_section.dart';
 
@@ -46,8 +47,21 @@ class PlaybackExperienceSection extends ConsumerWidget {
                 value: AppThemeMode.dark,
                 groupValue: current,
                 activeColor: aurora.primary,
-                onChanged: (mode) {
-                  if (mode != null) ref.read(themeModeProvider.notifier).setMode(mode);
+                onChanged: (mode) async {
+                  // P1-C — persist failure surfaces before the sheet closes.
+                  if (mode != null) {
+                    final ok = await ref
+                        .read(appTheme.themeModeProvider.notifier)
+                        .setMode(mode);
+                    if (!ok && sheetContext.mounted) {
+                      ScaffoldMessenger.of(sheetContext).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              "Couldn't save theme choice — will reset on restart"),
+                        ),
+                      );
+                    }
+                  }
                   Navigator.of(sheetContext).pop();
                 },
               ),
@@ -60,8 +74,21 @@ class PlaybackExperienceSection extends ConsumerWidget {
                 value: AppThemeMode.amoled,
                 groupValue: current,
                 activeColor: aurora.primary,
-                onChanged: (mode) {
-                  if (mode != null) ref.read(themeModeProvider.notifier).setMode(mode);
+                onChanged: (mode) async {
+                  // P1-C — persist failure surfaces before the sheet closes.
+                  if (mode != null) {
+                    final ok = await ref
+                        .read(appTheme.themeModeProvider.notifier)
+                        .setMode(mode);
+                    if (!ok && sheetContext.mounted) {
+                      ScaffoldMessenger.of(sheetContext).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              "Couldn't save theme choice — will reset on restart"),
+                        ),
+                      );
+                    }
+                  }
                   Navigator.of(sheetContext).pop();
                 },
               ),
@@ -77,12 +104,13 @@ class PlaybackExperienceSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final aurora = context.aurora;
 
-    final themeModeAsync = ref.watch(themeModeProvider);
+    // P1-C — the app theme is owned by the canonical provider (watched by
+    // MaterialApp). The profile-local AsyncNotifier was a shadow truth that
+    // nothing rendered; selection now drives the real one.
+    final themeMode = ref.watch(appTheme.themeModeProvider);
     final dynamicColorsAsync = ref.watch(dynamicColorsProvider);
     final reduceMotionAsync = ref.watch(reduceMotionProvider);
     final batterySaverAsync = ref.watch(batterySaverUiProvider);
-
-    final themeMode = themeModeAsync.value ?? AppThemeMode.dark;
 
     return ProfileSection(
       title: 'Playback & experience',

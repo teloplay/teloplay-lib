@@ -148,33 +148,94 @@ class _ArtistContent extends ConsumerWidget {
             childCount: tracks.length,
           ),
         ),
-        SliverToBoxAdapter(
-          child: _SectionHeader(title: 'Albums', theme: theme),
-        ),
-        SliverToBoxAdapter(
-          child: _ComingSoonCard(label: 'Album grouping coming soon', theme: theme),
-        ),
-        SliverToBoxAdapter(
-          child: _SectionHeader(title: 'Singles', theme: theme),
-        ),
-        SliverToBoxAdapter(
-          child: _ComingSoonCard(label: 'Singles view coming soon', theme: theme),
-        ),
-        SliverToBoxAdapter(
-          child: _SectionHeader(title: 'Related Artists', theme: theme),
-        ),
-        SliverToBoxAdapter(
-          child: _ComingSoonCard(label: 'Coming soon', theme: theme),
-        ),
-        SliverToBoxAdapter(
-          child: _SectionHeader(title: 'Recently Released', theme: theme),
-        ),
-        SliverToBoxAdapter(
-          child: _ComingSoonCard(label: 'Coming soon', theme: theme),
-        ),
+        // ─── A2 — Albums: client-side grouping of the already-fetched
+        // artist tracks by albumId (no new query, no catalog API).
+        // Sections with no data hide (honest empty = omit). Related
+        // Artists and Recently Released had no data path (P2 discovery;
+        // no release dates in schema) and are removed, not stubbed.
+        ..._albumSections(context, ref, theme),
+        ..._singlesSections(theme),
         const SliverToBoxAdapter(child: SizedBox(height: 32)),
       ],
     );
+  }
+
+  /// Groups [tracks] by non-empty albumId, preserving first-seen order.
+  List<_AlbumGroup> get _albumGroups {
+    final order = <String>[];
+    final byId = <String, List<SearchResult>>{};
+    for (final t in tracks) {
+      final id = t.albumId;
+      if (id == null || id.trim().isEmpty) continue;
+      if (!byId.containsKey(id)) {
+        order.add(id);
+        byId[id] = [];
+      }
+      byId[id]!.add(t);
+    }
+    return order.map((id) {
+      final group = byId[id]!;
+      String name = 'Unknown Album';
+      for (final t in group) {
+        final n = t.albumName;
+        if (n != null && n.trim().isNotEmpty) {
+          name = n;
+          break;
+        }
+      }
+      return _AlbumGroup(
+        albumId: id,
+        name: name,
+        thumbnail: group.first.thumbnail,
+        trackCount: group.length,
+      );
+    }).toList();
+  }
+
+  List<Widget> _albumSections(
+      BuildContext context, WidgetRef ref, AuroraColors theme) {
+    final groups = _albumGroups;
+    if (groups.isEmpty) return const [];
+    return [
+      SliverToBoxAdapter(
+        child: _SectionHeader(title: 'Albums', theme: theme),
+      ),
+      SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final album = groups[index];
+            return _AlbumRow(album: album, theme: theme);
+          },
+          childCount: groups.length,
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _singlesSections(AuroraColors theme) {
+    final singles = tracks
+        .where((t) => t.albumId == null || t.albumId!.trim().isEmpty)
+        .toList();
+    if (singles.isEmpty) return const [];
+    return [
+      SliverToBoxAdapter(
+        child: _SectionHeader(title: 'Singles', theme: theme),
+      ),
+      SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final track = singles[index];
+            return _TrackRow(
+              artistId: artistId,
+              tracks: singles,
+              index: index,
+              track: track,
+            );
+          },
+          childCount: singles.length,
+        ),
+      ),
+    ];
   }
 }
 
@@ -200,28 +261,61 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _ComingSoonCard extends StatelessWidget {
-  final String label;
-  final AuroraColors theme;
+/// A2 — one album derived from already-fetched artist tracks.
+class _AlbumGroup {
+  const _AlbumGroup({
+    required this.albumId,
+    required this.name,
+    required this.thumbnail,
+    required this.trackCount,
+  });
+  final String albumId;
+  final String name;
+  final String thumbnail;
+  final int trackCount;
+}
 
-  const _ComingSoonCard({required this.label, required this.theme});
+/// A2 — album row navigating to the real album screen. No new query:
+///
+/// tap → existing `/album/:id` route.
+class _AlbumRow extends StatelessWidget {
+  const _AlbumRow({required this.album, required this.theme});
+  final _AlbumGroup album;
+  final AuroraColors theme;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        decoration: BoxDecoration(
-          color: theme.surfaceRaised,
-          borderRadius: BorderRadius.circular(12),
+    return ListTile(
+      hoverColor: theme.surfaceElevated,
+      onTap: () => context.push('/album/${album.albumId}'),
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.network(
+          album.thumbnail,
+          width: 44,
+          height: 44,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: 44,
+            height: 44,
+            color: theme.surfaceRaised,
+          ),
         ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(color: theme.textSecondary, fontSize: 13),
-        ),
+      ),
+      title: Text(
+        album.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: theme.textPrimary),
+      ),
+      subtitle: Text(
+        '${album.trackCount} song${album.trackCount == 1 ? '' : 's'}',
+        style: TextStyle(color: theme.textSecondary, fontSize: 12),
+      ),
+      trailing: Icon(
+        Icons.chevron_right,
+        size: 18,
+        color: theme.textSecondary,
       ),
     );
   }
@@ -247,6 +341,8 @@ class _TrackRow extends ConsumerWidget {
     final isActive = currentTrack?.videoId == track.videoId;
 
     return ListTile(
+      // P1-M — desktop hover affordance.
+      hoverColor: theme.surfaceElevated,
       onTap: () {
         ref.read(musicPlayerRepositoryProvider).playFromContext(
               tracks: tracks,

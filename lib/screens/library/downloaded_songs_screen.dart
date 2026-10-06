@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme_extension.dart';
+import '../../core/playback/playback_engine.dart';
+import '../../providers/cache_service_provider.dart';
+import '../../providers/library_provider.dart';
+import '../../providers/music_player_provider.dart';
+import '../../screens/profile/profile_providers.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../widgets/cached_artwork.dart';
-import '../../providers/library_provider.dart';
+import '../../widgets/context_menu.dart' show ContextMenuType;
+import '../../widgets/inline_load_error.dart';
+import '../../widgets/track_menu.dart';
 
 /// Downloaded songs screen with theme-migrated colors.
 class DownloadedSongsScreen extends ConsumerWidget {
@@ -24,34 +32,46 @@ class DownloadedSongsScreen extends ConsumerWidget {
           icon: Icon(Icons.arrow_back, color: theme.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Downloads', style: TextStyle(color: theme.textPrimary)),
+        // D2 — honest cache terminology: this screen lists songs
+        // available offline via the cache layer, NOT permanent/owned
+        // downloads (per Experience Spec §10 [DECIDED]).
+        title: Text('Available offline (cache)',
+            style: TextStyle(color: theme.textPrimary)),
+        // A4 — real storage total from the canonical profile storage
+        // provider (sums CacheRepository sizes; honest cache semantics,
+        // never hardcoded). Loading shows nothing yet; error shows
+        // nothing rather than a wrong number.
         actions: [
-          FutureBuilder<int>(
-            future: _getTotalStorage(),
-            builder: (context, snapshot) {
-              final size = _formatBytes(snapshot.data ?? 0);
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Text(
-                    size,
-                    style: TextStyle(color: theme.textSecondary, fontSize: 12),
+          Consumer(
+            builder: (context, ref, _) {
+              final infoAsync = ref.watch(profileStorageInfoProvider);
+              return infoAsync.when(
+                data: (info) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Text(
+                      _formatBytes(info.totalCacheSizeBytes),
+                      style: TextStyle(
+                          color: theme.textSecondary, fontSize: 12),
+                    ),
                   ),
                 ),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
               );
             },
           ),
         ],
       ),
       body: downloadsAsync.when(
-        data: (songs) => _buildList(context, songs),
+        data: (songs) => _buildList(context, ref, songs),
         loading: () => _buildSkeleton(context),
-        error: (_, __) => _buildError(context),
+        error: (_, __) => _buildError(context, ref),
       ),
     );
   }
 
-  Widget _buildList(BuildContext context, List<dynamic> songs) {
+  Widget _buildList(BuildContext context, WidgetRef ref, List<dynamic> songs) {
     final theme = context.aurora;
     if (songs.isEmpty) {
       return Center(
@@ -61,12 +81,13 @@ class DownloadedSongsScreen extends ConsumerWidget {
             Icon(Icons.download_done, size: 64, color: theme.textDisabled),
             const SizedBox(height: 16),
             Text(
-              'No downloads yet',
+              // D2 — cache wording, no permanent-download promise.
+              'Nothing available offline yet',
               style: TextStyle(color: theme.textSecondary, fontSize: 16),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => Navigator.of(context).pushNamed('/search'),
+              onPressed: () => context.go('/home?tab=search'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.primary,
                 foregroundColor: Colors.white,
@@ -84,6 +105,8 @@ class DownloadedSongsScreen extends ConsumerWidget {
       itemBuilder: (context, index) {
         final song = songs[index];
         return ListTile(
+          // P1-M — desktop hover affordance.
+          hoverColor: theme.surfaceElevated,
           leading: ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: CachedArtwork(
@@ -120,8 +143,8 @@ class DownloadedSongsScreen extends ConsumerWidget {
             song.formattedSize,
             style: TextStyle(color: theme.textSecondary, fontSize: 12),
           ),
-          onTap: () => _playSong(song),
-          onLongPress: () => _showContextMenu(song),
+          onTap: () => _playSong(context, ref, song),
+          onLongPress: () => _showContextMenu(context, ref, song),
         );
       },
     );
@@ -160,24 +183,16 @@ class DownloadedSongsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildError(BuildContext context) {
-    final theme = context.aurora;
+  Widget _buildError(BuildContext context, WidgetRef ref) {
+    // D6 — curated message + Retry re-running the actual provider
+    // (local cache query; retry is meaningful). No raw exceptions.
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 48, color: theme.error),
-          const SizedBox(height: 12),
-          Text(
-            'Could not load downloads',
-            style: TextStyle(color: theme.textSecondary),
-          ),
-        ],
+      child: InlineLoadError(
+        message: "Couldn't load offline songs",
+        onRetry: () => ref.invalidate(cachedSongsProvider),
       ),
     );
   }
-
-  Future<int> _getTotalStorage() async => 0;
 
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '${bytes}B';
@@ -186,6 +201,37 @@ class DownloadedSongsScreen extends ConsumerWidget {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
-  void _playSong(dynamic song) {}
-  void _showContextMenu(dynamic song) {}
+  void _playSong(BuildContext context, WidgetRef ref, dynamic song) {
+    // P1-L — adjacent dead tap in the same rows: play via the normal path
+    // (cache-hit resolves to the local file, verified flow).
+    ref.read(musicPlayerRepositoryProvider).playVideoId(
+          song.songId as String,
+          trackInfo: SearchResult(
+            videoId: song.songId as String,
+            title: (song.title ?? '').toString(),
+            author: _getArtistName(song),
+            thumbnail: (song.thumbnail ?? '').toString(),
+          ),
+        );
+  }
+
+  void _showContextMenu(BuildContext context, WidgetRef ref, dynamic song) {
+    // P1-L — previously an empty stub: long-press did nothing.
+    final track = SearchResult(
+      videoId: song.songId as String,
+      title: (song.title ?? '').toString(),
+      author: _getArtistName(song),
+      thumbnail: (song.thumbnail ?? '').toString(),
+    );
+    showTrackMenu(
+      context: context,
+      ref: ref,
+      track: track,
+      type: ContextMenuType.downloaded,
+      onDeleteDownload: () async {
+        await ref.read(cacheServiceProvider).evictTrack(track.videoId);
+        ref.invalidate(cachedSongsProvider);
+      },
+    );
+  }
 }

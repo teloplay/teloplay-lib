@@ -11,6 +11,7 @@ import '../../providers/playlist_provider.dart';
 import '../../widgets/glass_container.dart';
 import '../../widgets/player/player_artwork.dart';
 import '../../widgets/player/player_controls.dart';
+import '../../widgets/player/playback_error_card.dart';
 import '../../widgets/player/player_metadata.dart';
 import '../../widgets/player/player_progress_bar.dart';
 import '../../widgets/player/speed_sleep_sheets.dart';
@@ -67,6 +68,10 @@ class NowPlayingScreen extends ConsumerWidget {
     final sleepTimerState = ref.watch(sleepTimerProvider).value ?? SleepTimerState.inactive;
     final accentState = ref.watch(albumAccentProvider);
     final accent = accentState.accentColor ?? aurora.primary;
+
+    // P0-12 — typed playback failure, if the last resolve/cache attempt
+    // emitted one. Retry re-invokes the same play (no new repo operation).
+    final playbackError = ref.watch(typedPlaybackErrorProvider).value;
 
     if (currentTrack == null) {
       // Nothing playing — shouldn't normally be reachable (mini-player
@@ -162,6 +167,16 @@ class NowPlayingScreen extends ConsumerWidget {
                               onSeek: repo.seek,
                             ),
                             const SizedBox(height: 8),
+                            if (playbackError != null) ...[
+                              PlaybackErrorCard(
+                                error: playbackError,
+                                onRetry: () => repo.playVideoId(
+                                  currentTrack.videoId,
+                                  trackInfo: currentTrack,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
                             PlayerControls(
                               shuffleEnabled: shuffleEnabled,
                               repeatMode: repeatMode,

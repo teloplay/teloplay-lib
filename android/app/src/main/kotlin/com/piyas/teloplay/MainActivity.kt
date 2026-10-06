@@ -17,6 +17,9 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -139,6 +142,60 @@ class MainActivity : AudioServiceFragmentActivity() {
                             // default no-op contract-এর সাথে সামঞ্জস্যপূর্ণ)।
                             Log.w("TeloPlayInnertube", "getSearchSuggestions failed: ${e.message}")
                             result.success(emptyList<String>())
+                        }
+                    }
+                }
+                // ⚠️ OpenTune-parity multi-entity search (v11) — OpenTune-এর
+                // search screen ঠিক এভাবেই করে: প্রতিটা SearchFilter-এর জন্য
+                // আলাদা `YouTube.search(query, filter)`, আর প্রতিটা item
+                // `ytItemToMap()` দিয়ে typed map। আগে `searchTracksInternal`
+                // সব কিছু SongItem-এ collapse করত, ফলে Album/Artist/Playlist
+                // item + section title পুরোপুরি হারিয়ে যেত।
+                "searchSections" -> {
+                    val query = call.argument<String>("query")
+                    val limit = call.argument<Int>("limitPerSection") ?: 20
+                    if (query == null) {
+                        result.error("BAD_ARGS", "query missing", null)
+                        return@setMethodCallHandler
+                    }
+                    mainScope.launch {
+                        try {
+                            val sections = withContext(Dispatchers.IO) {
+                                searchSectionsInternal(query, limit)
+                            }
+                            result.success(sections)
+                        } catch (e: Exception) {
+                            // এক section fail করলেও বাকিগুলো যেন UI-তে যায় —
+                            // খালি list দিলে Dart side-এ fallback কাজ করবে।
+                            Log.e("TeloPlayInnertube", "searchSections failed", e)
+                            result.success(emptyList<Map<String, Any?>>())
+                        }
+                    }
+                }
+                // OpenTune-এর `SearchSuggestions(queries, recommendedItems)` —
+                // আগে শুধু `queries` যেত, `recommendedItems` (suggestion
+                // dropdown-এর song/album preview) বাদ পড়ত।
+                "suggestRich" -> {
+                    val query = call.argument<String>("query")
+                    if (query == null) {
+                        result.error("BAD_ARGS", "query missing", null)
+                        return@setMethodCallHandler
+                    }
+                    mainScope.launch {
+                        try {
+                            val rich = withContext(Dispatchers.IO) {
+                                getSearchSuggestionsRichInternal(query)
+                            }
+                            result.success(rich)
+                        } catch (e: Exception) {
+                            Log.w("TeloPlayInnertube", "suggestRich failed: ${e.message}")
+                            result.success(
+                                mapOf(
+                                    "ok" to true,
+                                    "queries" to emptyList<String>(),
+                                    "items" to emptyList<Map<String, Any?>>(),
+                                )
+                            )
                         }
                     }
                 }
@@ -338,6 +395,92 @@ class MainActivity : AudioServiceFragmentActivity() {
         val limited = if (limit <= 0) songs else songs.take(limit)
 
         return limited.map { song -> songToMap(song) }
+    }
+
+    // ⚠️ OpenTune-parity multi-entity search (v11)
+    //
+    // OpenTune-এর search screen (`OnlineSearchResult.kt`-এর allModeSections)
+    // এই filter order-টাই iterate করে — Songs → Videos → Albums → Artists →
+    // Community playlists → Featured playlists। এখানে exact সেই order, যাতে
+    // Android আর Windows একই section sequence দেয়।
+    //
+    // ⚠️ কেন `searchSummary()` ব্যবহার করা হয়নি: সেই path
+    // `musicCardShelfRenderer` দিয়েও যায়, যেখানে UGC video-র subtitle
+    // ভুলভাবে artist/album হিসেবে parse হয় — live probe-এ `author: "Apr 10"`,
+    // `album: "INCOGLY"` পাওয়া গেছে (এটাই "title refine/clean" সমস্যা)।
+    // `YouTube.search` + `SearchFilter` canonical song/album/artist row দেয়,
+    // তাই metadata সবসময় ঠিক থাকে (probe: album="Safar", duration=217)।
+    private val searchSectionFilters = listOf(
+        YouTube.SearchFilter.FILTER_SONG to "Songs",
+        YouTube.SearchFilter.FILTER_VIDEO to "Videos",
+        YouTube.SearchFilter.FILTER_ALBUM to "Albums",
+        YouTube.SearchFilter.FILTER_ARTIST to "Artists",
+        YouTube.SearchFilter.FILTER_COMMUNITY_PLAYLIST to "Community playlists",
+        YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST to "Featured playlists",
+    )
+
+    private val topResultOrder = listOf(
+        "Songs", "Albums", "Artists", "Community playlists", "Featured playlists",
+    )
+
+    private suspend fun searchSectionsInternal(
+        query: String,
+        limitPerSection: Int = 20,
+    ): List<Map<String, Any?>> {
+        ensureVisitorData()
+
+        // সব filter parallel — OpenTune-ও per-filter আলাদা request পাঠায়।
+        val perFilter: List<Pair<String, List<YTItem>>> = coroutineScope {
+            searchSectionFilters.map { (filter, title) ->
+                async {
+                    val page = YouTube.search(query, filter).getOrNull()
+                    val items = page?.items.orEmpty()
+                        .distinctBy { it.id }
+                        .let { if (limitPerSection <= 0) it else it.take(limitPerSection) }
+                    title to items
+                }
+            }.awaitAll()
+        }
+
+        val sections = perFilter.mapNotNull { (title, items) ->
+            if (items.isEmpty()) null
+            else mapOf("title" to title, "items" to items.map { ytItemToMap(it) })
+        }
+
+        // OpenTune/Spotify-স্টাইল "Top results" — canonical section থেকে
+        // priority অনুযায়ী (song → album → artist → playlist)। নিচের
+        // section-এ item repeat হবে, ঠিক OpenTune-এর top-card-এর মতোই।
+        val top = perFilter
+            .sortedBy { (title, _) ->
+                topResultOrder.indexOf(title).let { if (it < 0) Int.MAX_VALUE else it }
+            }
+            .flatMap { it.second }
+            .take(4)
+            .map { ytItemToMap(it) }
+
+        return if (top.isEmpty()) sections
+        else listOf(mapOf("title" to "Top results", "items" to top)) + sections
+    }
+
+    // OpenTune-এর `YouTube.searchSuggestions()` দুইটা অংশ দেয় — `queries`
+    // (text) আর `recommendedItems` (item preview)। আগের
+    // `getSearchSuggestionsInternal()` শুধু `queries` ফেরত দিত, তাই
+    // suggestion dropdown-এর preview অংশটা দুই প্ল্যাটফর্মেই হারিয়ে যেত।
+    private suspend fun getSearchSuggestionsRichInternal(
+        query: String,
+    ): Map<String, Any?> {
+        ensureVisitorData()
+        val result = YouTube.searchSuggestions(query).getOrNull()
+            ?: return mapOf(
+                "ok" to true,
+                "queries" to emptyList<String>(),
+                "items" to emptyList<Map<String, Any?>>(),
+            )
+        return mapOf(
+            "ok" to true,
+            "queries" to result.queries,
+            "items" to result.recommendedItems.map { ytItemToMap(it) },
+        )
     }
 
     // main.kt এর songToJson() এর সমতুল্য — Flutter MethodChannel এর

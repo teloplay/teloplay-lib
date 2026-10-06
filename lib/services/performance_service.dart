@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show ProcessInfo, Platform;
+import '../core/platform/platform_info.dart';
 
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/widgets.dart' show WidgetsBinding, WidgetsBindingObserver, AppLifecycleState, PaintingBinding;
@@ -79,7 +79,7 @@ class PerformanceService with WidgetsBindingObserver {
   // হয়েছে যাতে debug overhead-এই মিথ্যা trigger না হয়।
   static int get _rssLowRamThresholdBytes {
     if (kIsWeb) return 300 * 1024 * 1024;
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    if (PlatformInfo.isWindows || PlatformInfo.isLinux || PlatformInfo.isMacOS) {
       return 1200 * 1024 * 1024; // 1.2 GB — desktop
     }
     return 300 * 1024 * 1024; // 300 MB — mobile (Android/iOS), অপরিবর্তিত
@@ -178,7 +178,7 @@ class PerformanceService with WidgetsBindingObserver {
   void _sampleRss() {
     if (kIsWeb) return; // ProcessInfo dart:io-only, web-এ প্রযোজ্য না
     try {
-      final rss = ProcessInfo.currentRss;
+      final rss = PlatformInfo.currentRssBytes;
       final wasLowRam = _isLowRamMode;
       _isLowRamMode = rss > _rssLowRamThresholdBytes;
 

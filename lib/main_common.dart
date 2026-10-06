@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'core/platform/platform_info.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
@@ -69,8 +69,19 @@ class _TeloPlayAppState extends ConsumerState<TeloPlayApp> {
   void initState() {
     super.initState();
 
-    // Windows-only Innertube daemon warm-up
-    if (!kIsWeb && Platform.isWindows) {
+    // Playback engine initialization
+    if (kIsWeb) {
+      // Web: Initialize WebPlaybackEngine to load proxy URL
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final engine = ref.read(playbackEngineProvider);
+        engine.initialize().then((_) {
+          AppLogger.playback('Web playback engine initialized');
+        }).catchError((Object e, StackTrace st) {
+          AppLogger.error('Web playback engine init failed (non-fatal)', e);
+        });
+      });
+    } else if (PlatformInfo.isWindows) {
+      // Windows: Innertube daemon warm-up
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final engine = ref.read(playbackEngineProvider);
         engine.initialize().then((_) {

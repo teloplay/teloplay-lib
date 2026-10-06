@@ -94,6 +94,248 @@ class SearchResult {
   });
 }
 
+/// ⚠️ OpenTune-parity rich search item — the typed multi-entity shape।
+///
+/// OpenTune-এর `:innertube` module চার ধরনের item দেয় (`YTItem` sealed class:
+/// `SongItem` / `AlbumItem` / `ArtistItem` / `PlaylistItem`)। TeloPlay-এর দুই
+/// engine (Android bridge + Windows CLI daemon) ইতিমধ্যেই এই চারটা type
+/// serialise করতে পারে — Android: `MainActivity.kt`-এর `ytItemToMap()`,
+/// Windows: `Main.kt`-এর `ytItemToJsonObject()` (দুটোই `"type"` field দেয়)।
+/// শুধু Dart side-এ কোনো model ছিল না, তাই সব কিছু `SearchResult`-এ (song-only)
+/// collapsed হয়ে যেত।
+class RichSearchItem {
+  /// `song` | `album` | `artist` | `playlist` (OpenTune-এর YTItem subtype)
+  final String type;
+
+  /// Type-অনুযায়ী আলাদা field থেকে আসে —
+  /// song→videoId, album→albumId, artist→artistId, playlist→playlistId।
+  final String id;
+
+  final String title;
+
+  /// Song হলে primary artist-এর নাম; album/artist/playlist হলে secondary
+  /// label (author / song count)।
+  final String? subtitle;
+
+  final String thumbnail;
+
+  /// শুধু song-এর জন্য (বাকিদের null)।
+  final Duration? duration;
+
+  final bool explicit;
+
+  const RichSearchItem({
+    required this.type,
+    required this.id,
+    required this.title,
+    required this.thumbnail,
+    this.subtitle,
+    this.duration,
+    this.explicit = false,
+  });
+
+  /// দুই engine-এর JSON shape একই: `MainActivity.kt`-এর `songToFullMap()` /
+  /// `albumItemToMap()` / `artistItemToMap()` / `playlistItemToMap()` এবং
+  /// `Main.kt`-এর সমতুল্য `*ToJsonObject()`।
+  factory RichSearchItem.fromJson(Map<String, dynamic> json) {
+    final type = (json['type'] as String?) ?? 'song';
+
+    final id = switch (type) {
+          'album' => json['albumId'] as String?,
+          'artist' => json['artistId'] as String?,
+          'playlist' => json['playlistId'] as String?,
+          _ => json['videoId'] as String?,
+        } ??
+        '';
+
+    final durationSeconds = json['duration'];
+    final duration = durationSeconds is int && durationSeconds > 0
+        ? Duration(seconds: durationSeconds)
+        : null;
+
+    // ⚠️ Artist/album item-এ `artists` একটা List<{name,id}>; song-এ
+    // `allArtistNames` একটা List<String> — দুটোই union করলাম যাতে দুই
+    // engine-এর আলাদা shape না লাগে।
+    String? subtitle;
+    final rawArtists = json['artists'];
+    if (rawArtists is List && rawArtists.isNotEmpty) {
+      subtitle = rawArtists
+          .map((a) => a is Map ? (a['name'] as String? ?? '') : '$a')
+          .where((s) => s.isNotEmpty)
+          .join(', ');
+    } else {
+      final names =
+          (json['allArtistNames'] as List?)?.cast<String>() ?? const [];
+      if (names.isNotEmpty) subtitle = names.join(', ');
+    }
+    subtitle ??= (json['author'] as String?) ?? (json['songCountText'] as String?);
+
+    return RichSearchItem(
+      type: type,
+      id: id,
+      title: (json['title'] as String?) ?? 'Unknown',
+      subtitle: (subtitle?.isEmpty ?? true) ? null : subtitle,
+      thumbnail: (json['thumbnail'] as String?) ?? '',
+      duration: duration,
+      explicit: (json['explicit'] as bool?) ?? false,
+    );
+  }
+
+  /// ডিফল্ট song-only fallback-এর জন্য — engine যদি rich data না দিতে পারে
+  /// (যেমন yt-dlp emergency engine), `search()`-এর ফলাফলকে একই shape-এ
+  /// wrap করা হয় যাতে caller-কে দুই path handle করতে না হয়।
+  factory RichSearchItem.fromSearchResult(SearchResult r) => RichSearchItem(
+        type: 'song',
+        id: r.videoId,
+        title: r.title,
+        subtitle: r.author == 'Unknown' ? null : r.author,
+        thumbnail: r.thumbnail,
+        duration: r.duration,
+        explicit: r.explicit,
+      );
+
+  bool get isSong => type == 'song';
+}
+
+/// OpenTune-এর `SearchSummary(title, items)`-এর সমতুল্য — search screen-এর
+/// একটা section ("Top results" / "Songs" / "Albums" / ...)।
+class SearchSection {
+  final String title;
+  final List<RichSearchItem> items;
+
+  const SearchSection({required this.title, required this.items});
+
+  bool get isEmpty => items.isEmpty;
+}
+
+/// OpenTune-এর `SearchSuggestions(queries, recommendedItems)`-এর সমতুল্য।
+/// আগে শুধু `List<String>` ছিল, তাই OpenTune-এর suggestion dropdown-এর
+/// item-preview অংশটা হারিয়ে যেত।
+class SearchSuggestions {
+  final List<String> queries;
+  final List<RichSearchItem> items;
+
+  const SearchSuggestions({this.queries = const [], this.items = const []});
+
+  bool get isEmpty => queries.isEmpty && items.isEmpty;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Result refinement ("clean") — Web worker + OpenTune-এর সমান output
+// ─────────────────────────────────────────────────────────────────────────
+
+/// ⚠️ NON-MUSIC filter — হুবহু `worker/search.js`-এর `NON_MUSIC_PATTERNS`
+/// থেকে নেওয়া (intent-level parity, regex গুলো হালকা করে ট্রান্সফার করা)।
+///
+/// কেন দরকার: YouTube Music-এর raw relevance-এ drama episode ("Safar / part 1
+/// / lesbian love story"), bayan/waz lecture, football highlight, reaction
+/// video, live stream চলে আসে — live probe-এ দেখা গেছে এগুলোই `author`-এর
+/// জায়গায় date ("Apr 10") বা পুরো episode description বসিয়ে metadata
+/// নষ্ট করছিল। Web worker এগুলো ইতিমধ্যেই বাদ দেয়, এখন Android/Windows-ও
+/// একইভাবে বাদ দেবে — তিন প্ল্যাটফর্মে একটাই "clean" definition।
+final List<RegExp> nonMusicPatterns = [
+  RegExp(r'\b(?:part|episode|ep|eps)\s*\.?\s*\d+\b', caseSensitive: false),
+  RegExp(
+    r'#(?:arrangemarriage|lesbian|lovestory|drama|movie|shorts|vlog)\b',
+    caseSensitive: false,
+  ),
+  RegExp(
+    r"\b(?:quran|qur'aan|recitation|surah|tafsir|lecture|bayan|waz|khutbah|hadith|dars|sunnah|calamities)\b",
+    caseSensitive: false,
+  ),
+  RegExp(
+    r'\b(?:live\s*stream|live\s*now|breaking\s*news|press\s*conference)\b',
+    caseSensitive: false,
+  ),
+  RegExp(
+    r'\b(?:full\s*movie|short\s*film|web\s*series|season\s*\d+)\b',
+    caseSensitive: false,
+  ),
+  RegExp(
+    r'\b(?:football|match\s*highlights?|highlights?|tribute\s+to)\b',
+    caseSensitive: false,
+  ),
+  RegExp(r'\b(?:reaction|reacting|vlog)\b', caseSensitive: false),
+];
+
+/// একটা item non-music কি না। শুধু song/playlist-এর title+subtitle check করা
+/// হয় — album/artist নাম legit হলে কখনো বাদ যাবে না (false-positive guard)।
+bool isNonMusicResult(RichSearchItem item) {
+  if (item.type == 'album' || item.type == 'artist') return false;
+  final text = '${item.title} ${item.subtitle ?? ''}';
+  return nonMusicPatterns.any((p) => p.hasMatch(text));
+}
+
+/// একটা section-এর non-music item বাদ দেয়, খালি হয়ে গেলে section-টাই
+/// বাদ পড়ে (OpenTune-এর `SearchSummaryPage.filterExplicit`-এর মতোই
+/// `mapNotNull` + `ifEmpty { null }` প্যাটার্ন)।
+List<SearchSection> cleanSections(List<SearchSection> sections) {
+  final result = <SearchSection>[];
+  for (final section in sections) {
+    final kept = section.items.where((i) => !isNonMusicResult(i)).toList();
+    if (kept.isNotEmpty) {
+      result.add(SearchSection(title: section.title, items: kept));
+    }
+  }
+  return result;
+}
+
+/// Section-ভেদে id-ভিত্তিক dedupe (OpenTune `distinctBy { it.id }`),
+/// সাথে খালি-id item বাদ।
+List<SearchSection> dedupeSections(List<SearchSection> sections) {
+  final seen = <String>{};
+  final result = <SearchSection>[];
+  for (final section in sections) {
+    final kept = <RichSearchItem>[];
+    for (final item in section.items) {
+      if (item.id.isEmpty) continue;
+      if (seen.add('${item.type}:${item.id}')) kept.add(item);
+    }
+    if (kept.isNotEmpty) {
+      result.add(SearchSection(title: section.title, items: kept));
+    }
+  }
+  return result;
+}
+
+/// দুই engine-এ একই pipeline: dedupe → non-music বাদ। Section order অক্ষত
+/// থাকে (OpenTune-এর `allModeSections` order-ই এখানে authoritative)।
+List<SearchSection> refineSections(List<SearchSection> sections) =>
+    cleanSections(dedupeSections(sections));
+
+/// Rich search না থাকলে `search()`-এর song-only ফলাফলকে একই section shape-এ
+/// wrap করে দেয় — caller (repository/UI) সবসময় একটাই data shape পাবে,
+/// engine আলাদা করে handle করতে হবে না।
+///
+/// Interface-এর member না রেখে top-level function করা হয়েছে কারণ
+/// `PlaybackEngine` `implements` করা চারটা engine-ই (Android / Innertube-
+/// Windows / yt-dlp / web) প্রতিটা member explicit override করতে বাধ্য —
+/// fallback logic-টা engine-ভেদে আলাদা কিছু না, তাই একবার লিখলেই হয়।
+Future<List<SearchSection>> sectionsOrFallback(
+  PlaybackEngine engine,
+  String query, {
+  int limitPerSection = 20,
+}) async {
+  final sections = await engine.searchSections(
+    query,
+    limitPerSection: limitPerSection,
+  );
+  if (sections.isNotEmpty) return sections;
+
+  try {
+    final songs = await engine.search(query, limit: limitPerSection);
+    if (songs.isEmpty) return const [];
+    return [
+      SearchSection(
+        title: 'Songs',
+        items: songs.map(RichSearchItem.fromSearchResult).toList(),
+      ),
+    ];
+  } on PlaybackEngineException {
+    return const [];
+  }
+}
+
 // ⚠️ Audio Focus Ducking (Phase 1) — OS থেকে আসা audio focus পরিবর্তনের
 // সংকেত। Engine-driven (repository নয়) কারণ শুধু platform layer-ই
 // প্রকৃতপক্ষে OS focus event শুনতে পারে (Android AudioManager,
@@ -200,6 +442,37 @@ abstract class PlaybackEngine {
   // হলে চুপচাপ খালি list ফেরত দেওয়াই ভালো, error message দেখিয়ে user-কে
   // বিরক্ত করার দরকার নেই।
   Future<List<String>> searchSuggestions(String query) async => [];
+
+  // ───────────────────────────────────────────────────────────────────────
+  // ⚠️ OpenTune-parity multi-entity search (v11)
+  // ───────────────────────────────────────────────────────────────────────
+  //
+  // OpenTune-এর `YouTube.searchSummary()` একটা `SearchSummaryPage` ফেরত দেয়
+  // (`SearchSummary(title, items)` list) — অর্থাৎ search screen-এ "Top
+  // results" / "Songs" / "Albums" / "Artists" / "Playlists" section-wise
+  // 결과, আর প্রতিটা item typed (`SongItem`/`AlbumItem`/`ArtistItem`/
+  // `PlaylistItem`)।
+  //
+  // TeloPlay-এর দুই engine আসলে একই Innertube module ব্যবহার করে, কিন্তু
+  // method-টা song-only-তে collapse করত (`MainActivity.kt`-এর
+  // `searchTracksInternal()` ও `Main.kt`-এর `searchTracks()` দুটোই
+  // `summaries.flatMap{items}.filterIsInstance<SongItem>()`)। ফলে
+  // Album/Artist/Playlist section + title সব হারিয়ে যেত।
+  //
+  // Default [] — যে engine rich search দিতে পারে না (yt-dlp emergency
+  // fallback), সে override করবে না; caller তখন song-only sections বানাবে
+  // ([sectionsOrFallback])। এতে কোনো breaking change নেই।
+  Future<List<SearchSection>> searchSections(
+    String query, {
+    int limitPerSection = 20,
+  }) async =>
+      [];
+
+  /// OpenTune-এর `SearchSuggestions(queries, recommendedItems)` — suggestion
+  /// dropdown-এর text suggestion + item preview একসাথে। Default খালি;
+  /// non-throwing (suggestion non-critical)।
+  Future<SearchSuggestions> searchSuggestionsRich(String query) async =>
+      const SearchSuggestions();
 
   // ⚠️ Phase 0.9 (Foundation Hardening) → Phase 1 (Audio Focus Ducking,
   // এখন বাস্তবায়িত)।

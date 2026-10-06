@@ -55,12 +55,8 @@ class LibraryBentoScreen extends StatelessWidget {
         accent: accents[4 % accents.length],
         onTap: () => context.push('/library/offline/downloaded'),
       ),
-      _BentoItem(
-        icon: Icons.sd_storage_rounded,
-        label: 'Cached Songs',
-        accent: accents[5 % accents.length],
-        onTap: () => context.push('/library/offline/cached'),
-      ),
+      // D3 — duplicate "Cached Songs" tile removed (same destination as
+      // "Offline" above; Gate 0 removed the cached route).
     ];
 
     return Scaffold(

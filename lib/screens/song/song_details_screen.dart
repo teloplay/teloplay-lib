@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../providers/repository_providers.dart' show libraryRepositoryProvider;
 import '../../providers/library_provider.dart';
 import '../../core/playback/playback_engine.dart';
 import '../../core/theme/app_theme_extension.dart';
@@ -8,7 +9,7 @@ import '../../data/repositories/library_repository.dart';
 import '../../providers/music_player_provider.dart';
 import '../../widgets/cached_artwork.dart';
 import '../../widgets/playlist/add_to_playlist_sheet.dart';
-import '../../providers/library_provider.dart';   // libraryRepositoryProvider-এর জন্য
+
 import '../../models/history_entry_model.dart';    // BehaviourStats-এর জন্য
 
 /// Phase 6.5B — Song Details Screen.
@@ -349,16 +350,6 @@ class _SongDetailsScreenState extends ConsumerState<SongDetailsScreen> {
                       onTap: _showAddToPlaylist,
                       tooltip: 'Add to playlist',
                     ),
-                    const SizedBox(width: 12),
-                    _ActionIconButton(
-                      icon: Icons.share,
-                      color: aurora.textSecondary,
-                      // ⚠️ Share (QR/deep-link) is Phase 7+ scope —
-                      // wiring the button now, actual share_service.dart
-                      // doesn't exist yet. No-op until then.
-                      onTap: () {},
-                      tooltip: 'Share',
-                    ),
                   ],
                 ),
 
@@ -403,7 +394,10 @@ class _SongDetailsScreenState extends ConsumerState<SongDetailsScreen> {
         // not-yet-available field.
         if (meta?.artistId != null)
           SliverToBoxAdapter(
-            child: _MoreFromArtistSection(artistId: meta!.artistId!),
+            child: _MoreFromArtistSection(
+              artistId: meta!.artistId!,
+              currentVideoId: track.videoId,
+            ),
           ),
 
         const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -510,37 +504,87 @@ class _ActionIconButton extends StatelessWidget {
   }
 }
 
+/// A2 — real "More from this artist" backed by the existing
+/// `artistTracksProvider` (same query Artist Page uses — no new API).
+/// Current song excluded; empty/error hides the section (honest empty =
+/// omit, never "Coming soon"); tap plays from the artist context.
 class _MoreFromArtistSection extends ConsumerWidget {
-  const _MoreFromArtistSection({required this.artistId});
+  const _MoreFromArtistSection({
+    required this.artistId,
+    required this.currentVideoId,
+  });
   final String artistId;
+  final String currentVideoId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final aurora = context.aurora;
-    // ⚠️ Deliberately NOT implemented in this batch — needs
-    // LibraryRepository.getSongsByArtist(artistId) which doesn't exist
-    // yet (only getMostPlayed/getRecentlyPlayed/getCachedSongs exist).
-    // Rendering the section header now (matches Song Details Screen's
-    // spec — "Related Content: More From Artist") with a placeholder,
-    // to be filled when Artist Page's query layer is built (next step
-    // per the locked order). Avoids inventing a query here that Artist
-    // Page will need to duplicate/reconcile against later.
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'More from this artist',
-            style: TextStyle(color: aurora.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
+    final moreAsync = ref.watch(artistTracksProvider(artistId));
+
+    return moreAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (tracks) {
+        final others =
+            tracks.where((t) => t.videoId != currentVideoId).take(5).toList();
+        if (others.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'More from this artist',
+                style: TextStyle(
+                    color: aurora.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              ...others.asMap().entries.map((entry) {
+                final t = entry.value;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  // A-batch hover affordance (matches P1-M track rows).
+                  hoverColor: aurora.surfaceElevated,
+                  leading: CachedArtwork(
+                    imageUrl: t.thumbnail,
+                    cacheKey: t.videoId,
+                    width: 40,
+                    height: 40,
+                    borderRadius: BorderRadius.circular(6),
+                    memCacheWidth: 80,
+                    memCacheHeight: 80,
+                    placeholderIcon: Icons.music_note,
+                  ),
+                  title: Text(
+                    t.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        TextStyle(color: aurora.textPrimary, fontSize: 13.5),
+                  ),
+                  subtitle: Text(
+                    t.author,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        TextStyle(color: aurora.textSecondary, fontSize: 12),
+                  ),
+                  onTap: () => ref
+                      .read(musicPlayerRepositoryProvider)
+                      .playFromContext(
+                        tracks: others,
+                        startIndex: entry.key,
+                        source: QueueSource.artist,
+                      ),
+                );
+              }),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Coming soon',
-            style: TextStyle(color: aurora.textSecondary, fontSize: 13),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

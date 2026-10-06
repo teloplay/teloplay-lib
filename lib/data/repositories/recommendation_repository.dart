@@ -36,6 +36,13 @@ class RecommendationRepository extends BaseRepository {
     return _libraryRepo.getUserListeningStats();
   }
 
+  /// P1-P — listening-maturity score inputs (existing signals only).
+  /// Mirrors [getUserStats]: composition over [LibraryRepository], no new
+  /// provider, no new storage.
+  Future<ListeningMaturity> getListeningMaturity() {
+    return _libraryRepo.getListeningMaturity();
+  }
+
   /// Generate Artist Radio.
   Future<List<SearchResult>> getArtistRadio(String artistName, {int count = 20}) {
     return _engine.generateArtistRadio(artistName, count: count);

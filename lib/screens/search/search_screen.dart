@@ -4,10 +4,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/playback/playback_engine.dart';
 import '../../core/theme/app_theme_extension.dart';
+import '../../models/now_playing_model.dart' show playbackErrorFor;
 import '../../models/search_models.dart';
 import '../../providers/music_player_provider.dart';
 import '../../providers/search_provider.dart';
+import '../../providers/app_router.dart' show seeAllLocation;
 import '../../widgets/cached_artwork.dart';
+import '../../widgets/inline_load_error.dart';
+import '../../widgets/track_menu.dart';
 
 /// Phase 6.5B — Global Search Architecture. SearchController's
 /// multi-entity state (songs/albums/artists/playlists) consumed,
@@ -27,6 +31,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
   bool _searchSubmitted = false;
+
+  /// P1-K — result tab filter. Null = All. Pure view filter over the
+  /// already-fetched [SearchState]: selecting a tab issues ZERO new
+  /// searches and never touches routes (back navigation unaffected).
+  /// Reset on every fresh submit so a new query always starts at All.
+  SearchCategory? _activeTab;
 
   @override
   void initState() {
@@ -48,7 +58,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _searchController.selection = TextSelection.fromPosition(
       TextPosition(offset: query.length),
     );
-    setState(() => _searchSubmitted = true);
+    setState(() {
+      _searchSubmitted = true;
+      _activeTab = null;
+    });
     _focusNode.unfocus();
     ref.read(searchControllerProvider.notifier).search(query);
     ref.read(suggestionControllerProvider.notifier).clear();
@@ -86,13 +99,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _seeAll(SearchCategory category) {
-    context.push(
-      '/search/category',
-      extra: {
-        'query': _searchController.text.trim(),
-        'category': category.name,
-      },
-    );
+    // P0-04 — the `/search/category` builder reads queryParameters, not
+    // `extra`. Single URL builder lives in app_router.dart (unit-tested).
+    final query = _searchController.text.trim();
+    context.push(seeAllLocation(query, category));
   }
 
   @override
@@ -148,7 +158,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                     .read(
                                         suggestionControllerProvider.notifier)
                                     .clear();
-                                setState(() => _searchSubmitted = false);
+                                setState(() {
+                                  _searchSubmitted = false;
+                                  _activeTab = null;
+                                });
                               },
                             )
                           : null,
@@ -173,7 +186,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       .onQueryChanged(value);
                 },
                 onSubmitted: (value) {
-                  setState(() => _searchSubmitted = true);
+                  // P1-K — fresh submit always restarts at the All tab.
+                  setState(() {
+                    _searchSubmitted = true;
+                    _activeTab = null;
+                  });
                   ref.read(searchControllerProvider.notifier).search(value);
                   ref.read(suggestionControllerProvider.notifier).clear();
                 },
@@ -223,7 +240,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         );
                       },
                       loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
+                      // P1-A — recents failing is not "no recents".
+                      error: (_, __) => InlineLoadError(
+                        message: "Couldn't load recent searches",
+                        onRetry: () => ref.invalidate(recentSearchesProvider),
+                      ),
                     );
                   },
                 ),
@@ -239,6 +260,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         children: [
                           ...suggestionState.suggestions.map((suggestion) {
                             return ListTile(
+                              // P1-M — desktop hover affordance (token fill).
+                              hoverColor: aurora.surfaceElevated,
                               leading: Icon(Icons.search,
                                   size: 18, color: aurora.textSecondary),
                               title: Text(suggestion,
@@ -263,6 +286,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             ),
                             ...suggestionState.songPreviews.map((song) {
                               return ListTile(
+                                // P1-M — desktop hover affordance.
+                                hoverColor: aurora.surfaceElevated,
                                 leading: CachedArtwork(
                                   imageUrl: song.thumbnail,
                                   cacheKey: song.videoId,
@@ -292,14 +317,37 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         ],
                       ),
               ),
+            // P1-K — tab filter bar. View-only: no new searches, no routes.
+            // Shown only when at least one category has results.
+            if (showResults &&
+                searchState.error == null &&
+                !searchState.isEmpty)
+              _SearchTabBar(
+                activeTab: _activeTab,
+                hasSongs: searchState.songs.isNotEmpty,
+                hasAlbums: searchState.albums.isNotEmpty,
+                hasArtists: searchState.artists.isNotEmpty,
+                hasPlaylists: searchState.playlists.isNotEmpty,
+                onSelect: (tab) => setState(() => _activeTab = tab),
+              ),
             if (showResults)
               Expanded(
                 child: searchState.error != null
                     ? Center(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Text(searchState.error!,
-                              style: TextStyle(color: aurora.error)),
+                          // A8 — curated error via the shared classifier;
+                          // raw exception text never reaches the user.
+                          // Retry re-dispatches the submitted query
+                          // through the existing search path.
+                          child: InlineLoadError(
+                            message: playbackErrorFor(
+                                    searchState.error!)
+                                .message,
+                            onRetry: () => ref
+                                .read(searchControllerProvider.notifier)
+                                .search(searchState.query),
+                          ),
                         ),
                       )
                     : searchState.isEmpty
@@ -314,6 +362,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         : _MultiCategoryResults(
                             state: searchState,
                             repo: repo,
+                            activeTab: _activeTab,
                             onOpenSong: _openSong,
                             onOpenAlbum: _openAlbum,
                             onOpenArtist: _openArtist,
@@ -328,12 +377,73 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 }
 
+/// P1-K — result tab filter bar. Pure view filter: tapping a tab only
+/// flips local state (zero searches, zero routes). `null` = All.
+class _SearchTabBar extends StatelessWidget {
+  final SearchCategory? activeTab;
+  final bool hasSongs;
+  final bool hasAlbums;
+  final bool hasArtists;
+  final bool hasPlaylists;
+  final void Function(SearchCategory?) onSelect;
+
+  const _SearchTabBar({
+    required this.activeTab,
+    required this.hasSongs,
+    required this.hasAlbums,
+    required this.hasArtists,
+    required this.hasPlaylists,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final aurora = context.aurora;
+    final tabs = <(String, SearchCategory?)>[
+      ('All', null),
+      if (hasSongs) ('Songs', SearchCategory.songs),
+      if (hasAlbums) ('Albums', SearchCategory.albums),
+      if (hasArtists) ('Artists', SearchCategory.artists),
+      if (hasPlaylists) ('Playlists', SearchCategory.playlists),
+    ];
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: tabs.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final (label, tab) = tabs[index];
+          final selected = activeTab == tab;
+          return ChoiceChip(
+            label: Text(label),
+            selected: selected,
+            onSelected: (_) => onSelect(tab),
+            selectedColor: aurora.primary.withValues(alpha: 0.25),
+            backgroundColor: aurora.surfaceRaised,
+            side: BorderSide(
+              color: selected ? aurora.primary : aurora.glassBorder,
+            ),
+            labelStyle: TextStyle(
+              color: selected ? aurora.textPrimary : aurora.textSecondary,
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// Top Result → Songs → Albums → Artists → Playlists, section-wise —
 /// each section only shown when that category has at least 1 result
 /// (locked rule, see SearchState doc-comment).
 class _MultiCategoryResults extends StatelessWidget {
   final SearchState state;
   final dynamic repo;
+  final SearchCategory? activeTab;
   final void Function(SearchResult) onOpenSong;
   final void Function(AlbumSearchResult) onOpenAlbum;
   final void Function(ArtistSearchResult) onOpenArtist;
@@ -343,6 +453,7 @@ class _MultiCategoryResults extends StatelessWidget {
   const _MultiCategoryResults({
     required this.state,
     required this.repo,
+    required this.activeTab,
     required this.onOpenSong,
     required this.onOpenAlbum,
     required this.onOpenArtist,
@@ -353,11 +464,49 @@ class _MultiCategoryResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final aurora = context.aurora;
-    final topResult = state.topResult;
+    final topResult = activeTab == null ? state.topResult : null;
+
+    // Defensive: chips only offer non-empty categories, so an empty tab
+    // means stale state — show a named empty instead of a blank list.
+    final tabEmpty = switch (activeTab) {
+      null => false,
+      SearchCategory.songs => state.songs.isEmpty,
+      SearchCategory.albums => state.albums.isEmpty,
+      SearchCategory.artists => state.artists.isEmpty,
+      SearchCategory.playlists => state.playlists.isEmpty,
+    };
+    if (tabEmpty) {
+      return Center(
+        child: Text(
+          'No ${activeTab!.name} results for this search',
+          style: TextStyle(color: aurora.textSecondary),
+        ),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
+        // P1-K — typo-correction notice. Informational only: the results
+        // below ARE for [query]; no revert action (original had nothing).
+        if (state.correctedFrom != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Row(
+              children: [
+                Icon(Icons.spellcheck_rounded,
+                    size: 16, color: aurora.textSecondary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Showing results for "${state.query}"',
+                    style: TextStyle(
+                        color: aurora.textSecondary, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (topResult != null) ...[
           _SectionHeader(title: 'Top Result'),
           _TopResultTile(
@@ -370,7 +519,8 @@ class _MultiCategoryResults extends StatelessWidget {
             onOpenPlaylist: onOpenPlaylist,
           ),
         ],
-        if (state.songs.isNotEmpty) ...[
+        if ((activeTab == null || activeTab == SearchCategory.songs) &&
+            state.songs.isNotEmpty) ...[
           _SectionHeader(
             title: 'Songs',
             onSeeAll: () => onSeeAll(SearchCategory.songs),
@@ -387,7 +537,8 @@ class _MultiCategoryResults extends StatelessWidget {
             );
           }),
         ],
-        if (state.albums.isNotEmpty) ...[
+        if ((activeTab == null || activeTab == SearchCategory.albums) &&
+            state.albums.isNotEmpty) ...[
           _SectionHeader(
             title: 'Albums',
             onSeeAll: () => onSeeAll(SearchCategory.albums),
@@ -397,7 +548,8 @@ class _MultiCategoryResults extends StatelessWidget {
                 onTap: () => onOpenAlbum(album),
               )),
         ],
-        if (state.artists.isNotEmpty) ...[
+        if ((activeTab == null || activeTab == SearchCategory.artists) &&
+            state.artists.isNotEmpty) ...[
           _SectionHeader(
             title: 'Artists',
             onSeeAll: () => onSeeAll(SearchCategory.artists),
@@ -407,7 +559,8 @@ class _MultiCategoryResults extends StatelessWidget {
                 onTap: () => onOpenArtist(artist),
               )),
         ],
-        if (state.playlists.isNotEmpty) ...[
+        if ((activeTab == null || activeTab == SearchCategory.playlists) &&
+            state.playlists.isNotEmpty) ...[
           _SectionHeader(
             title: 'Playlists',
             onSeeAll: () => onSeeAll(SearchCategory.playlists),
@@ -508,7 +661,7 @@ class _TopResultTile extends StatelessWidget {
   }
 }
 
-class _SongTile extends StatelessWidget {
+class _SongTile extends ConsumerWidget {
   final SearchResult song;
   final dynamic repo;
   final List<SearchResult> allSongs;
@@ -524,10 +677,14 @@ class _SongTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final aurora = context.aurora;
     return ListTile(
+      // P1-M — desktop hover affordance.
+      hoverColor: aurora.surfaceElevated,
       onTap: onTap,
+      // P1-L — long-press menu (same actions as every other song row).
+      onLongPress: () => showTrackMenu(context: context, ref: ref, track: song),
       leading: CachedArtwork(
         imageUrl: song.thumbnail,
         cacheKey: song.videoId,
@@ -576,6 +733,8 @@ class _AlbumTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final aurora = context.aurora;
     return ListTile(
+      // P1-M — desktop hover affordance.
+      hoverColor: aurora.surfaceElevated,
       onTap: onTap,
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(4),
@@ -622,6 +781,8 @@ class _ArtistTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final aurora = context.aurora;
     return ListTile(
+      // P1-M — desktop hover affordance.
+      hoverColor: aurora.surfaceElevated,
       onTap: onTap,
       leading: ClipOval(
         child: artist.artworkUrl != null
@@ -664,6 +825,8 @@ class _PlaylistTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final aurora = context.aurora;
     return ListTile(
+      // P1-M — desktop hover affordance.
+      hoverColor: aurora.surfaceElevated,
       onTap: onTap,
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(4),

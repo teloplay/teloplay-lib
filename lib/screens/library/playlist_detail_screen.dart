@@ -58,6 +58,31 @@ class PlaylistDetailScreen extends ConsumerWidget {
         );
   }
 
+  /// D1 — shared items→tracks mapping (row tap and Play All use the
+  /// same list; no duplicated conversion, no second queue).
+  static List<SearchResult> _tracksOf(List<PlaylistItemEntry> items) {
+    return items
+        .map((i) => SearchResult(
+              videoId: i.songId,
+              title: i.title,
+              author: i.author,
+              thumbnail: i.thumbnail,
+            ))
+        .toList();
+  }
+
+  /// D1 — Play All establishes the playlist as the playback context via
+  /// the canonical path. playFromContext REPLACES the queue, so repeat
+  /// taps cannot duplicate contexts; empty lists never reach here (no
+  /// header renders for them).
+  void _playAll(WidgetRef ref, List<PlaylistItemEntry> items) {
+    ref.read(musicPlayerRepositoryProvider).playFromContext(
+          tracks: _tracksOf(items),
+          startIndex: 0,
+          source: QueueSource.playlist,
+        );
+  }
+
   void _onReorder(
     WidgetRef ref,
     List<PlaylistItemEntry> items,
@@ -99,6 +124,20 @@ class PlaylistDetailScreen extends ConsumerWidget {
             ),
           ),
           orElse: () => Text('Playlist', style: TextStyle(color: theme.textPrimary)),
+        ),
+        // D1 — Play All (non-empty only; empty playlists render no
+        // header, so no playback attempt is possible).
+        actions: detailAsync.maybeWhen(
+          data: (detail) => detail == null || detail.items.isEmpty
+              ? null
+              : [
+                  IconButton(
+                    icon: const Icon(Icons.play_circle_fill_rounded),
+                    tooltip: 'Play All',
+                    onPressed: () => _playAll(ref, detail.items),
+                  ),
+                ],
+          orElse: () => null,
         ),
       ),
       body: detailAsync.when(
@@ -150,6 +189,8 @@ class PlaylistDetailScreen extends ConsumerWidget {
                       );
                 },
                 child: ListTile(
+                  // P1-M — desktop hover affordance.
+                  hoverColor: theme.surfaceElevated,
                   key: ValueKey('tile_${item.itemId}'),
                   leading: CachedArtwork(
                     imageUrl: item.thumbnail,
@@ -173,17 +214,8 @@ class PlaylistDetailScreen extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   onTap: () {
-                    final tracks = detail.items
-                        .map((i) => SearchResult(
-                              videoId: i.songId,
-                              title: i.title,
-                              author: i.author,
-                              thumbnail: i.thumbnail,
-                            ))
-                        .toList();
-
                     ref.read(musicPlayerRepositoryProvider).playFromContext(
-                          tracks: tracks,
+                          tracks: _tracksOf(detail.items),
                           startIndex: index,
                           source: QueueSource.playlist,
                         );

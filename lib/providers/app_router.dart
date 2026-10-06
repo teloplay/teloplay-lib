@@ -1,4 +1,5 @@
-import 'dart:io' show Platform;
+import '../core/platform/platform_info.dart';
+import '../core/playback/playback_engine.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -20,8 +21,6 @@ import '../screens/library/statistics_screen.dart';
 
 import '../screens/library/recently_played_screen.dart';
 import '../screens/library/most_played_screen.dart';
-
-import '../screens/onboarding/getting_started_screen.dart';
 import '../screens/player/player_test_screen.dart';
 import '../screens/search/search_category_results_screen.dart';
 import '../screens/settings/cache_settings_section.dart';
@@ -73,7 +72,7 @@ CustomTransitionPage _platformAwarePage({
   }
 
   final isDesktop = !kIsWeb &&
-      (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+      (PlatformInfo.isWindows || PlatformInfo.isLinux || PlatformInfo.isMacOS);
 
   if (isDesktop) {
     // Windows/Desktop — FadeTransition + ScaleTransition, 180–220ms
@@ -109,6 +108,29 @@ CustomTransitionPage _platformAwarePage({
   );
 }
 
+/// P0-03…P0-07 — pure route helpers, unit-tested without widgets.
+/// Shell tab order must match MobileShell/DesktopShell `_bodies` order.
+const shellTabNames = ['home', 'search', 'library', 'profile'];
+
+/// `?tab=` → tab index. Unknown/absent → 0 (home). Never throws.
+int shellTabIndexForParam(String? tab) {
+  if (tab == null) return 0;
+  final index = shellTabNames.indexOf(tab);
+  return index >= 0 ? index : 0;
+}
+
+/// See-All destination. The `/search/category` builder reads queryParameters
+/// (not `extra`), so both values travel in the URL (P0-04).
+String seeAllLocation(String query, SearchCategory category) {
+  return '/search/category?q=${Uri.encodeComponent(query)}&category=${category.name}';
+}
+
+/// In-memory song context from a push `extra`. Bare deep links carry null
+/// (or foreign extras) → null, and the screen resolves locally (P0-05).
+SearchResult? songTrackFromExtra(Object? extra) {
+  return extra is SearchResult ? extra : null;
+}
+
 /// Tab-navigation only — quick fade, no full route animation
 /// (per requirement: "Tab Navigation: Quick Fade Only").
 CustomTransitionPage _tabFadePage({
@@ -141,12 +163,6 @@ GoRouter appRouter(Ref ref) {
       final isGuest = session?.user.isAnonymous ?? false;
       final isAuthRoute = state.matchedLocation.startsWith('/welcome') ||
           state.matchedLocation.startsWith('/auth');
-
-      // debug route-গুলোকে auth redirect logic সম্পূর্ণ এড়িয়ে যেতে দাও
-      if (state.matchedLocation == '/debug/player-test' ||
-          state.matchedLocation == '/debug/cache-settings') {
-        return null;
-      }
 
       // Root path / → redirect to /home if logged in, /welcome if not
       if (state.matchedLocation == '/') {
@@ -198,13 +214,22 @@ GoRouter appRouter(Ref ref) {
       ),
       GoRoute(
         path: '/home',
-        pageBuilder: (context, state) => _tabFadePage(
-          key: state.pageKey,
-          child: const PlatformShell(
-            mobileChild: MobileShell(),
-            desktopChild: DesktopShell(),
-          ),
-        ),
+        pageBuilder: (context, state) {
+          // P0-06/07 — tabs are ADDRESSED, not routed: `?tab=` selects the
+          // shell tab without new routes or redirects. Unknown/absent tab
+          // falls back to home. Explicit ValueKey forces a rebuild so the
+          // shell's one-shot `initialTab` initializer re-runs on tab change.
+          const tabs = shellTabNames;
+          final tabIndex = shellTabIndexForParam(state.uri.queryParameters['tab']);
+          final initialTab = tabIndex;
+          return _tabFadePage(
+            key: ValueKey('home-$initialTab'),
+            child: PlatformShell(
+              mobileChild: MobileShell(initialTab: initialTab),
+              desktopChild: DesktopShell(initialTab: initialTab),
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/player',
@@ -274,9 +299,14 @@ GoRouter appRouter(Ref ref) {
         path: '/song/:id',
         pageBuilder: (context, state) {
           final songId = state.pathParameters['id']!;
+          // P0-05 — forward in-memory context when the caller pushed it
+          // (search results); bare deep links arrive with null extra and the
+          // screen resolves from the local Songs table itself.
+          final extra = state.extra;
+          final track = songTrackFromExtra(extra);
           return _platformAwarePage(
             key: state.pageKey,
-            child: _inFrame(SongDetailsScreen(songId: songId)),
+            child: _inFrame(SongDetailsScreen(songId: songId, track: track)),
           );
         },
       ),
@@ -343,13 +373,6 @@ GoRouter appRouter(Ref ref) {
           child: _inFrame(const DownloadedSongsScreen()),
         ),
       ),
-      GoRoute(
-        path: '/library/offline/cached',
-        pageBuilder: (context, state) => _platformAwarePage(
-          key: state.pageKey,
-          child: _inFrame(const DownloadedSongsScreen()),
-        ),
-      ),
       // ⚠️ Must stay LAST among the /library routes. A parameter route
       // matches anything, so declared above the specific ones it swallows
       // /library/offline/* and nothing below it is ever reached.
@@ -374,13 +397,6 @@ GoRouter appRouter(Ref ref) {
         ),
       ),
       GoRoute(
-        path: '/onboarding',
-        pageBuilder: (context, state) => _platformAwarePage(
-          key: state.pageKey,
-          child: const GettingStartedScreen(),
-        ),
-      ),
-      GoRoute(
         path: '/search/category',
         pageBuilder: (context, state) {
           final query = state.uri.queryParameters['q'] ?? '';
@@ -395,14 +411,18 @@ GoRouter appRouter(Ref ref) {
           );
         },
       ),
-      GoRoute(
-        path: '/debug/player-test',
-        builder: (context, state) => const PlayerTestScreen(),
-      ),
-      GoRoute(
-        path: '/debug/cache-settings',
-        builder: (context, state) => const CacheSettingsDebugScreen(),
-      ),
+      // Gate 0 (D5) — debug screens exist in debug builds only and
+      // follow the standard auth guards above like every other route.
+      if (kDebugMode) ...[
+        GoRoute(
+          path: '/debug/player-test',
+          builder: (context, state) => const PlayerTestScreen(),
+        ),
+        GoRoute(
+          path: '/debug/cache-settings',
+          builder: (context, state) => const CacheSettingsDebugScreen(),
+        ),
+      ],
     ],
   );
 }

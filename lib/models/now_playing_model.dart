@@ -104,6 +104,12 @@ class SleepTimerState {
   bool get isActive => remaining != null;
 }
 
+/// ⚠️ P0-G4 — error kinds for the typed playback-error contract. Minimal
+/// P0 set only (network/unavailable/playback/unknown); the remaining
+/// taxonomy (login-required, restricted, cache, storage, sync, validation,
+/// capability, timeout) is P1. UI switches on [kind], never on message text.
+enum PlaybackErrorKind { network, unavailable, playback, unknown }
+
 /// ⚠️ Bug fix — resolve/cache দুটোই ব্যর্থ হলে transient, one-shot
 /// user-facing error event। `NowPlaying.errorMessage`-এর থেকে
 /// ইচ্ছাকৃতভাবে আলাদা — সেটা persistent state (UI rebuild-এ বারবার
@@ -114,8 +120,64 @@ class PlaybackError {
   /// User-facing, non-technical message — UI সরাসরি দেখাতে পারবে।
   final String message;
 
+  /// Machine-readable category — UI branches on this, never on [message].
+  final PlaybackErrorKind kind;
+
+  /// Whether retrying the same operation can plausibly succeed.
+  final bool retryable;
+
   /// Debug/log-এর জন্য raw cause — UI-তে কখনো দেখানো উচিত না।
   final Object? cause;
 
-  const PlaybackError(this.message, {this.cause});
+  const PlaybackError(
+    this.message, {
+    this.kind = PlaybackErrorKind.unknown,
+    this.retryable = true,
+    this.cause,
+  });
+}
+
+/// ⚠️ P0-G4 — pure mapper: raw failure → typed [PlaybackError]. Deliberately
+/// dumb and explicit (small substring table, no regex/ML). Pure function so
+/// it is unit-testable with zero seams; the ONLY place allowed to classify.
+PlaybackError playbackErrorFor(Object error) {
+  final text = error.toString().toLowerCase();
+  if (text.contains('socket') ||
+      text.contains('network') ||
+      text.contains('connection') ||
+      text.contains('timed out') ||
+      text.contains('timeout')) {
+    return PlaybackError(
+      'No connection. Check your network and retry.',
+      kind: PlaybackErrorKind.network,
+      retryable: true,
+      cause: error,
+    );
+  }
+  if (text.contains('no_stream') ||
+      text.contains('no result') ||
+      text.contains('not found') ||
+      text.contains('unavailable') ||
+      text.contains('empty')) {
+    return PlaybackError(
+      'This track is unavailable.',
+      kind: PlaybackErrorKind.unavailable,
+      retryable: false,
+      cause: error,
+    );
+  }
+  if (error is PlaybackEngineException) {
+    return PlaybackError(
+      'Unable to play this song.',
+      kind: PlaybackErrorKind.playback,
+      retryable: true,
+      cause: error,
+    );
+  }
+  return PlaybackError(
+    'Something went wrong during playback.',
+    kind: PlaybackErrorKind.unknown,
+    retryable: true,
+    cause: error,
+  );
 }

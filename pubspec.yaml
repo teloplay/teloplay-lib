@@ -35,33 +35,37 @@ dependencies:
   # 🖥️ System Tray (minimize to tray)
   system_tray: ^2.0.3
   window_manager: ^0.4.3
+  # 🖥️ Windows taskbar thumbnail toolbar (hover preview-তে Spotify-style
+  # [+] Fav / Prev / Play-Pause / Next buttons)। ITaskbarList3 wrap করে —
+  # native C++ লেখা লাগে না।
+  windows_taskbar: ^1.1.2
 
   audio_session: ^0.1.21
   # 🎧 Background Playback / OS Media Integration
   # Android: foreground service + MediaSession + notification + lock screen
   # + Bluetooth/headset button support (TeloPlayAudioHandler wraps
-  # MusicPlayerRepository — playback logic repository-তেই থাকে)
+  # MusicPlayerRepository — playback logic stays inside the repository)
   audio_service: ^0.18.17
   # Windows: System Media Transport Controls (SMTC) — media flyout,
-  # keyboard media keys, Bluetooth headset controls। audio_service-এর
-  # অফিসিয়াল Windows platform-interface নেই, তাই এটা স্বতন্ত্রভাবে
-  # ব্যবহার করা হচ্ছে (WindowsMediaService নিজে থেকে wire করবে)।
-  # ⚠️ বিল্ডের জন্য rustup ইনস্টল থাকতে হবে (flutter_rust_bridge/cargokit)।
+  # keyboard media keys, Bluetooth headset controls. audio_service has no
+  # official Windows platform interface, so this is used independently
+  # (WindowsMediaService wires it up on its own).
+  # ⚠️ rustup must be installed for the build (flutter_rust_bridge/cargokit).
   smtc_windows: ^1.1.0
     # ... existing deps
   permission_handler: ^11.3.1
 
   # 🖼️ Image Caching (Phase 1 — Smart Performance Foundation)
-  # Disk + in-memory cache সহ network image loading। শুধু
-  # lib/widgets/cached_artwork.dart এই package সরাসরি ব্যবহার করে —
-  # বাকি সব artwork/thumbnail সেই একটা wrapper widget-এর মাধ্যমেই।
+  # Network image loading with disk + in-memory cache. Only
+  # lib/widgets/cached_artwork.dart uses this package directly —
+  # all other artwork/thumbnails go through that single wrapper widget.
   crypto: ^3.0.5
 
   # 🎨 Dynamic Album Accent (Phase 6 — Smart Player UI & Theme Polish)
-  # Album artwork থেকে dominant color extract করার জন্য। শুধু
-  # lib/core/theme/color_extractor.dart এই package সরাসরি ব্যবহার করে —
-  # extracted color কখনো সরাসরি UI-তে যায় না, curated palette-এ map
-  # হয়ে তারপর যায় (দেখো color_extractor.dart-এর নোট)।
+  # For extracting the dominant color from album artwork. Only
+  # lib/core/theme/color_extractor.dart uses this package directly —
+  # the extracted color never goes straight to the UI, it is mapped
+  # to a curated palette first (see the note in color_extractor.dart).
   palette_generator: ^0.3.3
 
   # 🔐 Auth (Supabase prep)
@@ -87,11 +91,11 @@ dev_dependencies:
   build_runner: ^2.15.1
   drift_dev: ^2.34.0
 
-# smtc_windows চায় uuid ^4.5.1, system_tray আটকে আছে uuid ^3.0.6-এ —
-# দুটো transitive constraint সরাসরি সংঘর্ষে পড়ে (version solving fail)।
-# system_tray internally uuid শুধু ছোট/internal id generation-এ ব্যবহার
-# করে (API v3→v4-এ compatible রাখা হয়েছে), তাই newer uuid-এ override
-# করা নিরাপদ। এই override ছাড়া `flutter pub get` fail করবে
+# smtc_windows wants uuid ^4.5.1, system_tray is stuck on uuid ^3.0.6 —
+# those two transitive constraints clash directly (version solving fails).
+# system_tray only uses uuid for small/internal id generation internally
+# (kept compatible from API v3 to v4), so overriding to the newer uuid
+# is safe. Without this override `flutter pub get` will fail
 dependency_overrides:
   uuid: ^4.5.1
   flutter_rust_bridge: 2.11.1

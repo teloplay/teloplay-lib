@@ -1,15 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/repositories/library_repository.dart';
 import '../../models/continue_session.dart';
 import '../../models/history_entry_model.dart';
 import '../../models/favorite_model.dart';
-import '../../providers/database_provider.dart';
+import '../../providers/repository_providers.dart'
+    show libraryRepositoryProvider;
 import '../../providers/music_player_provider.dart'
-    show
-        queueRepositoryProvider,
-        musicPlayerRepositoryProvider,
-        settingsRepositoryProvider;
+    show queueRepositoryProvider, settingsRepositoryProvider;
 import '../../services/session/continue_session_manager.dart';
 
 /// Phase 6.5 Batch 2 — Home-এর জন্য প্রয়োজনীয় read-only aggregations।
@@ -19,11 +16,11 @@ import '../../services/session/continue_session_manager.dart';
 /// ⚠️ Fix: queueRepositoryProvider এখানে নতুন করে define করা হয়নি —
 /// music_player_provider.dart-এ ইতিমধ্যেই সংজ্ঞায়িত আছে, সেখান থেকেই
 /// import করা হচ্ছে (duplicate-provider compile error এড়াতে)।
-
-final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
-  final db = ref.watch(appDatabaseProvider);
-  return LibraryRepository(db);
-});
+///
+/// Batch B — একই কারণে `libraryRepositoryProvider`-ও এখানে define করা
+/// হয় না: canonical সংজ্ঞা `repository_providers.dart`-এরটাই ব্যবহৃত
+/// হয় (উপরে import), যাতে Home rail-গুলো অন্য সব screen-এর সাথে একই
+/// repository instance share করে।
 
 /// Recently played track list (thumbnail-সহ) — "Recently Added"/
 /// "Jump Back In" rail দুটোতেই একই data-source ব্যবহার করা হচ্ছে

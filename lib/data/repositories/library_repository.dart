@@ -310,6 +310,13 @@ class LibraryRepository extends BaseRepository {
               duration: row.durationSeconds != null
                   ? Duration(seconds: row.durationSeconds!)
                   : null,
+              // A1 — carry album identity so detail headers derive the
+              // real name from the track list (no Albums table needed).
+              albumId: row.albumId,
+              albumName: row.albumName,
+              // A2 — carry artist identity so album detail can offer
+              // "More from this artist" via the existing artist query.
+              artistId: row.artistId,
             ))
         .toList();
   }
@@ -318,7 +325,7 @@ class LibraryRepository extends BaseRepository {
     final rows = await (db.select(db.songs)
           ..where((t) => t.artistId.equals(artistId))
           ..orderBy([(t) => OrderingTerm.desc(t.addedAt)]))
-        .get();
+          .get();
 
     return rows
         .map((row) => SearchResult(
@@ -329,6 +336,12 @@ class LibraryRepository extends BaseRepository {
               duration: row.durationSeconds != null
                   ? Duration(seconds: row.durationSeconds!)
                   : null,
+              // A1 — symmetric identity carry for artist detail headers
+              // (plus album identity so Artist Page can group Albums
+              // client-side from already-fetched tracks — no new query).
+              artistId: row.artistId,
+              albumId: row.albumId,
+              albumName: row.albumName,
             ))
         .toList();
   }
@@ -994,6 +1007,68 @@ class LibraryRepository extends BaseRepository {
         topGenres: topGenres.take(5).toList(),
       ),
     );
+  }
+
+  /// P1-P — listening-maturity inputs from EXISTING tables only
+  /// ([HistoryEntries], [Songs], [Favorites]) plus the existing
+  /// [getStreakInfo]. No new events, no new tables; the math itself is
+  /// the pure [computeListeningMaturity]. Fail-soft: logged-out or empty
+  /// history yields [ListeningMaturity.empty] (UI shows "not enough
+  /// data", never a fabricated score).
+  ///
+  /// Deliberately excludes the search-history signal: [SearchHistoryRepository]
+  /// is a separate read-only wrapper not owned by this repository, and
+  /// wiring cross-repo reads for a single count is out of P1-P scope —
+  /// completion/diversity already cover exploration behavior.
+  Future<ListeningMaturity> getListeningMaturity() async {
+    try {
+      final userId = _userId;
+
+      final historyRows = await (db.select(db.historyEntries)
+            ..where((t) => t.userId.equals(userId)))
+          .get();
+      if (historyRows.isEmpty) return ListeningMaturity.empty;
+
+      final songIds = historyRows.map((r) => r.songId).toSet().toList();
+      final songRows = songIds.isEmpty
+          ? <Song>[]
+          : await (db.select(db.songs)..where((t) => t.id.isIn(songIds)))
+              .get();
+      final songsById = {for (final s in songRows) s.id: s};
+
+      final cutoff = DateTime.now().subtract(const Duration(days: 30));
+      var windowPlays = 0;
+      var windowSkips = 0;
+      final artists = <String>{};
+      for (final h in historyRows) {
+        if (h.playedAt.isAfter(cutoff)) {
+          windowPlays++;
+          if (h.skipped == true) windowSkips++;
+        }
+        final song = songsById[h.songId];
+        final artist = song == null || song.author.isEmpty
+            ? 'Unknown Artist'
+            : song.author;
+        artists.add(artist.toLowerCase());
+      }
+
+      final favRows = await (db.select(db.favorites)
+            ..where((t) => t.userId.equals(userId)))
+          .get();
+
+      final streak = await getStreakInfo();
+
+      return computeListeningMaturity(
+        windowPlays: windowPlays,
+        windowSkips: windowSkips,
+        lifetimePlays: historyRows.length,
+        distinctArtists: artists.length,
+        favoritesCount: favRows.length,
+        currentStreak: streak.currentStreak,
+      );
+    } catch (_) {
+      return ListeningMaturity.empty;
+    }
   }
 }
 

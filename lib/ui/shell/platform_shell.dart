@@ -1,10 +1,12 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 
+import '../../core/platform/platform_info.dart';
 import 'desktop_shell.dart';
 import 'mobile_shell.dart';
+
+/// Window wider than this gets the Windows shell. Narrow (phone browser
+/// or Android) gets the mobile shell. Same widgets, no web-only UI.
+const double kDesktopShellMinWidth = 900;
 
 /// ⚠️ Phase 6 — Shared design system, platform-adaptive layout।
 ///
@@ -33,13 +35,25 @@ class PlatformShell extends StatelessWidget {
   final Widget mobileChild;
   final Widget desktopChild;
 
-  static bool get isDesktopPlatform {
-    if (kIsWeb) return true; // future web shell না আসা পর্যন্ত desktop-স্টাইল fallback
-    return Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+  /// Native OS only. Web is neither; it decides from window width.
+  static bool get isDesktopPlatform =>
+      PlatformInfo.isWindows || PlatformInfo.isLinux || PlatformInfo.isMacOS;
+
+  static bool isDesktopLayout(double width) {
+    if (PlatformInfo.isAndroid) return false;
+    if (isDesktopPlatform) return true;
+    return width >= kDesktopShellMinWidth;
   }
 
   @override
   Widget build(BuildContext context) {
-    return isDesktopPlatform ? desktopChild : mobileChild;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        return isDesktopLayout(width) ? desktopChild : mobileChild;
+      },
+    );
   }
 }

@@ -186,6 +186,22 @@ class WindowsPlaybackEngine implements PlaybackEngine {
   @override
   Future<List<String>> searchSuggestions(String query) async => [];
 
+  // ⚠️ OpenTune-parity multi-entity search (v11) — yt-dlp-এর কোনো
+  // searchSummary/SearchFilter endpoint নেই, তাই এই fallback engine rich
+  // section দিতে পারে না। খালি list ফেরত দিলে caller `sectionsOrFallback()`-এর
+  // মাধ্যমে song-only `search()`-এ নেমে যায় (interface-এর default body-র
+  // মতোই আচরণ, কিন্তু `implements` ব্যবহারের কারণে explicit override)।
+  @override
+  Future<List<SearchSection>> searchSections(
+    String query, {
+    int limitPerSection = 20,
+  }) async =>
+      [];
+
+  @override
+  Future<SearchSuggestions> searchSuggestionsRich(String query) async =>
+      const SearchSuggestions();
+
 
   @override
   @override

@@ -16,11 +16,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
 import 'package:path/path.dart' as p;
 import 'package:system_tray/system_tray.dart';
 import 'package:window_manager/window_manager.dart';
-
 import '../logging/app_logger.dart';
+import '../platform/platform_info.dart';
 
 class WindowTrayManager with WindowListener {
   WindowTrayManager._();
@@ -32,7 +33,7 @@ class WindowTrayManager with WindowListener {
   /// window_manager + system_tray দুটোই init করে এবং close(X) বাটনের
   /// ডিফল্ট আচরণ override করে (exit না করে minimize-to-tray করার জন্য)।
   Future<void> initialize() async {
-    if (_initialized || !Platform.isWindows) return;
+    if (_initialized || !PlatformInfo.isWindows) return;
 
     await windowManager.ensureInitialized();
 

@@ -265,6 +265,89 @@ class AndroidPlaybackEngine implements PlaybackEngine {
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // ⚠️ OpenTune-parity multi-entity search (v11)
+  // ═══════════════════════════════════════════════════════════════
+  //
+  // `searchSections()` — MainActivity.kt-এর নতুন `searchSections` channel
+  // case (native: `searchSectionsInternal()`), যা OpenTune-এর মতো প্রতিটা
+  // `SearchFilter`-এর জন্য `YouTube.search(query, filter)` চালিয়ে
+  // section-wise (Songs/Videos/Albums/Artists/Playlists) typed item দেয়।
+  //
+  // আগে এই engine-এর `search()` song-only ছিল (native
+  // `searchTracksInternal()` → `searchSummary().summaries.flatMap{items}
+  // .filterIsInstance<SongItem>()`), তাই Album/Artist/Playlist section
+  // পুরোপুরি হারিয়ে যেত আর Flutter UI-কে local DB থেকে album/artist
+  // টেনে আনা লাগত।
+  @override
+  Future<List<SearchSection>> searchSections(
+    String query, {
+    int limitPerSection = 20,
+  }) async {
+    try {
+      final List<dynamic>? raw = await _channel.invokeListMethod(
+        'searchSections',
+        {'query': query, 'limitPerSection': limitPerSection},
+      );
+      if (raw == null) return [];
+
+      final sections = <SearchSection>[];
+      for (final entry in raw.whereType<Map>()) {
+        final title = (entry['title'] as String?) ?? '';
+        final items = (entry['items'] as List?)
+                ?.whereType<Map>()
+                .map((m) => RichSearchItem.fromJson(m.cast<String, dynamic>()))
+                .toList() ??
+            const <RichSearchItem>[];
+        if (title.isEmpty || items.isEmpty) continue;
+        sections.add(SearchSection(title: title, items: items));
+      }
+
+      // Native-এর `searchSectionsInternal()` ইতিমধ্যেই section order +
+      // "Top results" ঠিক করে দেয়; এখানে শুধু shared refine pipeline
+      // (non-music বাদ) চালানো হচ্ছে — তবে "Top results" section-টা
+      // canonical section-এর item repeat করে, তাই ওকে dedupe-এর বাইরে
+      // রাখা হচ্ছে।
+      final top = sections.where((s) => s.title == 'Top results').toList();
+      final rest = sections.where((s) => s.title != 'Top results').toList();
+      return [...top, ...refineSections(rest)];
+    } on PlatformException catch (e) {
+      AppLogger.playback('[$engineLabel] searchSections failed: ${e.message}');
+      return [];
+    }
+  }
+
+  /// OpenTune-এর `SearchSuggestions(queries, recommendedItems)` — native
+  /// `suggestRich` channel case (`getSearchSuggestionsRichInternal()`), যা
+  /// `YouTube.searchSuggestions()`-এর দুইটা অংশই ফেরত দেয়।
+  @override
+  Future<SearchSuggestions> searchSuggestionsRich(String query) async {
+    try {
+      final Map<dynamic, dynamic>? response = await _channel.invokeMapMethod(
+        'suggestRich',
+        {'query': query},
+      );
+      if (response == null || response['ok'] != true) {
+        return const SearchSuggestions();
+      }
+
+      final queries =
+          (response['queries'] as List?)?.cast<String>() ?? const <String>[];
+      final items = (response['items'] as List?)
+              ?.whereType<Map>()
+              .map((m) => RichSearchItem.fromJson(m.cast<String, dynamic>()))
+              .toList() ??
+          const <RichSearchItem>[];
+
+      return SearchSuggestions(queries: queries, items: items);
+    } on PlatformException catch (e) {
+      AppLogger.playback(
+        '[$engineLabel] searchSuggestionsRich failed: ${e.message}',
+      );
+      return const SearchSuggestions();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // ⚠️ RICH DATA COMMANDS — MainActivity.kt-এর generic "command"
   // MethodChannel case ব্যবহার করে (handleCommand() dispatch)।
   //

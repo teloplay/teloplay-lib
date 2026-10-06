@@ -9,6 +9,7 @@ import '../../providers/library_provider.dart';
 import '../../providers/music_player_provider.dart';
 import '../../providers/playlist_provider.dart';
 import '../../widgets/cached_artwork.dart';
+import '../../widgets/inline_load_error.dart';
 
 
 /// Library central hub — Recently Played, Favorites, Most Played,
@@ -61,20 +62,33 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         _openDownloadedSongs(context);
         break;
       case 'recent':
+        _openRecent(context);
+        break;
+      case 'history':
         _openHistory(context);
         break;
       case 'most-played':
+      case 'most':
+        _openMostPlayed(context);
         break;
       case 'statistics':
         _openStatistics(context);
         break;
-
+      default:
+        // A6 — unknown section: stay on the hub deterministically.
+        // Documented no-op (never a blank/dead screen); every known
+        // section above is unchanged.
+        break;
     }
   }
 
   void _openFavorites(BuildContext context) => context.push('/library/favorites');
 
   void _openHistory(BuildContext context) => context.push('/library/history');
+
+  void _openRecent(BuildContext context) => context.push('/library/recent');
+
+  void _openMostPlayed(BuildContext context) => context.push('/library/most');
 
   void _openPlaylists(BuildContext context) => context.push('/library/playlists');
 
@@ -174,7 +188,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             _sectionHeader(
               context,
               title: 'Recently Played',
-              onSeeAll: () => _openHistory(context),
+              // P0-08 follow-through — header shows recent tracks, so SeeAll
+              // opens the recent list, not history (alias confusion fixed).
+              onSeeAll: () => _openRecent(context),
             ),
             _HorizontalTrackRow(
               items: entries
@@ -191,7 +207,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         );
       },
       loading: () => const _SectionLoading(),
-      error: (_, __) => const SizedBox.shrink(),
+      // P1-A
+      error: (_, __) => InlineLoadError(
+        message: "Couldn't load recently played",
+        onRetry: () => ref.invalidate(recentlyPlayedProvider),
+      ),
     );
   }
 
@@ -224,7 +244,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         );
       },
       loading: () => const _SectionLoading(),
-      error: (_, __) => const SizedBox.shrink(),
+      // P1-A
+      error: (_, __) => InlineLoadError(
+        message: "Couldn't load favorites",
+        onRetry: () => ref.invalidate(favoritesProvider),
+      ),
     );
   }
 
@@ -261,20 +285,42 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  /// A3 — real Most Played hub section reusing the canonical
+  /// `mostPlayedProvider` (same source as MostPlayedScreen + home rail).
+  /// No duplicated query; See-all reaches the real screen.
   Widget _buildMostPlayedSection(BuildContext context, WidgetRef ref) {
-    final aurora = context.aurora;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionHeader(context, title: 'Most Played'),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Coming soon',
-            style: TextStyle(color: aurora.textSecondary, fontSize: 12),
-          ),
-        ),
-      ],
+    final mostAsync = ref.watch(mostPlayedProvider);
+
+    return mostAsync.when(
+      data: (entries) {
+        if (entries.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionHeader(
+              context,
+              title: 'Most Played',
+              onSeeAll: () => _openMostPlayed(context),
+            ),
+            _HorizontalTrackRow(
+              items: entries
+                  .map((e) => _TrackCardData(
+                        songId: e.songId,
+                        title: e.title,
+                        author: e.author,
+                        thumbnail: e.thumbnail,
+                      ))
+                  .toList(),
+              source: QueueSource.unknown,
+            ),
+          ],
+        );
+      },
+      loading: () => const _SectionLoading(),
+      error: (_, __) => InlineLoadError(
+        message: "Couldn't load most played",
+        onRetry: () => ref.invalidate(mostPlayedProvider),
+      ),
     );
   }
 
@@ -347,7 +393,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         );
       },
       loading: () => const _SectionLoading(),
-      error: (_, __) => const SizedBox.shrink(),
+      // P1-A
+      error: (_, __) => InlineLoadError(
+        message: "Couldn't load playlists",
+        onRetry: () => ref.invalidate(playlistsProvider),
+      ),
     );
   }
 

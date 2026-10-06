@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme_extension.dart';
 import '../../../widgets/cached_artwork.dart';
+import '../../../widgets/skeleton_loader.dart';
 
 /// Phase 6.5 UI-Batch 3b — premium "shelf" rail.
 ///
@@ -19,12 +20,17 @@ class ContentRailItem {
   final String thumbnail;
   final VoidCallback onTap;
 
+  /// P1-L — optional long-press menu. Rails that don't wire menus leave
+  /// it null (plain tap only, no behavior change).
+  final VoidCallback? onLongPress;
+
   const ContentRailItem({
     required this.id,
     required this.title,
     required this.subtitle,
     required this.thumbnail,
     required this.onTap,
+    this.onLongPress,
   });
 }
 
@@ -34,6 +40,8 @@ class ContentRail extends StatelessWidget {
     required this.title,
     required this.items,
     this.onSeeAll,
+    this.emptyMessage,
+    this.onEmptyBrowse,
   });
 
   final String title;
@@ -44,9 +52,26 @@ class ContentRail extends StatelessWidget {
   /// this (falls back to no action, per-item tap still works).
   final VoidCallback? onSeeAll;
 
+  /// Batch B — honest empty state. When [items] is empty and
+  /// [emptyMessage] is set, the rail keeps its title header and shows
+  /// guidance instead of silently disappearing. Null preserves the old
+  /// hide-on-empty behavior for rails without guidance copy.
+  final String? emptyMessage;
+
+  /// Optional "Browse songs" action for the empty state. Null = message
+  /// only, no button.
+  final VoidCallback? onEmptyBrowse;
+
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SizedBox.shrink();
+    if (items.isEmpty) {
+      if (emptyMessage == null) return const SizedBox.shrink();
+      return _RailEmptyState(
+        title: title,
+        message: emptyMessage!,
+        onBrowse: onEmptyBrowse,
+      );
+    }
     final aurora = context.aurora;
 
     return Padding(
@@ -77,6 +102,134 @@ class ContentRail extends StatelessWidget {
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(width: 16),
               itemBuilder: (context, index) => _RailCard(item: items[index]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Batch B — explicit empty state for local-data rails. Keeps the rail
+/// title visible so the user understands the section exists but has no
+/// content yet; guidance copy explains what will appear. Optional browse
+/// action navigates to search (caller-provided, same pattern as the
+/// downloaded empty CTA). Never fabricates content.
+class _RailEmptyState extends StatelessWidget {
+  const _RailEmptyState({
+    required this.title,
+    required this.message,
+    this.onBrowse,
+  });
+
+  final String title;
+  final String message;
+  final VoidCallback? onBrowse;
+
+  @override
+  Widget build(BuildContext context) {
+    final aurora = context.aurora;
+    return Padding(
+      padding: const EdgeInsets.only(top: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              title,
+              style: TextStyle(
+                  color: aurora.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: aurora.surfaceRaised,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.music_note_rounded,
+                      size: 20, color: aurora.textSecondary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: TextStyle(
+                          color: aurora.textSecondary, fontSize: 12.5),
+                    ),
+                  ),
+                  if (onBrowse != null) ...[
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: onBrowse,
+                      child: const Text('Browse songs'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Batch B — explicit loading state for rails: title-shaped header plus
+/// shimmer cards reusing the shared [SkeletonLoader]. Replaces the old
+/// silent shrink so loading is distinguishable from empty.
+class RailLoadingPlaceholder extends StatelessWidget {
+  const RailLoadingPlaceholder({super.key, required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final aurora = context.aurora;
+    return Padding(
+      padding: const EdgeInsets.only(top: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              title,
+              style: TextStyle(
+                  color: aurora.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 202,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 4,
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemBuilder: (context, _) => const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SkeletonLoader(width: 128, height: 128),
+                  SizedBox(height: 8),
+                  SkeletonLoader(width: 96, height: 12),
+                  SizedBox(height: 6),
+                  SkeletonLoader(width: 64, height: 10),
+                ],
+              ),
             ),
           ),
         ],
@@ -140,6 +293,7 @@ class _RailCardState extends State<_RailCard> {
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: item.onTap,
+        onLongPress: item.onLongPress,
         child: AnimatedScale(
           scale: _hovered ? 1.035 : 1.0,
           duration: const Duration(milliseconds: 160),
