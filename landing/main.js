@@ -96,7 +96,9 @@
         if (data.windows.downloadUrl) winDownloadBtn.href = data.windows.downloadUrl;
         if (data.windows.size) {
           winDownloadBtn.textContent = 'Download .exe (' + data.windows.size + ')';
-          winDownloadBtn.setAttribute('aria-label', 'Download .exe (' + data.windows.size + ')');
+          if (typeof winDownloadBtn.setAttribute === 'function') {
+            winDownloadBtn.setAttribute('aria-label', 'Download .exe (' + data.windows.size + ')');
+          }
         }
       }
 
@@ -136,7 +138,9 @@
         if (data.android.downloadUrl) androidDownloadBtn.href = data.android.downloadUrl;
         if (data.android.size) {
           androidDownloadBtn.textContent = 'Download .apk (' + data.android.size + ')';
-          androidDownloadBtn.setAttribute('aria-label', 'Download .apk (' + data.android.size + ')');
+          if (typeof androidDownloadBtn.setAttribute === 'function') {
+            androidDownloadBtn.setAttribute('aria-label', 'Download .apk (' + data.android.size + ')');
+          }
         }
       }
 

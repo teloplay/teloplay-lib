@@ -79,8 +79,8 @@ console.log('✔ index.html elements and script linking verified.');
   const mockElements = {
     'hero-badge-version': { textContent: '' },
     'web-player-link': { href: '' },
-    'win-download-btn': { href: '', textContent: '' },
-    'android-download-btn': { href: '', textContent: '' },
+    'win-download-btn': { href: '', textContent: '', attributes: {}, setAttribute(k, v) { this.attributes[k] = v; } },
+    'android-download-btn': { href: '', textContent: '', attributes: {}, setAttribute(k, v) { this.attributes[k] = v; } },
     'win-sha256': { textContent: '' },
     'android-sha256': { textContent: '' },
     'win-meta-info': { textContent: '' },
