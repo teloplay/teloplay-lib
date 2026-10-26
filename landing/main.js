@@ -94,7 +94,10 @@
       const winDownloadBtn = document.getElementById('win-download-btn');
       if (winDownloadBtn) {
         if (data.windows.downloadUrl) winDownloadBtn.href = data.windows.downloadUrl;
-        if (data.windows.size) winDownloadBtn.textContent = 'Download .exe (' + data.windows.size + ')';
+        if (data.windows.size) {
+          winDownloadBtn.textContent = 'Download .exe (' + data.windows.size + ')';
+          winDownloadBtn.setAttribute('aria-label', 'Download .exe (' + data.windows.size + ')');
+        }
       }
 
       const heroWinBtn = document.getElementById('hero-win-download-btn');
@@ -131,7 +134,10 @@
       const androidDownloadBtn = document.getElementById('android-download-btn');
       if (androidDownloadBtn) {
         if (data.android.downloadUrl) androidDownloadBtn.href = data.android.downloadUrl;
-        if (data.android.size) androidDownloadBtn.textContent = 'Download .apk (' + data.android.size + ')';
+        if (data.android.size) {
+          androidDownloadBtn.textContent = 'Download .apk (' + data.android.size + ')';
+          androidDownloadBtn.setAttribute('aria-label', 'Download .apk (' + data.android.size + ')');
+        }
       }
 
       const heroAndroidBtn = document.getElementById('hero-android-download-btn');
@@ -245,6 +251,9 @@
       });
     }
 
+    let cachedViewportCenter = 0;
+    let cachedActiveCenter = 0;
+
     function updateLyricsScroll(currIdx) {
       if (currIdx === activeIndex) return;
       activeIndex = currIdx;
@@ -260,10 +269,11 @@
       const activeEl = lyricElements[currIdx];
       if (activeEl) {
         const viewport = container.parentElement;
-        if (viewport && viewport.clientHeight > 0) {
-          const viewportCenter = viewport.clientHeight / 2;
-          const activeCenter = activeEl.offsetTop + activeEl.clientHeight / 2;
-          const targetY = viewportCenter - activeCenter;
+        if (viewport) {
+          if (!cachedViewportCenter) {
+            cachedViewportCenter = (viewport.clientHeight || 180) / 2;
+          }
+          const targetY = cachedViewportCenter - (activeEl.offsetTop + (activeEl.clientHeight || 24) / 2);
           container.style.transform = `translateY(${targetY}px)`;
         }
       }
@@ -458,6 +468,7 @@
         }
 
         if (copied) {
+          if (btn.classList.contains('copied')) return;
           const originalText = btn.textContent;
           btn.textContent = '✓ Copied';
           btn.classList.add('copied');

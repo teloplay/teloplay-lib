@@ -1,6 +1,8 @@
-@import url('fonts/fonts.css');
-
 :root {
+  /* Self-hosted & system-first typography stack */
+  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
   /* Obsidian Surfaces */
   --color-bg: #0A0C10;
   --color-surface: #11141B;
@@ -19,7 +21,7 @@
   /* Typography */
   --color-text-primary: #F2F1F7;
   --color-text-secondary: #94A3B8;
-  --color-text-muted: #64748B;
+  --color-text-muted: #94A3B8;
 
   /* Signature Gradient: Used strictly for Primary CTA and hero highlight */
   --gradient-aurora: linear-gradient(135deg, #8B5CF6 0%, #D946EF 50%, #EC4899 100%);
@@ -450,7 +452,7 @@ code, kbd, samp, pre {
 .lyric-line {
   font-size: 1.0625rem;
   color: var(--color-text-secondary);
-  opacity: 0.35;
+  opacity: 0.6;
   transition: opacity 0.25s ease, transform 0.25s ease, color 0.25s ease;
   line-height: 1.4;
   cursor: pointer;
@@ -893,7 +895,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 
 /* Mobile & Low-Power Screen Optimizations (Disable heavy blur) */
 @media (max-width: 768px) {
-  .glass-panel, .nav-container, .player-card {
+  .glass-panel, .nav-container, .player-card, .btn-glass {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     background-color: var(--color-surface) !important;
