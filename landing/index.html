@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TeloPlay — Clean, Cross-Platform Music Streaming</title>
+  <meta name="description" content="An independent cross-platform music streaming client with synchronized lyrics, local cache, and clean playback on Android, Windows, and Web.">
+  <meta name="theme-color" content="#0A0C10">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://teloplay.pages.dev">
+  <meta property="og:title" content="TeloPlay — Clean, Cross-Platform Music Streaming">
+  <meta property="og:description" content="An independent cross-platform music streaming client with synchronized lyrics, local cache, and clean playback on Android, Windows, and Web.">
+  <meta property="og:image" content="../assets/icon.png">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="TeloPlay — Clean, Cross-Platform Music Streaming">
+  <meta name="twitter:description" content="An independent cross-platform music streaming client with synchronized lyrics, local cache, and clean playback on Android, Windows, and Web.">
+  <meta name="twitter:image" content="../assets/icon.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="../assets/icon.png">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Navigation Header -->
+  <header class="nav-header">
+    <div class="nav-container container">
+      <a href="#" class="nav-brand" aria-label="TeloPlay Home">
+        <div class="nav-logo-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3" fill="var(--color-primary)" stroke="none"></polygon>
+          </svg>
+        </div>
+        <span>TeloPlay</span>
+      </a>
+
+      <nav aria-label="Main Navigation">
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#engines">Engines</a></li>
+          <li><a href="#downloads">Downloads</a></li>
+          <li><a href="https://github.com/teloplay/teloplay" target="_blank" rel="noopener">GitHub</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="https://teloplay.pages.dev" target="_blank" rel="noopener" class="btn btn-aurora btn-sm" aria-label="Launch Web Player">Launch Web Player</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero section" aria-labelledby="hero-heading">
+      <div class="container hero-content">
+        <div class="hero-badge-wrap">
+          <div class="badge">
+            <span class="badge-dot status-pulse" aria-hidden="true"></span>
+            <span id="hero-badge-version">v2.4</span> Ready • Cross-Platform Music Client
+          </div>
+        </div>
+
+        <h1 id="hero-heading" class="hero-title" aria-label="Your music, your way. A clean, cross-platform player.">Your music, your way. <span class="hero-accent-line">A clean, cross-platform player.</span></h1>
+
+        <p class="hero-sub">Stream high-quality audio with synchronized real-time lyrics, local caching, and native playback engines built for Android, Windows, and the Web.</p>
+
+        <div class="hero-actions">
+          <div class="cta-group">
+            <a href="https://teloplay.pages.dev" target="_blank" rel="noopener" class="btn btn-aurora" aria-label="Play TeloPlay on the Web" id="web-player-link">🚀 Play on Web</a>
+          </div>
+
+          <div class="cta-group">
+            <a href="https://github.com/teloplay/teloplay/releases/download/v2.4.0/TeloPlay-Setup-v2.4.0.exe" class="btn btn-glass" aria-label="Download for Windows x64" id="hero-win-download-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.949-1.801"/>
+              </svg>
+              <span>Download for Windows</span>
+            </a>
+            <div class="install-note">Windows SmartScreen: Click "More info" → "Run anyway" during first-time installation.</div>
+          </div>
+
+          <div class="cta-group">
+            <a href="https://github.com/teloplay/teloplay/releases/download/v2.4.0/TeloPlay-arm64-v8a-v2.4.0.apk" class="btn btn-glass" aria-label="Download for Android APK" id="hero-android-download-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9993.4482.9993.9993.0001.5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5802 8.411 13.8447 8 12 8s-3.5802.411-5.1368 1.1507L4.8409 5.6477a.416.416 0 00-.5676-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+              </svg>
+              <span>Download for Android</span>
+            </a>
+            <div class="install-note">Android Install: Allow "Install unknown apps" in browser settings if prompted.</div>
+          </div>
+        </div>
+
+        <!-- Signature Interactive Lyrics Player Demo Mockup -->
+        <div class="player-showcase" aria-label="Interactive Lyrics Player Demo">
+          <div class="player-card glass-panel">
+            <div class="player-header">
+              <div class="artwork-container">
+                <img src="../assets/icon.png" alt="Starboy album artwork" class="artwork-img" width="72" height="72">
+              </div>
+              <div class="track-meta">
+                <div class="track-title" id="demo-track-title">Starboy</div>
+                <div class="track-artist" id="demo-track-artist">The Weeknd</div>
+              </div>
+              <div class="player-live-badge" aria-label="Synchronized lyrics active">Live Lyrics</div>
+            </div>
+
+            <div class="lyrics-viewport" aria-label="Synchronized lyrics display" role="region">
+              <div class="lyrics-container" id="lyrics-container">
+                <div class="lyric-line" data-index="0">I'm tryna put you in the worst mood, ah</div>
+                <div class="lyric-line" data-index="1">P1 cleaner than your church shoes, ah</div>
+                <div class="lyric-line active" data-index="2">Milli point two just to hurt you, ah</div>
+                <div class="lyric-line" data-index="3">All red Lamb' just to tease you, ah</div>
+                <div class="lyric-line" data-index="4">None of these toys on lease too, ah</div>
+              </div>
+            </div>
+
+            <!-- Real-time Animated Audio Visualizer Container -->
+            <div class="visualizer" id="visualizer" aria-hidden="true">
+              <div class="visualizer-bar" style="height: 12px;"></div>
+              <div class="visualizer-bar" style="height: 22px;"></div>
+              <div class="visualizer-bar" style="height: 28px;"></div>
+              <div class="visualizer-bar" style="height: 16px;"></div>
+              <div class="visualizer-bar" style="height: 24px;"></div>
+              <div class="visualizer-bar" style="height: 18px;"></div>
+              <div class="visualizer-bar" style="height: 30px;"></div>
+              <div class="visualizer-bar" style="height: 14px;"></div>
+              <div class="visualizer-bar" style="height: 26px;"></div>
+              <div class="visualizer-bar" style="height: 20px;"></div>
+              <div class="visualizer-bar" style="height: 15px;"></div>
+              <div class="visualizer-bar" style="height: 8px;"></div>
+            </div>
+
+            <!-- Scrubber & Controls -->
+            <div class="scrubber-container">
+              <span class="scrubber-time" id="demo-time-current">01:24</span>
+              <div class="scrubber-bar" id="demo-scrubber" role="progressbar" aria-valuenow="36" aria-valuemin="0" aria-valuemax="100" aria-label="Track progress">
+                <div class="scrubber-progress" id="demo-progress-fill" style="width: 36%;"></div>
+              </div>
+              <span class="scrubber-time end" id="demo-time-total">03:50</span>
+            </div>
+
+            <div class="player-controls">
+              <button type="button" class="btn-ctrl" id="demo-btn-prev" aria-label="Previous Track">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                  <line x1="5" y1="19" x2="5" y2="5"></line>
+                </svg>
+              </button>
+              <button type="button" class="btn-ctrl btn-play-pause" id="demo-btn-play" aria-label="Play or Pause">
+                <svg id="demo-icon-pause" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="4" width="4" height="16"></rect>
+                  <rect x="14" y="4" width="4" height="16"></rect>
+                </svg>
+                <svg id="demo-icon-play" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+              </button>
+              <button type="button" class="btn-ctrl" id="demo-btn-next" aria-label="Next Track">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                  <line x1="19" y1="5" x2="19" y2="19"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Asymmetric Bento Feature Grid -->
+    <section class="section" id="features" aria-labelledby="features-heading">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Architecture & Design</span>
+          <h2 id="features-heading" class="section-title">Engineered for pure listening</h2>
+          <p class="section-desc">Every layer of TeloPlay is built to stay responsive, respectful of your device resources, and distraction-free.</p>
+        </div>
+
+        <div class="bento-grid">
+          <!-- Bento Hero Wide Card: Synchronized Dynamic Lyrics -->
+          <article class="bento-card bento-hero">
+            <div>
+              <div class="bento-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+              </div>
+              <h3 class="bento-title">Synchronized Dynamic Lyrics</h3>
+              <p class="bento-desc">Full LRCLIB integration delivering millisecond-precise karaoke scrolling. Follow along with real-time highlighted verses, interactive line seeking, and clean Romanized script support.</p>
+            </div>
+          </article>
+
+          <!-- Bento Split A: Clean Listening Experience -->
+          <article class="bento-card bento-split-a">
+            <div class="bento-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              </svg>
+            </div>
+            <h3 class="bento-title">Clean Listening Experience</h3>
+            <p class="bento-desc">Direct stream playback without third-party ad injection or unexpected interruptions. Just your music queue running uninhibited from start to finish.</p>
+          </article>
+
+          <!-- Bento Split B: Local SQLite Storage & Cache -->
+          <article class="bento-card bento-split-b">
+            <div class="bento-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+              </svg>
+            </div>
+            <h3 class="bento-title">Local SQLite Storage & Cache</h3>
+            <p class="bento-desc">Drift SQLite database manages local metadata indexing, caching parsed audio segments and restoring playback queue states seamlessly across app restarts.</p>
+          </article>
+
+          <!-- Bento Split C: Adaptive Ambient Lighting -->
+          <article class="bento-card bento-split-c">
+            <div class="bento-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            </div>
+            <h3 class="bento-title">Adaptive Ambient Lighting</h3>
+            <p class="bento-desc">Dynamic dominant palette extraction gently illuminates the obsidian chrome based on the current album artwork, creating an immersive Midnight Aurora atmosphere.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Native Engines Breakdown Section -->
+    <section class="section" id="engines" aria-labelledby="engines-heading">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Platform Specifics</span>
+          <h2 id="engines-heading" class="section-title">Built native for every OS</h2>
+          <p class="section-desc">No generic wrappers. Each platform leverages its native audio pipeline for low-latency playback and system media controls.</p>
+        </div>
+
+        <div class="engines-grid">
+          <!-- Android Engine -->
+          <article class="engine-card">
+            <div>
+              <div class="engine-header">
+                <h3 class="bento-title" style="margin-bottom: 0;">Android Engine</h3>
+                <span class="engine-badge">ExoPlayer</span>
+              </div>
+              <p class="bento-desc">Optimized for Android 8.0 and above with battery-efficient background playback and system notifications.</p>
+              <ul class="engine-specs">
+                <li><span class="spec-dot" aria-hidden="true"></span> ExoPlayer playback pipeline via <code>just_audio</code></li>
+                <li><span class="spec-dot" aria-hidden="true"></span> Native foreground playback service</li>
+                <li><span class="spec-dot" aria-hidden="true"></span> Lockscreen artwork & notification controls</li>
+                <li><span class="spec-dot" aria-hidden="true"></span> Bluetooth headphone button event routing</li>
+              </ul>
+            </div>
+          </article>
+
+          <!-- Windows Engine -->
+          <article class="engine-card">
+            <div>
+              <div class="engine-header">
+                <h3 class="bento-title" style="margin-bottom: 0;">Windows Engine</h3>
+                <span class="engine-badge">MediaKit / LibVLC</span>
+              </div>
+              <p class="bento-desc">High-performance desktop architecture with native C++ decoding and desktop system integration.</p>
+              <ul class="engine-specs">
+                <li><span class="spec-dot" aria-hidden="true"></span> MediaKit / LibVLC native decoding pipeline</li>
+                <li><span class="spec-dot" aria-hidden="true"></span> Windows SMTC taskbar thumbnail controls</li>
+                <li><span class="spec-dot" aria-hidden="true"></span> Global keyboard multimedia shortcuts</li>
+                <li><span class="spec-dot" aria-hidden="true"></span> Low CPU utilization during background playback</li>
+              </ul>
+            </div>
+          </article>
+
+          <!-- Web Engine -->
+          <article class="engine-card">
+            <div>
+              <div class="engine-header">
+                <h3 class="bento-title" style="margin-bottom: 0;">Web Engine</h3>
+                <span class="engine-badge">Web Audio API</span>
+              </div>
+              <p class="bento-desc">Lightweight zero-install progressive web application accessible from any standard modern browser.</p>
+              <ul class="engine-specs">
+                <li><span class="spec-dot" aria-hidden="true"></span> Web Audio API with service worker caching</li>
+                <li><span class="spec-dot" aria-hidden="true"></span> Cloudflare Pages global edge deployment</li>
+                <li><span class="spec-dot" aria-hidden="true"></span> MediaSession API integration for browser controls</li>
+                <li><span class="spec-dot" aria-hidden="true"></span> Instant launch without local installation</li>
+              </ul>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Download Matrix Section -->
+    <section class="section" id="downloads" aria-labelledby="downloads-heading">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Direct Binaries</span>
+          <h2 id="downloads-heading" class="section-title">Download TeloPlay</h2>
+          <p class="section-desc">Direct links to verified release binaries on GitHub Releases with SHA-256 checksums.</p>
+        </div>
+
+        <div class="downloads-container">
+          <!-- Windows Download Card -->
+          <div class="download-card">
+            <div>
+              <div class="download-head">
+                <div class="download-platform">Windows Desktop</div>
+                <span class="badge" id="win-version-tag">v2.4.0</span>
+              </div>
+              <div class="download-meta" id="win-meta-info">x64 / x86_64 • 48.2 MB</div>
+
+              <div class="hash-container">
+                <div style="min-width: 0;">
+                  <span class="hash-label">SHA-256 Checksum</span>
+                  <code class="hash-code" id="win-sha256">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</code>
+                </div>
+                <button type="button" class="copy-hash-btn" data-hash="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" aria-label="Copy Windows binary SHA-256 checksum">Copy</button>
+              </div>
+            </div>
+
+            <div class="cta-group">
+              <a href="https://github.com/teloplay/teloplay/releases/download/v2.4.0/TeloPlay-Setup-v2.4.0.exe" class="btn btn-glass" id="win-download-btn" aria-label="Download Windows setup executable">Download .exe</a>
+              <div class="install-note">Windows SmartScreen: Click "More info" → "Run anyway" during first-time installation.</div>
+            </div>
+          </div>
+
+          <!-- Android Download Card -->
+          <div class="download-card">
+            <div>
+              <div class="download-head">
+                <div class="download-platform">Android APK</div>
+                <span class="badge" id="android-version-tag">v2.4.0</span>
+              </div>
+              <div class="download-meta" id="android-meta-info">ARM64 (v8a) • 32.4 MB</div>
+
+              <div class="hash-container">
+                <div style="min-width: 0;">
+                  <span class="hash-label">SHA-256 Checksum</span>
+                  <code class="hash-code" id="android-sha256">ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb</code>
+                </div>
+                <button type="button" class="copy-hash-btn" data-hash="ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb" aria-label="Copy Android APK SHA-256 checksum">Copy</button>
+              </div>
+            </div>
+
+            <div class="cta-group">
+              <a href="https://github.com/teloplay/teloplay/releases/download/v2.4.0/TeloPlay-arm64-v8a-v2.4.0.apk" class="btn btn-glass" id="android-download-btn" aria-label="Download Android APK">Download .apk</a>
+              <div class="install-note">Android Install: Allow "Install unknown apps" in browser settings if prompted.</div>
+            </div>
+          </div>
+
+          <!-- Web Player Card -->
+          <div class="download-card">
+            <div>
+              <div class="download-head">
+                <div class="download-platform">Web Player</div>
+                <span class="badge">Cloudflare Pages</span>
+              </div>
+              <div class="download-meta">Edge Deployment • Zero Install</div>
+              <p class="bento-desc" style="margin-bottom: 1.5rem;">Access your music instantly from any modern web browser. Features synchronized lyrics and local cache.</p>
+            </div>
+
+            <div class="cta-group">
+              <a href="https://teloplay.pages.dev" target="_blank" rel="noopener" class="btn btn-aurora" aria-label="Launch Web Player">Launch Web Player</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <div class="footer-disclaimer-box">
+        <p class="footer-disclaimer">TeloPlay is an independent open-source project and is not affiliated with, endorsed by, or associated with YouTube or Google LLC.</p>
+        <p class="footer-disclaimer">No third-party ad networks or marketing trackers. Your listening history and preferences are stored locally in your personal SQLite database.</p>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 TeloPlay. Open-source under MIT License.</div>
+        <ul class="footer-links">
+          <li><a href="https://github.com/teloplay/teloplay" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/teloplay/teloplay/blob/main/LICENSE" target="_blank" rel="noopener">License</a></li>
+          <li><a href="https://teloplay.pages.dev" target="_blank" rel="noopener">Web Player</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast notification for copy operations -->
+  <div class="toast" id="copy-toast" role="status" aria-live="polite">Checksum copied to clipboard!</div>
+
+  <!-- Dynamic Release Loader & Lyrics Demo Scripts -->
+  <script src="main.js" defer></script>
+</body>
+</html>
