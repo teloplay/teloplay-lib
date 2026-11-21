@@ -239,10 +239,17 @@ class InnertubeWindowsPlaybackEngine implements PlaybackEngine {
 
     AppLogger.playback('[$engineLabel] resolved OK: $videoId');
 
+    // Daemon resolve এখন rich map দেয় (url + itag/bitrate/mime/
+    // loudnessDb/expiresInSeconds) — server expiry ব্যবহার করো, hardcode না।
+    final expiresInSeconds = response['expiresInSeconds'];
+    final clientName = response['clientName'] as String?;
     return ResolvedStream(
       streamUrl: url,
-      expiresIn: const Duration(hours: 5),
-      sourceLabel: engineLabel,
+      expiresIn: expiresInSeconds is int && expiresInSeconds > 0
+          ? Duration(seconds: expiresInSeconds)
+          : const Duration(hours: 5),
+      sourceLabel:
+          clientName != null ? '$engineLabel/$clientName' : engineLabel,
     );
   }
 
@@ -303,9 +310,7 @@ class InnertubeWindowsPlaybackEngine implements PlaybackEngine {
   // ⚠️ OpenTune-parity multi-entity search (v11)
   // ==========================================================================
   //
-  // ⚠️ গুরুত্বপূর্ণ সীমাবদ্ধতা: `innertube-cli.jar` একটা prebuilt binary,
-  // তার Main.kt source repo-তে নেই — তাই jar rebuild করা সম্ভব নয়। কিন্তু
-  // **rebuild লাগেই না** — daemon-এর `handleCommand()` ইতিমধ্যেই OpenTune-এর
+  // Daemon (`innertube-cli.jar`, source: H:\OpenTune\innertube-cli) OpenTune-এর
   // প্রতিটা filter আলাদা command হিসেবে expose করে:
   //
   //   search-filter {query, filter, limit} → {ok, query, filter,
@@ -618,7 +623,10 @@ class InnertubeWindowsPlaybackEngine implements PlaybackEngine {
   Future<String?> getLyricsText(String videoId) async {
     try {
       final res = await getLyrics(videoId);
-      return res['lyrics'] as String?;
+      final plainLyrics = res['plainLyrics'];
+      return plainLyrics is String && plainLyrics.trim().isNotEmpty
+          ? plainLyrics
+          : null;
     } catch (_) {
       return null;
     }
@@ -650,12 +658,26 @@ class InnertubeWindowsPlaybackEngine implements PlaybackEngine {
       return raw.map((item) {
         final map = item as Map<String, dynamic>;
         final id = map['videoId'] as String? ?? '';
+        final names = (map['allArtistNames'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const [];
         return SearchResult(
           videoId: id,
           title: (map['title'] as String?) ?? 'Unknown',
           author: (map['author'] as String?) ?? 'Unknown',
           thumbnail: (map['thumbnail'] as String?) ?? 'https://img.youtube.com/vi/$id/mqdefault.jpg',
-          duration: map['duration'] != null ? Duration(seconds: map['duration'] as int) : null,
+          duration: map['duration'] is int ? Duration(seconds: map['duration'] as int) : null,
+          artistId: map['artistId'] as String?,
+          albumId: map['albumId'] as String?,
+          albumName: map['albumName'] as String?,
+          allArtistNames: names,
+          allArtistIds: (map['allArtistIds'] as List<dynamic>?)
+                  ?.map((e) => e as String?)
+                  .toList() ??
+              const [],
+          explicit: map['explicit'] as bool? ?? false,
+          setVideoId: map['setVideoId'] as String?,
         );
       }).where((s) => s.videoId.isNotEmpty).toList();
     } catch (_) {
@@ -672,10 +694,23 @@ class InnertubeWindowsPlaybackEngine implements PlaybackEngine {
     }
   }
 
+  /// Daemon-এর native `explore` command (home-এর alias না — আলাদা
+  /// newReleaseAlbums + moodAndGenres shape)।
+  Future<Map<String, dynamic>> getExplorePage() async {
+    await initialize();
+    final response = await _sendRequest('explore', {});
+    if (response['ok'] != true) {
+      throw PlaybackEngineException(
+        'innertube-cli explore ব্যর্থ: ${response['error']}',
+      );
+    }
+    return response;
+  }
+
   @override
   Future<Map<String, dynamic>?> getExplore() async {
     try {
-      return await getHome();
+      return await getExplorePage();
     } catch (_) {
       return null;
     }

@@ -35,6 +35,13 @@ Future<void> bootstrapCommon() async {
 
   await EnvConfig.load();
 
+  if (!EnvConfig.isConfigured) {
+    throw StateError(
+      'Supabase URL/anon key পাওয়া যায়নি (.env বা assets/env.json কোনোটাতেই নেই)। '
+      'Deploy build-এ .env থাকে না — assets/env.json-এ real keys আছে কিনা দেখো।',
+    );
+  }
+
   await Supabase.initialize(
     url: EnvConfig.supabaseUrl,
     anonKey: EnvConfig.supabaseAnonKey,

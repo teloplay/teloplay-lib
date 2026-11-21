@@ -1,0 +1,38 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Code quality
+    always_declare_return_types: true
+    avoid_print: true # প্রোডাকশন কোডে print() না, Logger ব্যবহার করতে হবে
+    avoid_unnecessary_containers: true
+    avoid_empty_else: true
+    prefer_const_constructors: true
+    prefer_const_literals_to_create_immutables: true
+    prefer_final_locals: true
+    prefer_final_fields: true
+    unnecessary_this: true
+    sort_child_properties_last: true
+
+    # Style
+    curly_braces_in_flow_control_structures: true
+    prefer_single_quotes: true
+
+    # Error-prone patterns
+    avoid_returning_null_for_future: true
+    cancel_subscriptions: true # StreamSubscription dispose করতে ভুলে গেলে ধরবে
+    close_sinks: true
+
+analyzer:
+  exclude:
+    - "**/*.g.dart" # generated files (Drift, Riverpod)
+    - "**/*.freezed.dart"
+    - "build/**"
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
+  errors:
+    invalid_annotation_target: ignore # Freezed/Riverpod annotation-এর false positive এড়াতে

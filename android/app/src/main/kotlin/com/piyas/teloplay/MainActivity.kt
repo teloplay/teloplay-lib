@@ -1308,6 +1308,42 @@ class MainActivity : AudioServiceFragmentActivity() {
     }
 
     // ========== GENERIC COMMAND DISPATCH (main.kt এর handleCommand() এর সমতুল্য) ==========
+
+    private suspend fun getReturnYouTubeDislikesMap(videoId: String): Map<String, Any?> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val cleanId = videoId.trim()
+        val urlStr = "https://returnyoutubedislikeapi.com/votes?videoId=" + java.net.URLEncoder.encode(cleanId, "UTF-8")
+        try {
+            val conn = (java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection).apply {
+                connectTimeout = 7000
+                readTimeout = 7000
+                setRequestProperty("User-Agent", "TeloPlay/1.0")
+                setRequestProperty("Accept", "application/json")
+            }
+            if (conn.responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                val obj = org.json.JSONObject(body)
+                val ratingDouble = if (obj.has("rating")) obj.optDouble("rating") else null
+                val roundedRating = ratingDouble?.let { Math.round(it * 100.0) / 100.0 }
+                return@withContext mapOf(
+                    "ok" to true,
+                    "videoId" to cleanId,
+                    "likes" to if (obj.has("likes")) obj.optLong("likes") else null,
+                    "dislikes" to if (obj.has("dislikes")) obj.optLong("dislikes") else null,
+                    "rating" to roundedRating,
+                    "viewCount" to if (obj.has("viewCount")) obj.optLong("viewCount") else null
+                )
+            }
+        } catch (e: Exception) {}
+        mapOf(
+            "ok" to true,
+            "videoId" to cleanId,
+            "likes" to null,
+            "dislikes" to null,
+            "rating" to null,
+            "viewCount" to null
+        )
+    }
+
     private suspend fun handleCommand(cmd: String, params: Map<String, Any?>): Map<String, Any?> {
         return when (cmd) {
             // rich StreamInfo — resolveStreamRich() ব্যবহার করে, playback
@@ -1577,6 +1613,12 @@ class MainActivity : AudioServiceFragmentActivity() {
                     ?: return mapOf("ok" to false, "error" to "playbackTracking missing")
                 val trackingPlaylistId = (params["playlistId"] as? String)?.takeUnless { it.isBlank() }
                 registerPlaybackEvent(playbackTracking, trackingPlaylistId)
+            }
+            "dislikes", "ryd" -> {
+                val videoId = (params["videoId"] as? String)
+                    ?: (params["id"] as? String)
+                    ?: return mapOf("ok" to false, "error" to "videoId missing")
+                getReturnYouTubeDislikesMap(videoId)
             }
             else -> mapOf("ok" to false, "error" to "unknown cmd: $cmd")
         }

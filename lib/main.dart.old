@@ -9,38 +9,37 @@ import 'core/error/error_handler.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/app_router.dart';
 
-// ⚠️ TEMPORARY ROLLBACK (checkpoint note): audio_service bootstrap এখান
-// থেকে সাময়িকভাবে সরানো হয়েছে। কারণ: `dart.library.io` conditional
-// import দিয়ে Android/Windows আলাদা করা যায় না (এটা দুই platform-এই
-// true — শুধু web বনাম native আলাদা করে, Dart SDK-এর known limitation,
-// dart-lang/language#2133)। এই ভুল approach-এর কারণে Windows build
-// আবার ভেঙে যাচ্ছিল ("Constant evaluation error" / CMake
-// flutter_assemble ব্যর্থ)।
+// ⚠️ TEMPORARY ROLLBACK (checkpoint note): audio_service bootstrap has been
+// temporarily removed from here. Reason: `dart.library.io` conditional
+// import cannot separate Android/Windows (it is true on both platforms —
+// it only separates web vs native, a known Dart SDK limitation,
+// dart-lang/language#2133). Due to this wrong approach, the Windows build
+// was breaking again ("Constant evaluation error" / CMake
+// flutter_assemble failure).
 //
-// পরের ধাপে সঠিক সমাধান বসবে (যেকোনো একটা):
-//   (ক) pubspec.yaml-এ audio_service platform-restrict করা যায় কিনা
-//       যাচাই (package নিজে federated plugin কিনা, Windows-এ স্বয়ংক্রিয়
-//       বাদ পড়ার কথা — কেন পড়ছে না সেটা flutter pub get -v/flutter
-//       build windows-এর পূর্ণ log দেখে ডায়াগনোজ করতে হবে)।
-//   (খ) build flavor আলাদা করা (android/ ও windows/ এর জন্য আলাদা
-//       entry point main_android.dart / main_windows.dart, প্রতিটা
-//       নিজের platform-এর জন্যই compile হবে — এটাই সবচেয়ে নিরাপদ ও
-//       প্রমাণিত প্যাটার্ন platform-exclusive প্যাকেজের জন্য)।
+// Next step will implement the correct solution (any one):
+//   (a) Verify if audio_service can be platform-restricted in pubspec.yaml
+//       (check if package is a federated plugin, Windows should be
+//       automatically excluded — why it's not working needs diagnosis via
+//       flutter pub get -v / flutter build windows full logs).
+//   (b) Separate build flavors (separate entry points main_android.dart /
+//       main_windows.dart for android/ and windows/, each compiles only for
+//       its own platform — this is the safest and most proven pattern for
+//       platform-exclusive packages).
 //
-// এই ফাইলগুলো আগের কাজেই তৈরি আছে, রোলব্যাক হয়নি:
-//   - lib/core/audio/telo_play_audio_handler.dart (Android handler, অক্ষত)
-//   - lib/core/audio/audio_handler_registry.dart (global handler var, অক্ষত)
-//   - lib/core/audio/windows_media_service.dart (SMTC wrapper, অক্ষত)
-// এই তিনটা ফাইল কোনো পরিবর্তন লাগবে না — শুধু main.dart-এ এদের wire করার
-// পদ্ধতিটা (dart.library.io approach) ভুল ছিল, সেটাই next step-এ ঠিক
-// হবে।
+// These files were already created earlier and were not rolled back:
+//   - lib/core/audio/telo_play_audio_handler.dart (Android handler, intact)
+//   - lib/core/audio/audio_handler_registry.dart (global handler var, intact)
+//   - lib/core/audio/windows_media_service.dart (SMTC wrapper, intact)
+// These three files need no changes — only the wiring method in main.dart
+// (dart.library.io approach) was wrong, that will be fixed in the next step.
 //
-// music_player_provider.dart-এও globalAudioHandler.attachRepository()
-// কল আছে (Android branch-এ) — এটাও অক্ষত আছে, কারণ ওই কল main.dart-এর
-// bootstrap সঠিকভাবে সেট হলে তবেই কার্যকর হবে; bootstrap ছাড়া
-// globalAudioHandler null থাকবে আর সেই branch নিজে থেকেই null-check
-// করে গ্রেসফুলি স্কিপ করবে (crash করবে না), শুধু Android-এ background
-// audio notification এখনো active হবে না যতক্ষণ না bootstrap ঠিক হয়।
+// music_player_provider.dart also has globalAudioHandler.attachRepository()
+// call (in Android branch) — this is also intact, because that call will only
+// be effective when main.dart's bootstrap is correctly set; without bootstrap
+// globalAudioHandler will be null and that branch itself does a null-check
+// and gracefully skips (won't crash), just Android background audio
+// notification won't be active until bootstrap is fixed.
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

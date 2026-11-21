@@ -225,6 +225,7 @@ class WindowsPlaybackEngine implements PlaybackEngine {
   @override
   Future<String?> getLyricsText(String videoId) async => null;
 
+  @override
   Future<void> dispose() async {
     // কোনো persistent resource/process নেই — প্রতিটা resolve নিজের
     // subprocess শুরু-শেষ করে।

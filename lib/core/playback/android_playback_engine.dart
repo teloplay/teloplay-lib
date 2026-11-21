@@ -184,6 +184,21 @@ class AndroidPlaybackEngine implements PlaybackEngine {
               duration: item['duration'] != null
                   ? Duration(seconds: item['duration'] as int)
                   : null,
+              artistId: item['artistId'] as String?,
+              albumId: item['albumId'] as String?,
+              albumName: item['albumName'] as String?,
+              allArtistNames: (item['allArtistNames'] as List<dynamic>?)
+                      ?.map((e) => e.toString())
+                      .toList() ??
+                  const [],
+              allArtistIds: (item['allArtistIds'] as List<dynamic>?)
+                      ?.map((e) => e as String?)
+                      .toList() ??
+                  const [],
+              explicit: item['explicit'] as bool? ?? false,
+              chartPosition: item['chartPosition'] as int?,
+              chartChange: item['chartChange'] as String?,
+              setVideoId: item['setVideoId'] as String?,
             );
           })
           .where((r) => r.videoId.isNotEmpty)
@@ -332,7 +347,7 @@ class AndroidPlaybackEngine implements PlaybackEngine {
 
       final queries =
           (response['queries'] as List?)?.cast<String>() ?? const <String>[];
-      final items = (response['items'] as List?)
+      final items = ((response['recommendedItems'] ?? response['recommended'] ?? response['items']) as List?)
               ?.whereType<Map>()
               .map((m) => RichSearchItem.fromJson(m.cast<String, dynamic>()))
               .toList() ??
@@ -454,7 +469,10 @@ class AndroidPlaybackEngine implements PlaybackEngine {
   Future<String?> getLyricsText(String videoId) async {
     try {
       final res = await getLyrics(videoId);
-      return res['lyrics'] as String?;
+      final plainLyrics = res['plainLyrics'];
+      return plainLyrics is String && plainLyrics.trim().isNotEmpty
+          ? plainLyrics
+          : null;
     } catch (_) {
       return null;
     }
@@ -486,12 +504,26 @@ class AndroidPlaybackEngine implements PlaybackEngine {
       return raw.map((item) {
         final map = item as Map<String, dynamic>;
         final id = map['videoId'] as String? ?? '';
+        final names = (map['allArtistNames'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const [];
         return SearchResult(
           videoId: id,
           title: (map['title'] as String?) ?? 'Unknown',
           author: (map['author'] as String?) ?? 'Unknown',
           thumbnail: (map['thumbnail'] as String?) ?? 'https://img.youtube.com/vi/$id/mqdefault.jpg',
-          duration: map['duration'] != null ? Duration(seconds: map['duration'] as int) : null,
+          duration: map['duration'] is int ? Duration(seconds: map['duration'] as int) : null,
+          artistId: map['artistId'] as String?,
+          albumId: map['albumId'] as String?,
+          albumName: map['albumName'] as String?,
+          allArtistNames: names,
+          allArtistIds: (map['allArtistIds'] as List<dynamic>?)
+                  ?.map((e) => e as String?)
+                  .toList() ??
+              const [],
+          explicit: map['explicit'] as bool? ?? false,
+          setVideoId: map['setVideoId'] as String?,
         );
       }).where((s) => s.videoId.isNotEmpty).toList();
     } catch (_) {
@@ -508,10 +540,14 @@ class AndroidPlaybackEngine implements PlaybackEngine {
     }
   }
 
+  Future<Map<String, dynamic>> getExplorePage() async {
+    return _invokeCommand('explore', {});
+  }
+
   @override
   Future<Map<String, dynamic>?> getExplore() async {
     try {
-      return await getHome();
+      return await getExplorePage();
     } catch (_) {
       return null;
     }

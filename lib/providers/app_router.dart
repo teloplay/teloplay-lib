@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/performance_service.dart';
 import '../providers/auth_providers.dart';
+import '../screens/auth/animated_splash_screen.dart';
 import '../screens/auth/welcome_screen.dart';
 import '../screens/auth/email_input_screen.dart';
 import '../screens/auth/otp_verify_screen.dart';
@@ -155,18 +156,19 @@ GoRouter appRouter(Ref ref) {
   final refreshNotifier = _AuthRefreshNotifier(ref);
 
   return GoRouter(
-    initialLocation: '/welcome',
+    initialLocation: '/splash',
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final session = Supabase.instance.client.auth.currentSession;
       final isLoggedIn = session != null;
       final isGuest = session?.user.isAnonymous ?? false;
       final isAuthRoute = state.matchedLocation.startsWith('/welcome') ||
-          state.matchedLocation.startsWith('/auth');
+          state.matchedLocation.startsWith('/auth') ||
+          state.matchedLocation.startsWith('/splash');
 
-      // Root path / → redirect to /home if logged in, /welcome if not
+      // Root path / → splash (প্রথমবার), login থাকলে /home
       if (state.matchedLocation == '/') {
-        return isLoggedIn ? '/home' : '/welcome';
+        return isLoggedIn ? '/home' : '/splash';
       }
 
       // কোনো session না থাকলে auth route ছাড়া অন্য কোথাও যেতে দেওয়া হবে না
@@ -194,8 +196,12 @@ GoRouter appRouter(Ref ref) {
         path: '/',
         redirect: (context, state) {
           final session = Supabase.instance.client.auth.currentSession;
-          return session != null ? '/home' : '/welcome';
+          return session != null ? '/home' : '/splash';
         },
+      ),
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const AnimatedSplashScreen(),
       ),
       GoRoute(
         path: '/welcome',

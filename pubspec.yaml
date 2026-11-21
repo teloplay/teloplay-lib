@@ -1,5 +1,5 @@
 name: teloplay
-description: "TeloPlay - YouTube Music Stream"
+description: "TeloPlay - Music Stream"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -53,7 +53,8 @@ dependencies:
   # ⚠️ rustup must be installed for the build (flutter_rust_bridge/cargokit).
   smtc_windows: ^1.1.0
     # ... existing deps
-  permission_handler: ^11.3.1
+  permission_handler: ^12.0.1
+  permission_handler_windows: ^0.2.1
 
   # 🖼️ Image Caching (Phase 1 — Smart Performance Foundation)
   # Network image loading with disk + in-memory cache. Only
@@ -82,6 +83,7 @@ dependencies:
   google_sign_in: ^7.2.0
   logger: ^2.7.0
   url_launcher: ^6.3.0
+  marionette_flutter: ^0.7.0
 
 dev_dependencies:
   flutter_test:
@@ -108,4 +110,5 @@ flutter:
     - assets/app_icon.ico
     - assets/logo.png
     - assets/icon.png
-    - assets/
+    - assets/env.json
+    - assets/taskbar/

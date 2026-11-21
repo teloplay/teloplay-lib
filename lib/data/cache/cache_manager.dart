@@ -246,40 +246,55 @@ class CacheManager {
     }
   }
 
-  static const _thumbnailMaxRetries = 1;
-  static const _thumbnailRetryDelay = Duration(milliseconds: 500);
-
   /// HD Thumbnail Resolution Upgrade Ladder:
-  /// Converts low-res/compressed thumbnails (hqdefault, mqdefault, cropped googleusercontent)
-  /// to crystal clear HD/Max-Res versions (maxresdefault, sddefault, w544-h544).
+  /// Converts low-res/compressed thumbnails to crystal clear studio HD / Max-Res versions
+  /// (w800-h800, hq720.jpg, maxresdefault, sddefault, hqdefault).
   List<String> _getHdThumbnailCandidateUrls(String originalUrl, String videoId) {
     final candidates = <String>[];
-    
-    // 1. Google User Content / YT Music Artwork upgrade
-    if (originalUrl.contains('googleusercontent.com') || originalUrl.contains('ggpht.com')) {
-      final hdGoogleUrl = originalUrl.replaceAll(
-        RegExp(r'=w\d+-h\d+[^=]*|=s\d+[^=]*'),
-        '=w544-h544-p-l90-rj',
-      );
-      if (hdGoogleUrl != originalUrl) {
-        candidates.add(hdGoogleUrl);
+    var cleanUrl = originalUrl.trim();
+    if (cleanUrl.startsWith('//')) cleanUrl = 'https:$cleanUrl';
+
+    // Extract videoId if not directly provided
+    String? vId = RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(videoId) ? videoId : null;
+    if (vId == null && cleanUrl.isNotEmpty) {
+      final match = RegExp(r'/(?:vi|vi_webp)/([a-zA-Z0-9_-]{11})').firstMatch(cleanUrl) ??
+          RegExp(r'[?&]v=([a-zA-Z0-9_-]{11})').firstMatch(cleanUrl);
+      if (match != null) {
+        vId = match.group(1);
       }
     }
 
-    // 2. YouTube Standard Video Thumbnails upgrade (1080p / 720p / 480p)
-    final vId = videoId.isNotEmpty ? videoId : null;
-    if (vId != null && RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(vId)) {
+    // 1. Google User Content / YT Music Studio Artwork upgrade
+    if (cleanUrl.contains('googleusercontent.com') || cleanUrl.contains('ggpht.com')) {
+      if (RegExp(r'=w\d+-h\d+[^?&=]*').hasMatch(cleanUrl)) {
+        candidates.add(cleanUrl.replaceAll(RegExp(r'=w\d+-h\d+[^?&=]*'), '=w800-h800-l90-rj'));
+        candidates.add(cleanUrl.replaceAll(RegExp(r'=w\d+-h\d+[^?&=]*'), '=w544-h544-l90-rj'));
+      } else if (RegExp(r'=s\d+[^?&=]*').hasMatch(cleanUrl)) {
+        candidates.add(cleanUrl.replaceAll(RegExp(r'=s\d+[^?&=]*'), '=s800'));
+        candidates.add(cleanUrl.replaceAll(RegExp(r'=s\d+[^?&=]*'), '=s544'));
+      } else {
+        candidates.add('$cleanUrl=w800-h800-l90-rj');
+      }
+    }
+
+    // 2. YouTube Standard Video Thumbnails upgrade (720p / 1080p / 480p)
+    if (vId != null) {
+      candidates.add('https://i.ytimg.com/vi/$vId/hq720.jpg');
       candidates.add('https://i.ytimg.com/vi/$vId/maxresdefault.jpg');
       candidates.add('https://i.ytimg.com/vi/$vId/sddefault.jpg');
       candidates.add('https://i.ytimg.com/vi/$vId/hqdefault.jpg');
+      candidates.add('https://i.ytimg.com/vi/$vId/mqdefault.jpg');
     }
 
-    // Cleaned original (stripping sqp compression token if present)
-    if (originalUrl.contains('?sqp=')) {
-      candidates.add(originalUrl.split('?').first);
+    // 3. Cleaned original (stripping sqp compression token if present)
+    if (cleanUrl.contains('?sqp=')) {
+      candidates.add(cleanUrl.split('?').first);
     }
 
-    candidates.add(originalUrl);
+    if (cleanUrl.isNotEmpty) {
+      candidates.add(cleanUrl);
+    }
+
     return candidates.toSet().toList();
   }
 
@@ -291,28 +306,19 @@ class CacheManager {
     Object? lastError;
 
     for (final url in candidateUrls) {
-      for (var attempt = 0; attempt <= _thumbnailMaxRetries; attempt++) {
-        try {
-          final request = http.Request('GET', Uri.parse(url));
-          final streamedResponse = await _httpClient.send(request);
+      if (url.isEmpty) continue;
+      try {
+        final uri = Uri.tryParse(url.startsWith('//') ? 'https:$url' : url);
+        if (uri == null || !uri.hasScheme) continue;
 
-          if (streamedResponse.statusCode == 200) {
-            final builder = BytesBuilder(copy: false);
-            await for (final chunk in streamedResponse.stream) {
-              builder.add(chunk);
-            }
-            final bytes = builder.takeBytes();
-            if (bytes.isNotEmpty) {
-              return bytes;
-            }
-          }
-        } catch (e) {
-          lastError = e;
-          final isLastAttempt = attempt == _thumbnailMaxRetries;
-          if (!isLastAttempt) {
-            await Future.delayed(_thumbnailRetryDelay);
-          }
+        final response = await _httpClient.get(uri).timeout(const Duration(seconds: 8));
+
+        // Accept HTTP 200 with non-dummy image payload (> 500 bytes)
+        if (response.statusCode == 200 && response.bodyBytes.length > 500) {
+          return response.bodyBytes;
         }
+      } catch (e) {
+        lastError = e;
       }
     }
 

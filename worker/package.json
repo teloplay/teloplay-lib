@@ -1,21 +1,18 @@
-﻿{
-    "name": "teloplay-stream-worker",
-    "version": "1.0.0",
-    "description": "InnerTube stream proxy and search worker for TeloPlay",
-    "main": "worker.js",
-    "type": "module",
-    "scripts": {
-        "start": "node worker_runner.js",
-        "deploy": "wrangler deploy",
-        "tail": "wrangler tail teloplay-stream-worker"
-    },
-    "devDependencies": {
-        "wrangler": "^3.111.0"
-    },
-    "dependencies": {
-        "@distube/ytdl-core": "^4.16.12",
-        "node-forge": "^1.4.0",
-        "play-dl": "^1.9.7",
-        "youtubei.js": "^18.1.0"
-    }
+{
+  "name": "teloplay-stream-service",
+  "version": "1.0.0",
+  "description": "High-Speed Botless Audio Stream & Search Service for TeloPlay",
+  "type": "module",
+  "main": "src/worker.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node test/test-stream.js",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "youtubei.js": "^18.1.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.149.0"
+  }
 }

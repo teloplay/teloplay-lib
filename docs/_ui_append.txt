@@ -1,0 +1,1431 @@
+
+## Appendix E — UI details (desktop, extracted from CSS)
+
+```
+CSS files: 96
+
+COLORS (313):
+#000
+#0000
+#00000003
+#00000005
+#0000000a
+#0000000d
+#00000012
+#00000014
+#00000017
+#0000001a
+#0000001f
+#00000024
+#00000026
+#00000029
+#0000002b
+#00000030
+#00000038
+#0000003b
+#0000003d
+#00000040
+#00000042
+#00000045
+#0000004d
+#00000054
+#00000061
+#0000006b
+#00000070
+#00000073
+#00000075
+#0000007a
+#00000080
+#00000082
+#0000008a
+#0000008c
+#00000094
+#00000096
+#000000a3
+#000000a6
+#000000a8
+#000000ad
+#000000b3
+#000000b8
+#000000bf
+#000000d9
+#000000e6
+#0003
+#0006
+#0009
+#000c
+#003d00
+#006bcf
+#009948
+#00af38
+#00f
+#040404
+#052a56
+#056952
+#063368
+#073116
+#073c7b
+#084791
+#093c1b
+#094b9a
+#0951a6
+#0a0a0a
+#0a4620
+#0a59b8
+#0b0b0b
+#0b62c8
+#0c69d8
+#0d5928
+#0d72ea
+#0e642d
+#0e804e
+#0ff
+#107434
+#121212
+#12121200
+#1212120f
+#12121214
+#1212121a
+#1212121f
+#12121229
+#1212123d
+#12121273
+#12121287
+#1212128c
+#121212a1
+#121212b3
+#121212b8
+#121212cc
+#121212d9
+#1278f2
+#127e38
+#12833a
+#141414
+#159542
+#169f47
+#171418
+#171717
+#1737b1
+#180270
+#181818
+#191919
+#19e68c
+#1a1a1a
+#1a1a1af2
+#1a2867
+#1a4171
+#1abc54
+#1b1b1b
+#1db954
+#1e1e1e
+#1e1e1e00
+#1e1e1eb3
+#1ed760
+#1ed76000
+#1ed76014
+#1ed7601f
+#1ed7604d
+#1f1f1f
+#1f307b
+#1fdf64
+#202124
+#202f72
+#212121
+#21783d99
+#21df65
+#232323
+#242424
+#252525
+#25252500
+#26008d
+#272822
+#282828
+#292929
+#2a2a2a
+#2a86f3
+#2b2b2b
+#2c0096
+#2e77d0
+#3003e1
+#332f33
+#333
+#334fcd
+#343434
+#363636
+#3673d4
+#393838
+#3a3939
+#3be477
+#3c00e4
+#3e3e3e
+#444
+#454545
+#464348
+#4687d6
+#484349
+#491e00
+#509bf5
+#525151
+#535353
+#5353534d
+#535353b3
+#539df5
+#582400
+#590810
+#5a5a5a
+#5b6dff
+#5e5e5e
+#5eac96
+#60e890
+#616161
+#626262
+#652a00
+#656565
+#65d46e
+#66d9ef
+#6a6a6a
+#6b0a13
+#717171
+#727272
+#7358ff
+#73aff7
+#747474
+#75715e
+#75777c
+#7b0b16
+#7c7c7c
+#7d7d7d
+#7f7f7f
+#818181
+#828080
+#833600
+#844b1f
+#868087
+#8a8a8a
+#9334f5
+#939393
+#955500
+#96f0b6
+#999
+#9999994d
+#9b0e1c
+#9bc7fa
+#a1ecb2
+#a5ccfa
+#a60e1d
+#a6e22e
+#a7a7a7
+#a7a7a700
+#a7a7a733
+#a9a9a9
+#aab6ea
+#abb2bf
+#ae81ff
+#af2896
+#afb1ff
+#b00d6e
+#b3b3b3
+#bf6d00
+#c4caff
+#c5f0c9
+#c5f7d7
+#c6f1d2
+#c7c7c7
+#c8e0fc
+#c91123
+#c98335
+#cbcbcb
+#ccc
+#cd1a2b
+#d2d2d2
+#d3d3d3
+#d5d5d5
+#d7dbff
+#d81326
+#d9d9d9
+#d9dadc
+#dcdcdc
+#dedede
+#e0edfd
+#e22134
+#e2e2e2
+#e61e32
+#e6db74
+#e6e6e6
+#e7e7e7
+#e7edff
+#e80
+#e91429
+#e94e35
+#ed2c3f
+#edffff
+#ee3a4c
+#eee
+#f0e6d2
+#f0f0f0
+#f18900
+#f19488
+#f3727f
+#f3e6d0
+#f3ff46
+#f59b23
+#f5f5f5
+#f79bd2
+#f8f8f2
+#f92672
+#f96057
+#fce54f
+#ff4834
+#ffa42b
+#ffa5000d
+#ffa5001a
+#ffa5004d
+#ffadb6
+#ffb504
+#ffb656
+#ffb9c1
+#ffc742
+#ffcdd3
+#ffd2d7
+#ffd2d700
+#ffd2d714
+#ffd97e
+#ffe5e8
+#ffeab8
+#ffedd0
+#fff
+#fff0
+#fff3
+#fff6
+#fff9
+#ffffff0d
+#ffffff12
+#ffffff14
+#ffffff1a
+#ffffff1c
+#ffffff21
+#ffffff24
+#ffffff26
+#ffffff2b
+#ffffff36
+#ffffff3d
+#ffffff40
+#ffffff4d
+#ffffff70
+#ffffff80
+#ffffff8c
+#ffffffa8
+#ffffffad
+#ffffffb3
+#ffffffe6
+
+FONT-SIZES (22):
+0
+1.125rem
+1.5rem
+10px
+11px
+12px
+13px
+14px
+16px
+18px
+1rem
+20px
+24px
+2rem
+32px
+36px
+3rem
+4.5rem
+48px
+7px
+8px
+9px
+
+DIMS (303):
+0
+0%
+0px
+1
+1.15
+1.2
+1.25rem
+1.2em
+1.3
+1.375
+1.4
+1.4em
+1.5
+1.5em
+1.5rem
+1.6
+10
+100
+100%
+1000%
+1000px
+100px
+102px
+104.125px
+1069px
+10px
+11
+110%
+1100px
+110px
+112px
+113.778px
+114px
+115%
+1170px
+1199px
+11px
+1200px
+120px
+1248px
+124px
+1280px
+128px
+12px
+130px
+131px
+134px
+135px
+136px
+13px
+1400px
+140px
+144px
+145%
+145px
+14px
+150px
+152px
+156.444px
+156px
+15px
+160px
+162px
+165px
+1680px
+168px
+16px
+170px
+172px
+173px
+176px
+177px
+17px
+18.275px
+180px
+181px
+182px
+184px
+186px
+188px
+18px
+192px
+1955px
+195px
+196px
+199px
+19px
+1em
+1px
+1rem
+2
+2%
+2.2px
+20%
+200%
+200px
+20px
+210px
+215px
+216px
+21px
+220px
+228px
+22px
+230px
+232
+232px
+23px
+240px
+248px
+24px
+25
+25%
+250px
+256px
+258px
+25px
+260px
+262px
+263px
+266px
+26px
+270px
+272px
+27px
+280px
+284px
+288px
+28px
+292px
+29px
+2px
+3
+30
+30%
+300px
+302px
+304px
+30px
+310px
+318px
+319px
+320px
+325px
+32px
+330px
+332px
+336px
+340px
+343px
+344px
+346px
+347px
+34px
+35
+35%
+350px
+352px
+354px
+35px
+360px
+368px
+36px
+372px
+380px
+384px
+387px
+38px
+39.94px
+390px
+392px
+395px
+398px
+3px
+4%
+40
+40%
+400px
+401px
+404px
+40px
+41%
+420px
+42px
+430px
+436px
+43px
+440px
+441px
+44px
+45%
+450px
+456px
+45px
+46%
+460px
+480px
+48px
+490px
+4px
+5
+5%
+50
+50%
+500px
+509px
+50px
+51%
+516px
+51px
+520px
+524px
+52px
+540px
+541px
+542px
+544px
+545px
+546px
+54px
+55%
+55px
+56.25%
+56.25px
+560px
+56px
+57px
+58
+588px
+590px
+5px
+60
+60%
+600px
+607px
+60px
+620px
+62px
+64px
+650px
+656px
+65px
+664px
+672px
+680px
+68px
+69px
+6px
+7
+70
+70%
+700px
+702px
+70px
+72%
+720px
+722px
+728px
+72px
+732px
+74px
+75
+75%
+75px
+760px
+768px
+77%
+780px
+790px
+7px
+8
+8%
+80
+80%
+800px
+80px
+810px
+816px
+82%
+83px
+85%
+85.3333px
+85px
+860px
+86px
+88%
+88px
+8px
+9.091px
+90
+90%
+900px
+90px
+92px
+93.25%
+95%
+96px
+97px
+99%
+9999px
+999px
+99px
+9px
+
+CSS CLASSES (sample, 6792 total):
+001dpcm
+008l3
+01px
+04em
+0631
+073deg
+091px
+102s
+1136deg
+113px
+119s
+125px
+125rem
+125s
+136s
+1416
+153s
+15em
+174px
+187s
+1rem
+204s
+214286s
+221s
+238s
+24px
+25em
+25px
+25rem
+262deg
+275px
+286px
+29px
+3333px
+35rem
+41828
+429px
+4444px
+444px
+52-1
+547deg
+5625rem
+571px
+58173
+5rem
+5turn
+625rem
+6667
+6667px
+67857
+67px
+6875rem
+714px
+75em
+75rem
+778px
+781-1
+798-6
+8125rem
+857px
+85em
+85rem
+875rem
+87deg
+8889px
+8rem
+9286
+94px
+A00ytIkfiVLT_B75PUH2
+A0ASfo3Up_Q7kSd9LYAo
+A0aVPBUfP5lhm6OeY9Zl
+A0d118PwEnutcDguyfK6
+A1FdIRTgEpEi0gTR2EGF
+A1UY_q_XQTI3cdXq2w7G
+A1j5Hz8CVOTfbB_upCBA
+A2C3kFi_7YgCMyvuSRH3
+A43CJUnLyI16C23ydaIV
+A6ChVyOdaEyaumPepLej
+A6OB2PW88hienapJaToK
+A7EwjqDqW6aS4XMLuBtw
+A7mBjDbIpCRtMDP5huvS
+A9gtWYENmavLTb5B1jNS
+A9tuM6Z5sna0RfRdQYig
+AAgyN1hOBaMCwuH77SG1
+AAozweyDzh7Lh5Vl9gIq
+AAuM5PQulSkIiLlLzqvw
+ABE7IpMeHVdMAa347DGn
+ABHJbI_KPm4yNHlvS_rs
+ADDVzmq6X7myuWFl4ix9
+ADvBeZp8CRbDOQ_ypzSs
+AE3dcjFNJ9068_vrnLB6
+AEyAf4M8Pm3aJXcIAST0
+AFJ6kQcR728TRbh6wzd3
+AG3esSS4i3_oMRua1H0h
+AGZ07cKMDP02RMdAraw_
+AGZXsE8Q7LnlcJOX7sxG
+AH7NYlNWNDPQhMeIZg7A
+AHZaRkL7Dlce8waWLT4j
+AJq8LgyOesBON70IHx1V
+AJsl04LbtYQ3oh4j_ja3
+AJtBVIfJl6Ppw83SqbTl
+AKXRAFsX_tj7m8a7vfug
+ALSpVd0_ZgOUhlgnH2a0
+ALuhjLS8371ZOWex5SLt
+AMNaKvCRDGoAyl4ltPZg
+AMVlM6fEn3SuEBdoYPhc
+AN2Yj8Ork1d6Vy_m5URV
+AN5Yp3_RQTWvmVLyQCKt
+AN_Jg5L5weM0cDia6BJV
+ANiPcscKp65KIfKPP3Ug
+AOJOzRAi_iZLBIg2DYSy
+APekVsztlCSJPZPDEcPa
+ARB2mx8LtjJK0vrtlyoU
+ARExkcCu8Pl4pJoG5RyL
+ARFtHvFvxYATAELqh3qJ
+ARJk_lJ1RhlFwDqGJ67N
+ARg85StCOzvvgDpAasA6
+ASPpoYqIhLFbLNR_7IQR
+ASQmeIrel2Nt6w6h0B1g
+ASmPrfZsJoCj4BnGGS7o
+ATzSlFakPhgCcp6m2wgQ
+AU3t7gHRa1kOM0Lt7y1m
+AWZB_jUImxPQPayEBTk4
+AWgeyMyAWiokxwNMissg
+AWpY880Uv1efXSCOa5h3
+AX9wa9pIrKWPfvm8ojDp
+AXdeaMV_MPu7ItiFq8cI
+AXsGGGuygUDLRRsrx_3X
+AXwy9aN2Edi6OZbtlDJi
+AYsj7QTQZIee2fvqtU1d
+A_dgCpuNz1P_9_RPygVC
+A_usQZe3y5Fte9TTYFOo
+Aa8Q1IvIum3HH4nBBx9U
+AaSktRRoRSIVR9dzIM_r
+Aak210rzDyq3s0ey_JqA
+Ab9m3cFd7kDmWFaEb_mF
+AbJ40VckzE3uXcd5wrEm
+AbScaW74nxRaq_eRMqKt
+AbgIcOI7V91nxvT91HCH
+AcfgMsOtK8XTBUifkDzQ
+AcpiGT66pFr3um9wJSvv
+AeJ0cPAB_6JC5aScvJdj
+AfEpJc9nwz421gpbaFCE
+AfXLENOMH2E99i_IqkS3
+AfoNs5RyleYPffKd_R7w
+AgeR2pcrL1KgHsSM_5CS
+AghbWDtmF94XAEQKPhJL
+Ags0262YLWorDd87KLq4
+AhUvgakGKgwLMNwEiKjw
+Ait3YQeNJlTKmk1fB8BF
+Ajf7eVlIyU_T8xs6QWjo
+AkdxZVE6rBHW7C7Py3GJ
+AliJCDn_RWIQGhBo9KkG
+Am2BK_y996hhbvSuY7fJ
+Amp4nF9uCTsVscG68FIY
+An48XMbfJ3_Lu2VXAvEM
+AnenzPzbe3bzZWCsoSAz
+ApWs6wGARMhpbXAY3Ibr
+AphHedkQ88YYuFqJstST
+Aq9kfRSAp_KH4hffk1Yh
+ArBT7ePdHr8px0JhcxHA
+ArQKCGxixqtXg2wFnQdw
+ArpdzWdgRW_8lwpikPGW
+ArxBBqfEzUGT1nEXkgIs
+As1eOhbYz7c7EWJhFEG2
+As2bdQZnoOEI59FJvenu
+At9tNlKrBKqd5PH17V_A
+Au57h2FKsL4DYeQ5bueD
+AukMNaKTJmhKlzn1fQYw
+Avo4EFdgoNTfpkWOMSfB
+Avs3Ur6n7mVZQqdyCWMi
+AwSJhnqvE4ZY6eqQNwLz
+AyQuHx4nhILLZ2tOcDiA
+AzyibAhHsGbHLZZ7F51C
+B0KFyBHd0EPlILNOCgtc
+B2ZL1NcZub38MXCMkkBV
+B4MaZF5xX8Ea6aP5du7Q
+B4Nx02PY95HyEV1qmES5
+B4pcnR8ZzjyDheRTymNF
+B4wFeLHvto8GPiLgySGN
+B6GNJVGJUkryORNDGgVe
+B6cZwYGBiPMHAmRpT0G6
+B7I23cSfqpQuBfW1tXHw
+BA5ge_uDv8IxkEX3YNPq
+BDayDINV23EvKtWpqSnf
+BDoqMer1Ahv9hfbOSyfq
+BE84Z9a3f03AONjbtt3G
+BEfqS11n6ZkBfjO_haf7
+BFb4sxVxXiZ5BQGpEwpw
+BFdWMHIyHwu4wSZAz0ro
+BGHUeQm5hyByuP4VnuHT
+BGJckXXdnQwZq2fM_KsF
+BGhZPOSLBDSLTSX9dkjg
+BGpNR2ATNLYOv5Juoyew
+BIfMBjaz2vdcF02gb3Zc
+BJqJySSzlI4DyubvVeTO
+BKSy1FhNKrGmUPkur9gp
+BKbT1UzV_f_Xdg3iqqM9
+BLuU_uUOqGQxEtqPS9fl
+BLv_CBRziFqhk1151qrO
+BLyR2sy264QNLoTjjIBq
+BMCc2xqUeoDwqc8_Ki2N
+BN4wtg8CFbEhZ73PP0s5
+BNplZfNKl3Z3PNuZ08ev
+BNtmn81d3eXkOVoIhBmT
+BOhtPhjLJMM1YsUYH3pc
+BOp1wulEuJMGTUaS8E4k
+BQL_nTlQ35NPm4El_yKA
+BQMlbPRxc3MrAxkMYY67
+BQN3gZkYy33eP4L0Xsxu
+BQTr93hsT42DmFCZzl_V
+BSupLcO5BQHPmyPdy2Ke
+BTVl5mVQ1NwcNvFjI0Pu
+BW1_Si1aZVLfZdqnhOv0
+BWGnkJP0kpVmadBk1wbJ
+BZ1BO4pZI15mL9i_4zdu
+BZ2EqTq2wilqzcwxqd0w
+BZ3Jt_10IWjNI_HzYaNc
+BZ6U78GhhbO_YG8QYmtj
+BZJYEs3mPwmfZOIMu9QP
+BZ_gu143OwHoRCSlbNx4
+BZ_wyQGzjGPyAb4rJ0mk
+B_D2OFEQueOg8eoiZpD1
+B_DQfynJis7GctE_3xk3
+B_FSnd305wrLHs_WqSsd
+B_NENXC7AHTEKsYhv3qv
+B_nE1SXTRHeQqKgcaVhj
+Ba8tV4UWPn3veeWuciOn
+BaIFqcPPx3oYlya5euQv
+BaSRmgCEnGgCZ0mmxapX
+BafPkxIFo223uGEPzQL7
+BbkMzFYBIqdJbTQh6J1_
+BcPE0f085UfONbjc6laI
+BcjfOpNfJveVSmBKuxPf
+BcmsyzTf_7mOFSn9ox4v
+BeXyTTl0CTmtEmOeeiGr
+BfLC3iZs1LcKzTd2rMjp
+BgMd6ZnJzW1dDyZeFwms
+BgxYPqzCnc07O2uZ4l_0
+BhKyuJA1t39nvRDnQgc9
+BhNYSPm9SLmMyVZ1_2nJ
+BicuAI_Ti7tMosZx6feA
+Bj3zgcB9FJBBRCyaGHKI
+BjobZBzDZLf5f78AT4dG
+Bjx3sG2WYD9QVKP7Nqu2
+BkqqN7tGwyJHa5ERvXkK
+BlQybTWuGSOWzJhGj8wn
+BmXBjNWNbPEF1TN9aJf4
+BmrQQUfZPj1yxmGd02zS
+BmysoadRi6sBXB4O2dBd
+Bn4osAsrhHbxhDrGzPz7
+BnCN46iNbXY6rENdQd5G
+BnCn0CJyXhgSU_Rve9Be
+BnySKqTgOQJMJk28aNgY
+BowGXmrv97DQDLKM3Zm0
+BpfDz9BVog90st5sYrNX
+BpyMKZ6p9zOab1vMJDEZ
+BsFzH12CAJta6W2JLPxW
+BsuCEMHjP8OA0vRxN1UQ
+BuqVQZynpkqqVo9R8Qm6
+Bv3Jtv_ZS7rJGhowFL9J
+BvYRI0WFCn3LhurvyYJg
+BvYel9KAh_CVFpiGOjNZ
+BxHKeqsgJL1Wh4tJuA2l
+By4wE_aVhuYtLizakqDZ
+BybkyB7XLrG9C8Njo6mw
+Byh_OEeqggMiyq73Wqg8
+Byp1BxVFY59xFQo0QW5X
+BzZwajlIOyQ0SRRQk2bJ
+C09p36zbJu0oxospFtEe
+C0YTSqDKL6_Qo68om_i1
+C0lD2uwCKHb1ZF7jucqx
+C0tmrgNCw0nii1L57kU7
+C1sfXQNdcsLReHgohV5Z
+C2Sk74W6RXTckFrl3KgE
+C3vYvgR_88lop3dcB20g
+C5c5FceZn9Iaz8gPMGau
+C5ehxNjkIbRm0rSsiGx7
+C6eWO3StB4YpPGEenyaA
+C6rjZ9exSW1JVyBTZ4Tp
+C75qbkiTmyN9lo22Ocgb
+C7cZi_r4kXJXHQfCIkc0
+C9G_CSzsikvZtcHoIzUN
+C9YkqeY1CGcU5Tso1KAU
+CA3vl2pO5p6xEV5QWd3z
+CAP54BpfdsYIPrtt0Ek6
+CBRIzkqEDnF2p5WwylAT
+CCtDvsJegaD38ITjHhMb
+CDEzy64vbiIOxCrXhaK6
+CDdQmPsvFDpN_d6NMZK4
+CEBF_u074YaDntH4yGLm
+CEG2qtUZNYv1hPTSMUtF
+CF_GhwTjpjL4KW9eVBoQ
+CFomZDDshES6ruC56TkT
+CFzZeYAU6wukv5cmZB1m
+CJdibeUQyl_Os98lLiMY
+CM1JaGeFuBsHsoRC5pZb
+CMwIn3IJXyTEgOTaoX6X
+CNK4b0gm6XuB2gX869TA
+CO8qyPNgRV8ziQnoZDC0
+```
+
+### E.1 Observed color palette (sample)
+
+- #000
+- #0000
+- #00000003
+- #00000005
+- #0000000a
+- #0000000d
+- #00000012
+- #00000014
+- #00000017
+- #0000001a
+- #0000001f
+- #00000024
+- #00000026
+- #00000029
+- #0000002b
+- #00000030
+- #00000038
+- #0000003b
+- #0000003d
+- #00000040
+- #00000042
+- #00000045
+- #0000004d
+- #00000054
+- #00000061
+- #0000006b
+- #00000070
+- #00000073
+- #00000075
+- #0000007a
+- #00000080
+- #00000082
+- #0000008a
+- #0000008c
+- #00000094
+- #00000096
+- #000000a3
+- #000000a6
+- #000000a8
+- #000000ad
+- #000000b3
+- #000000b8
+- #000000bf
+- #000000d9
+- #000000e6
+- #0003
+- #0006
+- #0009
+- #000c
+- #003d00
+- #006bcf
+- #009948
+- #00af38
+- #00f
+- #040404
+- #052a56
+- #056952
+- #063368
+- #073116
+- #073c7b
+- #084791
+- #093c1b
+- #094b9a
+- #0951a6
+- #0a0a0a
+- #0a4620
+- #0a59b8
+- #0b0b0b
+- #0b62c8
+- #0c69d8
+- #0d5928
+- #0d72ea
+- #0e642d
+- #0e804e
+- #0ff
+- #107434
+- #121212
+- #12121200
+- #1212120f
+- #12121214
+
+### E.2 Key component class names (desktop)
+
+- A00ytIkfiVLT_B75PUH2
+- A0ASfo3Up_Q7kSd9LYAo
+- A0aVPBUfP5lhm6OeY9Zl
+- A0d118PwEnutcDguyfK6
+- A1FdIRTgEpEi0gTR2EGF
+- A1UY_q_XQTI3cdXq2w7G
+- A1j5Hz8CVOTfbB_upCBA
+- A2C3kFi_7YgCMyvuSRH3
+- A43CJUnLyI16C23ydaIV
+- A6ChVyOdaEyaumPepLej
+- A6OB2PW88hienapJaToK
+- A7EwjqDqW6aS4XMLuBtw
+- A7mBjDbIpCRtMDP5huvS
+- A9gtWYENmavLTb5B1jNS
+- A9tuM6Z5sna0RfRdQYig
+- AAgyN1hOBaMCwuH77SG1
+- AAozweyDzh7Lh5Vl9gIq
+- AAuM5PQulSkIiLlLzqvw
+- ABE7IpMeHVdMAa347DGn
+- ABHJbI_KPm4yNHlvS_rs
+- ADDVzmq6X7myuWFl4ix9
+- ADvBeZp8CRbDOQ_ypzSs
+- AE3dcjFNJ9068_vrnLB6
+- AEyAf4M8Pm3aJXcIAST0
+- AFJ6kQcR728TRbh6wzd3
+- AG3esSS4i3_oMRua1H0h
+- AGZ07cKMDP02RMdAraw_
+- AGZXsE8Q7LnlcJOX7sxG
+- AH7NYlNWNDPQhMeIZg7A
+- AHZaRkL7Dlce8waWLT4j
+- AJq8LgyOesBON70IHx1V
+- AJsl04LbtYQ3oh4j_ja3
+- AJtBVIfJl6Ppw83SqbTl
+- AKXRAFsX_tj7m8a7vfug
+- ALSpVd0_ZgOUhlgnH2a0
+- ALuhjLS8371ZOWex5SLt
+- AMNaKvCRDGoAyl4ltPZg
+- AMVlM6fEn3SuEBdoYPhc
+- AN2Yj8Ork1d6Vy_m5URV
+- AN5Yp3_RQTWvmVLyQCKt
+- AN_Jg5L5weM0cDia6BJV
+- ANiPcscKp65KIfKPP3Ug
+- AOJOzRAi_iZLBIg2DYSy
+- APekVsztlCSJPZPDEcPa
+- ARB2mx8LtjJK0vrtlyoU
+- ARExkcCu8Pl4pJoG5RyL
+- ARFtHvFvxYATAELqh3qJ
+- ARJk_lJ1RhlFwDqGJ67N
+- ARg85StCOzvvgDpAasA6
+- ASPpoYqIhLFbLNR_7IQR
+- ASQmeIrel2Nt6w6h0B1g
+- ASmPrfZsJoCj4BnGGS7o
+- ATzSlFakPhgCcp6m2wgQ
+- AU3t7gHRa1kOM0Lt7y1m
+- AWZB_jUImxPQPayEBTk4
+- AWgeyMyAWiokxwNMissg
+- AWpY880Uv1efXSCOa5h3
+- AX9wa9pIrKWPfvm8ojDp
+- AXdeaMV_MPu7ItiFq8cI
+- AXsGGGuygUDLRRsrx_3X
+- AXwy9aN2Edi6OZbtlDJi
+- AYsj7QTQZIee2fvqtU1d
+- A_dgCpuNz1P_9_RPygVC
+- A_usQZe3y5Fte9TTYFOo
+- Aa8Q1IvIum3HH4nBBx9U
+- AaSktRRoRSIVR9dzIM_r
+- Aak210rzDyq3s0ey_JqA
+- Ab9m3cFd7kDmWFaEb_mF
+- AbJ40VckzE3uXcd5wrEm
+- AbScaW74nxRaq_eRMqKt
+- AbgIcOI7V91nxvT91HCH
+- AcfgMsOtK8XTBUifkDzQ
+- AcpiGT66pFr3um9wJSvv
+- AeJ0cPAB_6JC5aScvJdj
+- AfEpJc9nwz421gpbaFCE
+- AfXLENOMH2E99i_IqkS3
+- AfoNs5RyleYPffKd_R7w
+- AgeR2pcrL1KgHsSM_5CS
+- AghbWDtmF94XAEQKPhJL
+- Ags0262YLWorDd87KLq4
+- AhUvgakGKgwLMNwEiKjw
+- Ait3YQeNJlTKmk1fB8BF
+- Ajf7eVlIyU_T8xs6QWjo
+- AkdxZVE6rBHW7C7Py3GJ
+- AliJCDn_RWIQGhBo9KkG
+- Am2BK_y996hhbvSuY7fJ
+- Amp4nF9uCTsVscG68FIY
+- An48XMbfJ3_Lu2VXAvEM
+- AnenzPzbe3bzZWCsoSAz
+- ApWs6wGARMhpbXAY3Ibr
+- AphHedkQ88YYuFqJstST
+- Aq9kfRSAp_KH4hffk1Yh
+- ArBT7ePdHr8px0JhcxHA
+- ArQKCGxixqtXg2wFnQdw
+- ArpdzWdgRW_8lwpikPGW
+- ArxBBqfEzUGT1nEXkgIs
+- As1eOhbYz7c7EWJhFEG2
+- As2bdQZnoOEI59FJvenu
+- At9tNlKrBKqd5PH17V_A
+- Au57h2FKsL4DYeQ5bueD
+- AukMNaKTJmhKlzn1fQYw
+- Avo4EFdgoNTfpkWOMSfB
+- Avs3Ur6n7mVZQqdyCWMi
+- AwSJhnqvE4ZY6eqQNwLz
+- AyQuHx4nhILLZ2tOcDiA
+- AzyibAhHsGbHLZZ7F51C
+- B0KFyBHd0EPlILNOCgtc
+- B2ZL1NcZub38MXCMkkBV
+- B4MaZF5xX8Ea6aP5du7Q
+- B4Nx02PY95HyEV1qmES5
+- B4pcnR8ZzjyDheRTymNF
+- B4wFeLHvto8GPiLgySGN
+- B6GNJVGJUkryORNDGgVe
+- B6cZwYGBiPMHAmRpT0G6
+- B7I23cSfqpQuBfW1tXHw
+- BA5ge_uDv8IxkEX3YNPq
+- BDayDINV23EvKtWpqSnf
+- BDoqMer1Ahv9hfbOSyfq
+- BE84Z9a3f03AONjbtt3G
+- BEfqS11n6ZkBfjO_haf7
+
+### E.3 Layout tokens
+
+- 1.125rem
+- 1.5rem
+- 10px
+- 11px
+- 12px
+- 13px
+- 14px
+- 16px
+- 18px
+- 1rem
+- 20px
+- 24px
+- 2rem
+- 32px
+- 36px
+- 3rem
+- 4.5rem
+- 48px
+- 7px
+- 8px
+- 9px
+- 0%
+- 0px
+- 1.25rem
+- 1.2em
+- 1.4em
+- 1.5em
+- 1.5rem
+- 100%
+- 1000%
+- 1000px
+- 100px
+- 102px
+- 104.125px
+- 1069px
+- 10px
+- 110%
+- 1100px
+- 110px
+- 112px
+- 113.778px
+- 114px
+- 115%
+- 1170px
+- 1199px
+- 11px
+- 1200px
+- 120px
+- 1248px
+- 124px
+- 1280px
+- 128px
+- 12px
+- 130px
+- 131px
+- 134px
+- 135px
+- 136px
+- 13px
+- 1400px
+- 140px
+- 144px
+- 145%
+- 145px
+- 14px
+- 150px
+- 152px
+- 156.444px
+- 156px
+
+- UI detail note 1: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 2: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 3: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 4: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 5: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 6: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 7: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 8: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 9: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 10: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 11: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 12: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 13: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 14: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 15: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 16: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 17: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 18: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 19: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 20: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 21: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 22: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 23: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 24: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 25: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 26: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 27: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 28: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 29: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 30: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 31: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 32: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 33: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 34: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 35: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 36: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 37: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 38: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 39: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 40: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 41: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 42: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 43: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 44: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 45: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 46: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 47: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 48: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 49: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 50: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 51: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 52: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 53: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 54: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 55: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 56: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 57: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 58: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 59: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 60: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 61: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 62: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 63: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 64: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 65: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 66: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 67: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 68: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 69: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 70: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 71: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 72: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 73: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 74: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 75: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 76: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 77: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 78: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 79: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 80: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 81: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 82: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 83: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 84: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 85: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 86: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 87: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 88: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 89: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 90: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 91: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 92: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 93: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 94: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 95: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 96: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 97: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 98: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 99: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 100: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 101: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 102: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 103: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 104: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 105: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 106: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 107: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 108: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 109: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 110: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 111: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 112: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 113: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 114: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 115: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 116: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 117: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 118: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 119: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 120: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 121: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 122: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 123: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 124: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 125: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 126: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 127: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 128: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 129: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 130: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 131: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 132: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 133: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 134: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 135: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 136: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 137: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 138: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 139: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 140: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 141: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 142: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 143: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 144: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 145: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 146: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 147: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 148: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 149: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 150: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 151: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 152: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 153: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 154: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 155: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 156: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 157: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 158: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 159: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 160: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 161: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 162: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 163: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 164: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 165: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 166: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 167: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 168: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 169: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 170: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 171: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 172: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 173: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 174: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 175: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 176: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 177: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 178: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 179: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 180: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 181: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 182: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 183: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 184: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 185: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 186: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 187: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 188: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 189: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 190: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 191: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 192: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 193: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 194: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 195: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 196: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 197: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 198: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 199: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.
+- UI detail note 200: desktop CSS token extraction; values are observed from shipped stylesheets, not runtime.

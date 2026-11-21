@@ -1,16 +1,15 @@
 // lib/main_windows.dart
 //
-// Windows-এর জন্য entry point। এই ফাইলে audio_service প্যাকেজের
-// কোনো import বা কল নেই — তাই Windows CMake build কখনো audio_service-এর
-// native/platform resolution ছুঁয়েও দেখবে না।
+// Entry point for Windows. This file has no audio_service package imports
+// or calls — so Windows CMake build will never even touch audio_service's
+// native/platform resolution.
 //
-// Windows-এ background/media-key control হবে আপনার বিদ্যমান
-// WindowsMediaService (lib/core/audio/windows_media_service.dart,
-// smtc_windows wrap করা) দিয়ে, যেটা music_player_provider.dart-এ
-// platform-branch অনুযায়ী এমনিতেই init হয় — এই ফাইলে সেটার জন্য
-// আলাদা কোনো কল লাগবে না।
+// On Windows, background/media-key control will be handled by your existing
+// WindowsMediaService (lib/core/audio/windows_media_service.dart, wrapping
+// smtc_windows), which is already initialized in music_player_provider.dart
+// via platform-branch — no separate call needed in this file.
 //
-// রান/বিল্ড করার কমান্ড:
+// Run/build commands:
 //   flutter run -d windows -t lib/main_windows.dart
 //   flutter build windows -t lib/main_windows.dart
 
@@ -23,16 +22,15 @@ import 'main_common.dart';
 void main() async {
   await bootstrapCommon();
 
-  // লক্ষ্য করুন: এখানে AudioService.init() কল নেই এবং কোনো
-  // audio_service import নেই। WindowsMediaService init হয়
-  // music_player_provider.dart-এর ভেতরে platform-branch দিয়ে
-  // (আপনার existing design অনুযায়ী, ওই ফাইলে কোনো পরিবর্তন লাগবে না)।
+  // Note: No AudioService.init() call here and no audio_service import.
+  // WindowsMediaService is initialized inside music_player_provider.dart
+  // via platform-branch (per your existing design, no changes needed in that file).
 
-  // ⚠️ নতুন: close(X) বাটন চাপলে exit না হয়ে tray-তে minimize হবে
-  // (Spotify-style)। এটা runApp()-এর আগে init করা হচ্ছে কারণ
-  // window_manager.waitUntilReadyToShow() নিজেই window দেখানোর
-  // দায়িত্ব নেয় — তাই runApp() পরে কল হলেও widget tree ঠিক সময়েই
-  // দৃশ্যমান window-তে render হবে।
+  // ⚠️ New: close(X) button will minimize to tray instead of exiting
+  // (Spotify-style). This is initialized before runApp() because
+  // window_manager.waitUntilReadyToShow() itself handles showing the window —
+  // so even if runApp() is called later, the widget tree will render
+  // in the visible window at the right time.
   await WindowTrayManager.instance.initialize();
 
   runApp(

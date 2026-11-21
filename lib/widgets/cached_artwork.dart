@@ -114,7 +114,33 @@ class _CachedArtworkState extends ConsumerState<CachedArtwork> {
   // dimension² অনুপাতে কমে।
   static const _lowRamDownscaleFactor = 0.6;
 
-  String get _effectiveCacheKey => widget.cacheKey ?? widget.imageUrl;
+  static String _normalizeUrl(String url, String? videoId) {
+    var clean = url.trim();
+    if (clean.startsWith('//')) clean = 'https:$clean';
+    if (clean.isEmpty && videoId != null && RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(videoId)) {
+      return 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg';
+    }
+    return clean;
+  }
+
+  static String? _fallbackYtUrl(String? videoId, String currentUrl) {
+    String? vId = (videoId != null && RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(videoId)) ? videoId : null;
+    if (vId == null && currentUrl.isNotEmpty) {
+      final match = RegExp(r'/(?:vi|vi_webp)/([a-zA-Z0-9_-]{11})').firstMatch(currentUrl) ??
+          RegExp(r'[?&]v=([a-zA-Z0-9_-]{11})').firstMatch(currentUrl);
+      if (match != null) vId = match.group(1);
+    }
+    if (vId != null) {
+      final defaultYt = 'https://i.ytimg.com/vi/$vId/hqdefault.jpg';
+      if (currentUrl != defaultYt) {
+        return defaultYt;
+      }
+    }
+    return null;
+  }
+
+  String get _normalizedImageUrl => _normalizeUrl(widget.imageUrl, widget.cacheKey);
+  String get _effectiveCacheKey => widget.cacheKey ?? _normalizedImageUrl;
 
   @override
   void initState() {
@@ -141,7 +167,10 @@ class _CachedArtworkState extends ConsumerState<CachedArtwork> {
   }
 
   Future<void> _resolveArtwork() async {
-    if (widget.imageUrl.isEmpty) {
+    final effectiveUrl = _normalizedImageUrl;
+    final effectiveKey = _effectiveCacheKey;
+
+    if (effectiveUrl.isEmpty && effectiveKey.isEmpty) {
       if (mounted) setState(() => _failed = true);
       return;
     }
@@ -163,7 +192,7 @@ class _CachedArtworkState extends ConsumerState<CachedArtwork> {
 
     // ধাপ ১ — দ্রুত cache-hit check।
     final cachedPath =
-        await cacheService.checkCachedThumbnail(_effectiveCacheKey);
+        await cacheService.checkCachedThumbnail(effectiveKey);
     if (!mounted) return;
     if (cachedPath != null) {
       setState(() => _localPath = cachedPath);
@@ -178,8 +207,8 @@ class _CachedArtworkState extends ConsumerState<CachedArtwork> {
     _fetchInFlight = true;
 
     final downloadedPath = await cacheService.cacheThumbnailIfNeeded(
-      videoId: _effectiveCacheKey,
-      imageUrl: widget.imageUrl,
+      videoId: effectiveKey,
+      imageUrl: effectiveUrl,
     );
 
     if (!mounted) return;
@@ -211,26 +240,35 @@ class _CachedArtworkState extends ConsumerState<CachedArtwork> {
   Widget build(BuildContext context) {
     final bgColor = widget.backgroundColor ?? const Color(0xFF2A2A2A);
     final icColor = widget.iconColor ?? Colors.white24;
+    final effectiveUrl = _normalizedImageUrl;
 
     Widget child;
 
     if (kIsWeb) {
       // Web: CacheService/MediaAssetManager native file-cache (dart:io
-      // File) web-e chole na — file-path resolve-er ashay skeleton-e atke na
-      // theke direct network image dekhao (browser nijer HTTP cache use kore).
-      // ponytail: web-e kono disk budget/eviction nei (browser cache-eri
-      // upor nirbhor). Upgrade path: IndexedDB-backed thumb store.
+      // File) web-e chole na — direct network image dekhao.
       child = Image.network(
-        widget.imageUrl,
+        effectiveUrl,
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
         cacheWidth: _effectiveCacheWidth(),
         cacheHeight: _effectiveCacheHeight(),
-        errorBuilder: (context, error, stackTrace) => _errorFallback(
-          bgColor,
-          icColor,
-        ),
+        errorBuilder: (context, error, stackTrace) {
+          final fallbackYt = _fallbackYtUrl(widget.cacheKey, effectiveUrl);
+          if (fallbackYt != null) {
+            return Image.network(
+              fallbackYt,
+              width: widget.width,
+              height: widget.height,
+              fit: widget.fit,
+              cacheWidth: _effectiveCacheWidth(),
+              cacheHeight: _effectiveCacheHeight(),
+              errorBuilder: (_, __, ___) => _errorFallback(bgColor, icColor),
+            );
+          }
+          return _errorFallback(bgColor, icColor);
+        },
       );
     } else if (_localPath != null) {
       // ✅ Cache hit — local file থেকে decode, কোনো network call না।
@@ -241,18 +279,63 @@ class _CachedArtworkState extends ConsumerState<CachedArtwork> {
         fit: widget.fit,
         cacheWidth: _effectiveCacheWidth(),
         cacheHeight: _effectiveCacheHeight(),
-        // ⚠️ local file read খুব কমই ব্যর্থ হয় (ফাইল আছে বলেই এই path
-        // নেওয়া হয়েছে), কিন্তু race condition (অন্য কোনো process/eviction
-        // sweep ঠিক এই মুহূর্তে ফাইল delete করে ফেললে) থেকে বাঁচতে
-        // defensive errorBuilder রাখা হচ্ছে — placeholder-এ fallback,
-        // crash না করে।
-        errorBuilder: (context, error, stackTrace) => _errorFallback(
-          bgColor,
-          icColor,
-        ),
+        errorBuilder: (context, error, stackTrace) {
+          // File corrupt/missing fallback to network
+          if (effectiveUrl.isNotEmpty) {
+            return Image.network(
+              effectiveUrl,
+              width: widget.width,
+              height: widget.height,
+              fit: widget.fit,
+              cacheWidth: _effectiveCacheWidth(),
+              cacheHeight: _effectiveCacheHeight(),
+              errorBuilder: (_, __, ___) {
+                final fallbackYt = _fallbackYtUrl(widget.cacheKey, effectiveUrl);
+                if (fallbackYt != null) {
+                  return Image.network(
+                    fallbackYt,
+                    width: widget.width,
+                    height: widget.height,
+                    fit: widget.fit,
+                    errorBuilder: (_, __, ___) => _errorFallback(bgColor, icColor),
+                  );
+                }
+                return _errorFallback(bgColor, icColor);
+              },
+            );
+          }
+          return _errorFallback(bgColor, icColor);
+        },
       );
     } else if (_failed) {
-      child = _errorFallback(bgColor, icColor);
+      // Disk cache failed or missed — attempt direct network render before showing fallback icon
+      if (effectiveUrl.isNotEmpty) {
+        child = Image.network(
+          effectiveUrl,
+          width: widget.width,
+          height: widget.height,
+          fit: widget.fit,
+          cacheWidth: _effectiveCacheWidth(),
+          cacheHeight: _effectiveCacheHeight(),
+          errorBuilder: (context, error, stackTrace) {
+            final fallbackYt = _fallbackYtUrl(widget.cacheKey, effectiveUrl);
+            if (fallbackYt != null) {
+              return Image.network(
+                fallbackYt,
+                width: widget.width,
+                height: widget.height,
+                fit: widget.fit,
+                cacheWidth: _effectiveCacheWidth(),
+                cacheHeight: _effectiveCacheHeight(),
+                errorBuilder: (_, __, ___) => _errorFallback(bgColor, icColor),
+              );
+            }
+            return _errorFallback(bgColor, icColor);
+          },
+        );
+      } else {
+        child = _errorFallback(bgColor, icColor);
+      }
     } else {
       // ⚠️ এখনো resolve হচ্ছে (cache-check বা download in-progress), অথবা
       // cache service uninitialized — লোডিং placeholder।

@@ -4,8 +4,8 @@ import 'app_spacing.dart';
 import 'app_theme_extension.dart';
 import 'app_typography.dart';
 
-/// ⚠️ Phase 6 — "Midnight Aurora" identity, runtime-switchable Dark/AMOLED।
-/// Light theme ইচ্ছাকৃতভাবে এখনো নেই (পরের phase-এ)।
+/// ⚠️ Phase 6 — "Midnight Aurora" identity, runtime-switchable Dark/AMOLED.
+/// Light theme intentionally not included yet (planned for a later phase).
 enum AppThemeMode { dark, amoled }
 
 class AppTheme {
@@ -40,11 +40,11 @@ class AppTheme {
         bodyColor: aurora.textPrimary,
         displayColor: aurora.textPrimary,
       ),
-      // ⚠️ Design brief: type scale-এ deliberate weight/spacing —
-      // track title-এর জন্য bold+tight letterSpacing, caption/time-stamp-এর
-      // জন্য utility-style tabular figures feel (FontFeature দিয়ে ঘনিষ্ঠ,
-      // পুরোপুরি monospace না করে regular UI font-ই রাখা হচ্ছে —
-      // cross-platform font availability নিয়ে ঝুঁকি না নিতে)।
+      // ⚠️ Design brief: deliberate weight/spacing in the type scale —
+      // bold + tight letterSpacing for track titles, utility-style tabular
+      // figures feel for captions/time-stamps (kept close via FontFeature,
+      // keeping the regular UI font instead of full monospace — to avoid
+      // cross-platform font availability risks).
       extensions: [aurora],
       splashFactory: InkRipple.splashFactory,
       dividerColor: aurora.glassBorder,
@@ -147,7 +147,7 @@ class AppTheme {
   static ThemeData get dark => themeFor(AppThemeMode.dark);
   static ThemeData get amoled => themeFor(AppThemeMode.amoled);
 
-  // ── টাইপ স্কেল shorthand (title/body/caption-এর deliberate ব্যবহার) ──
+  // ── Type-scale shorthands (deliberate title/body/caption usage) ──
   // ⚠️ Kept as thin aliases over [AppTypography] so the existing call
   // sites (`AppTheme.trackTitleStyle` etc.) keep compiling unchanged,
   // while the actual definitions live in one place. New code should

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert' show utf8;
 import 'dart:io';
 
+import 'package:crypto/crypto.dart' show md5;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -146,10 +148,18 @@ class MediaAssetManager {
   /// থেকে বলে সবসময় খালি রাখা যায়, thumbnail-এর জন্য সাধারণত `.jpg`)।
   File _fileFor(MediaAssetType type, String key, {String extension = ''}) {
     // ⚠️ Key sanitization — videoId সাধারণত filesystem-safe (alphanumeric
-    // + `-`/`_`), কিন্তু defensive হিসেবে path separator বা অন্য বিপজ্জনক
-    // char থাকলে sanitize করা হচ্ছে, যাতে filesystem escape/collision না
-    // হয়।
-    final safeKey = key.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
+    // + `-`/`_`). কিন্তু key যদি লম্বা URL বা বিশেষ চিহ্নযুক্ত হয় (যেমন
+    // widget.imageUrl cacheKey হিসেবে ব্যবহার হলে), তাহলে Windows MAX_PATH (260)
+    // এবং Linux/Android 255-byte limit অতিক্রম এড়াতে MD5 হ্যাশ ব্যবহার করা হয়।
+    String safeKey;
+    if (RegExp(r'^[a-zA-Z0-9_-]{1,32}$').hasMatch(key)) {
+      safeKey = key;
+    } else {
+      final digest = md5.convert(utf8.encode(key)).toString();
+      final sanitized = key.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      final prefix = sanitized.length > 8 ? sanitized.substring(0, 8) : sanitized;
+      safeKey = prefix.isNotEmpty ? '${prefix}_$digest' : digest;
+    }
     final fileName = extension.isEmpty ? safeKey : '$safeKey$extension';
     return File(p.join(_subfolderDir(type).path, fileName));
   }

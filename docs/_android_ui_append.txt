@@ -1,0 +1,359 @@
+
+## Appendix E — UI details (Android, extracted resource inventory)
+
+### res (0 files, 50 dirs)
+
+
+### res\anim (0 files, 0 dirs)
+
+
+### res\anim-v21 (0 files, 0 dirs)
+
+
+### res\animator (0 files, 0 dirs)
+
+
+### res\animator-v21 (0 files, 0 dirs)
+
+
+### res\color (0 files, 0 dirs)
+
+
+### res\color-night-v8 (0 files, 0 dirs)
+
+
+### res\color-v23 (0 files, 0 dirs)
+
+
+### res\color-v31 (0 files, 0 dirs)
+
+
+### res\drawable (0 files, 0 dirs)
+
+
+### res\drawable-hdpi-v4 (0 files, 0 dirs)
+
+
+### res\drawable-land (0 files, 0 dirs)
+
+
+### res\drawable-ldrtl (0 files, 0 dirs)
+
+
+### res\drawable-nodpi-v4 (0 files, 0 dirs)
+
+
+### res\drawable-v11 (0 files, 0 dirs)
+
+
+### res\drawable-v21 (0 files, 0 dirs)
+
+
+### res\drawable-v23 (0 files, 0 dirs)
+
+
+### res\drawable-v31 (0 files, 0 dirs)
+
+
+### res\drawable-watch-v20 (0 files, 0 dirs)
+
+
+### res\drawable-xhdpi-v4 (0 files, 0 dirs)
+
+
+### res\drawable-xxhdpi-v4 (0 files, 0 dirs)
+
+
+### res\drawable-xxxhdpi-v4 (0 files, 0 dirs)
+
+
+### res\font (0 files, 0 dirs)
+
+
+### res\font-v29 (0 files, 0 dirs)
+
+
+### res\interpolator (0 files, 0 dirs)
+
+
+### res\interpolator-v21 (0 files, 0 dirs)
+
+
+### res\layout (0 files, 0 dirs)
+
+
+### res\layout-h450dp-v13 (0 files, 0 dirs)
+
+
+### res\layout-h480dp-v13 (0 files, 0 dirs)
+
+
+### res\layout-h600dp-v13 (0 files, 0 dirs)
+
+
+### res\layout-h740dp-v13 (0 files, 0 dirs)
+
+
+### res\layout-land (0 files, 0 dirs)
+
+
+### res\layout-sw600dp-v13 (0 files, 0 dirs)
+
+
+### res\layout-v26 (0 files, 0 dirs)
+
+
+### res\layout-v31 (0 files, 0 dirs)
+
+
+### res\layout-v33 (0 files, 0 dirs)
+
+
+### res\layout-w1400dp-v13 (0 files, 0 dirs)
+
+
+### res\layout-w600dp-h528dp-v13 (0 files, 0 dirs)
+
+
+### res\layout-w840dp-v13 (0 files, 0 dirs)
+
+
+### res\layout-watch-v20 (0 files, 0 dirs)
+
+
+### res\mipmap-anydpi-v21 (0 files, 0 dirs)
+
+
+### res\mipmap-anydpi-v26 (0 files, 0 dirs)
+
+
+### res\mipmap-hdpi-v4 (0 files, 0 dirs)
+
+
+### res\mipmap-mdpi-v4 (0 files, 0 dirs)
+
+
+### res\mipmap-xhdpi-v4 (0 files, 0 dirs)
+
+
+### res\mipmap-xxhdpi-v4 (0 files, 0 dirs)
+
+
+### res\mipmap-xxxhdpi-v4 (0 files, 0 dirs)
+
+
+### res\navigation (0 files, 0 dirs)
+
+
+### res\raw (0 files, 0 dirs)
+
+
+### res\xml (0 files, 0 dirs)
+
+
+### res\xml-v25 (0 files, 0 dirs)
+
+
+### assets (top-level files)
+
+
+- Android UI detail note 1: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 2: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 3: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 4: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 5: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 6: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 7: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 8: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 9: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 10: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 11: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 12: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 13: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 14: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 15: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 16: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 17: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 18: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 19: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 20: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 21: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 22: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 23: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 24: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 25: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 26: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 27: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 28: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 29: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 30: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 31: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 32: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 33: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 34: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 35: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 36: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 37: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 38: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 39: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 40: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 41: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 42: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 43: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 44: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 45: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 46: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 47: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 48: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 49: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 50: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 51: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 52: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 53: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 54: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 55: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 56: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 57: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 58: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 59: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 60: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 61: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 62: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 63: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 64: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 65: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 66: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 67: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 68: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 69: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 70: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 71: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 72: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 73: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 74: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 75: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 76: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 77: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 78: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 79: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 80: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 81: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 82: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 83: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 84: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 85: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 86: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 87: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 88: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 89: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 90: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 91: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 92: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 93: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 94: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 95: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 96: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 97: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 98: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 99: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 100: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 101: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 102: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 103: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 104: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 105: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 106: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 107: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 108: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 109: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 110: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 111: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 112: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 113: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 114: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 115: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 116: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 117: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 118: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 119: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 120: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 121: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 122: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 123: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 124: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 125: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 126: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 127: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 128: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 129: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 130: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 131: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 132: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 133: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 134: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 135: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 136: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 137: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 138: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 139: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 140: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 141: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 142: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 143: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 144: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 145: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 146: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 147: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 148: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 149: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 150: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 151: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 152: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 153: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 154: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 155: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 156: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 157: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 158: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 159: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 160: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 161: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 162: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 163: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 164: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 165: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 166: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 167: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 168: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 169: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 170: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 171: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 172: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 173: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 174: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 175: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 176: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 177: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 178: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 179: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 180: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 181: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 182: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 183: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 184: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 185: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 186: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 187: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 188: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 189: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 190: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 191: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 192: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 193: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 194: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 195: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 196: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 197: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 198: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 199: resource binary; decoded names only, values unknown without aapt.
+- Android UI detail note 200: resource binary; decoded names only, values unknown without aapt.

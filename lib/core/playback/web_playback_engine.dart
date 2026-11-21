@@ -34,7 +34,7 @@ class WebPlaybackEngine implements PlaybackEngine {
 
   /// Ager web_app ApiService-er hardcoded default (lib/web_app/services/
   /// api_service.dart). .env miss/load-fail holeo web jeno more na jay.
-  static const _defaultProxyBase = 'https://teloplay-web.onrender.com';
+  static const _defaultProxyBase = 'https://teloplay-stream-service.teloplay-verify.workers.dev';
 
   @override
   String get engineLabel => 'teloplay-web';
@@ -76,6 +76,29 @@ class WebPlaybackEngine implements PlaybackEngine {
         final item = raw.cast<String, dynamic>();
         final videoId = (item['videoId'] ?? item['id'] ?? '').toString();
         if (videoId.isEmpty) continue;
+        // Worker search items are rich (artists[], album{name,id}, explicit)
+        // — same keys as the native engines, verified live.
+        final rawNames = item['allArtistNames'];
+        final rawIds = item['allArtistIds'];
+        final artistsList = item['artists'];
+        List<String> names = const [];
+        List<String?> ids = const [];
+        if (rawNames is List) {
+          names = rawNames.map((e) => e.toString()).toList();
+        } else if (artistsList is List) {
+          names = artistsList
+              .map((a) => a is Map ? (a['name'] as String? ?? '') : '$a')
+              .where((s) => s.isNotEmpty)
+              .toList();
+        }
+        if (rawIds is List) {
+          ids = rawIds.map((e) => e?.toString()).toList();
+        } else if (artistsList is List) {
+          ids = artistsList
+              .map((a) => a is Map ? (a['id'] as String?)?.toString() : null)
+              .toList();
+        }
+        final album = item['album'];
         results.add(
           SearchResult(
             videoId: videoId,
@@ -86,6 +109,17 @@ class WebPlaybackEngine implements PlaybackEngine {
                     'https://i.ytimg.com/vi/$videoId/hqdefault.jpg')
                 .toString(),
             duration: _parseDuration(item['duration']),
+            artistId: (item['artistId'] as String?) ??
+                (ids.isNotEmpty ? ids.first : null),
+            albumId: (item['albumId'] as String?) ??
+                (album is Map ? (album['id'] as String?) : null),
+            albumName: (item['albumName'] as String?) ??
+                (album is Map
+                    ? (album['name'] as String?)
+                    : (album is String ? album : null)),
+            allArtistNames: names,
+            allArtistIds: ids,
+            explicit: (item['explicit'] as bool?) ?? false,
           ),
         );
       }
@@ -209,78 +243,198 @@ class WebPlaybackEngine implements PlaybackEngine {
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // Contract-compatibility members (PlaybackEngine gained these after this
-  // engine was last updated). Each returns the base class's own documented
-  // neutral fallback — the same value Android/Windows return on failure —
-  // because the web data path does not expose the underlying catalog data:
-  // the worker/ApiService surface has no album/artist/playlist/explore/
-  // charts/related/lyrics endpoint, and the web playback stack resolves
-  // streams directly. Callers already handle these fallbacks (e.g.
-  // LyricsRepository treats null as "no lyrics", the search orchestrator
-  // builds song-only sections from [] via sectionsOrFallback).
+  // Rich catalog (wired to the stream worker — all endpoints verified live).
   // ───────────────────────────────────────────────────────────────────────
 
+  /// Typed multi-entity sections via /api/search-filter
+  /// (song | album | artist | playlist). One filter failing never fails
+  /// the whole search — that section is skipped, like the native engines.
   @override
   Future<List<SearchSection>> searchSections(
     String query, {
     int limitPerSection = 20,
   }) async {
-    // SearchController "NO LIMIT" bojhate limitPerSection=0 pathay (native
-    // daemon-er convention). Worker /api/search-e limit=0 gele clamp hoye 1
-    // hoye jay (Math.max(limit,1)) — tai screenshot-er moto 1 ta result asto.
-    // Web-e 0-ke sane default 25-e map kora holo.
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return const [];
     final limit = limitPerSection <= 0 ? 25 : limitPerSection;
-    final songs = await search(query, limit: limit);
-    if (songs.isEmpty) return const [];
-    return [
-      SearchSection(
-        title: 'Songs',
-        items: songs
-            .map((s) => RichSearchItem(
-                  type: 'song',
-                  id: s.videoId,
-                  title: s.title,
-                  thumbnail: s.thumbnail,
-                  subtitle: s.author,
-                  duration: s.duration,
-                ))
-            .toList(),
-      ),
-    ];
+    const filters = <String, String>{
+      'song': 'Songs',
+      'album': 'Albums',
+      'artist': 'Artists',
+      'playlist': 'Playlists',
+    };
+    final sections = <SearchSection>[];
+    for (final entry in filters.entries) {
+      try {
+        final uri = Uri.parse('$_proxyBase/api/search-filter').replace(
+          queryParameters: {
+            'query': trimmed,
+            'filter': entry.key,
+            'limit': '$limit',
+          },
+        );
+        final decoded =
+            await _getJson(uri, timeout: const Duration(seconds: 15));
+        if (decoded is! Map || decoded['ok'] != true) continue;
+        final raw = decoded['results'];
+        if (raw is! List) continue;
+        final items = <RichSearchItem>[];
+        for (final e in raw) {
+          if (e is! Map) continue;
+          final item =
+              RichSearchItem.fromJson(e.cast<String, dynamic>());
+          if (item.id.isEmpty) continue;
+          items.add(item);
+        }
+        if (items.isNotEmpty) {
+          sections.add(SearchSection(title: entry.value, items: items));
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    if (sections.isEmpty) {
+      // Fallback: song-only section from /api/search (old behavior).
+      final songLimit = limitPerSection <= 0 ? 25 : limitPerSection;
+      final songs = await search(query, limit: songLimit);
+      if (songs.isEmpty) return const [];
+      return [
+        SearchSection(
+          title: 'Songs',
+          items: songs
+              .map((s) => RichSearchItem(
+                    type: 'song',
+                    id: s.videoId,
+                    title: s.title,
+                    thumbnail: s.thumbnail,
+                    subtitle: s.author,
+                    duration: s.duration,
+                  ))
+              .toList(),
+        ),
+      ];
+    }
+    return sections;
   }
 
   @override
-  Future<SearchSuggestions> searchSuggestionsRich(String query) async =>
-      // Base-class default: suggestion previews are non-critical; the
-      // text-only searchSuggestions() above remains available.
-      const SearchSuggestions();
+  Future<SearchSuggestions> searchSuggestionsRich(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return const SearchSuggestions();
+    try {
+      final uri = Uri.parse('$_proxyBase/api/suggest').replace(
+        queryParameters: {'q': trimmed},
+      );
+      final decoded =
+          await _getJson(uri, timeout: const Duration(seconds: 6));
+      if (decoded is! Map) return const SearchSuggestions();
+      final queries = <String>[];
+      final q = decoded['queries'];
+      if (q is List) {
+        queries.addAll(
+            q.map((e) => e.toString()).where((e) => e.trim().isNotEmpty));
+      } else {
+        queries.addAll(await searchSuggestions(trimmed));
+      }
+      final items = <RichSearchItem>[];
+      for (final key in ['recommendedItems', 'recommended']) {
+        final rec = decoded[key];
+        if (rec is List) {
+          for (final e in rec) {
+            if (e is! Map) continue;
+            final item =
+                RichSearchItem.fromJson(e.cast<String, dynamic>());
+            if (item.id.isEmpty) continue;
+            items.add(item);
+          }
+          if (items.isNotEmpty) break;
+        }
+      }
+      return SearchSuggestions(queries: queries, items: items);
+    } catch (_) {
+      return const SearchSuggestions();
+    }
+  }
+
+  Future<Map<String, dynamic>?> _getMap(String path,
+      Map<String, String> params, {
+        Duration timeout = const Duration(seconds: 15),
+      }) async {
+    try {
+      final uri =
+          Uri.parse('$_proxyBase$path').replace(queryParameters: params);
+      final decoded = await _getJson(uri, timeout: timeout);
+      if (decoded is Map && decoded['ok'] == true) {
+        return decoded.cast<String, dynamic>();
+      }
+    } catch (_) {}
+    return null;
+  }
 
   @override
-  Future<Map<String, dynamic>?> getAlbum(String albumId) async => null;
+  Future<Map<String, dynamic>?> getAlbum(String albumId) =>
+      _getMap('/api/album', {'id': albumId});
 
   @override
   Future<Map<String, dynamic>?> getArtist(String artistId,
-          {int limit = 0}) async =>
-      null;
+          {int limit = 0}) =>
+      _getMap('/api/artist', {
+        'id': artistId,
+        if (limit > 0) 'limit': '$limit',
+      });
 
   @override
   Future<List<SearchResult>> getRelatedTracks(String videoId,
-          {int limit = 20}) async =>
-      const [];
+      {int limit = 20}) async {
+    final map = await _getMap('/api/song', {'id': videoId});
+    final raw = map?['relatedSongs'];
+    if (raw is! List) return const [];
+    final results = <SearchResult>[];
+    for (final e in raw.take(limit)) {
+      if (e is! Map) continue;
+      final item = RichSearchItem.fromJson(e.cast<String, dynamic>());
+      if (!item.isSong || item.id.isEmpty) continue;
+      results.add(
+        SearchResult(
+          videoId: item.id,
+          title: item.title,
+          author: item.subtitle ?? 'Unknown',
+          thumbnail: item.thumbnail.isEmpty
+              ? 'https://i.ytimg.com/vi/${item.id}/hqdefault.jpg'
+              : item.thumbnail,
+          duration: item.duration,
+          explicit: item.explicit,
+        ),
+      );
+    }
+    return results;
+  }
 
   @override
   Future<Map<String, dynamic>?> getPlaylist(String playlistId,
-          {int limit = 0}) async =>
-      null;
+          {int limit = 0}) =>
+      _getMap('/api/playlist', {
+        'id': playlistId,
+        if (limit > 0) 'limit': '$limit',
+      });
 
   @override
-  Future<Map<String, dynamic>?> getExplore() async => null;
+  Future<Map<String, dynamic>?> getExplore() =>
+      _getMap('/api/home', {});
 
   @override
-  Future<Map<String, dynamic>?> getChartsData() async => null;
+  Future<Map<String, dynamic>?> getChartsData() =>
+      _getMap('/api/charts', {});
 
   @override
-  Future<String?> getLyricsText(String videoId) async => null;
+  Future<String?> getLyricsText(String videoId) async {
+    // Worker accepts id-only (YTM description path); title/artist only
+    // improve the LRCLib fallback. Engine interface carries videoId only.
+    final map = await _getMap('/api/lyrics', {'id': videoId});
+    final plain = map?['plainLyrics'];
+    if (plain is String && plain.trim().isNotEmpty) return plain;
+    return null;
+  }
 
   @override
   Stream<AudioFocusSignal>? get audioFocusStream => null;

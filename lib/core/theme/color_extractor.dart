@@ -8,36 +8,34 @@ import 'package:palette_generator/palette_generator.dart';
 import '../logging/app_logger.dart';
 import 'app_colors.dart';
 
-/// ⚠️ Phase 6 (Smart Player UI & Theme Polish) — Dynamic album-based accent।
+/// ⚠️ Phase 6 (Smart Player UI & Theme Polish) — Dynamic album-based accent.
 ///
 /// Pipeline:
-///   1. Album artwork (local file — CachedArtwork/CacheService দিয়ে আগেই
-///      resolve হওয়া path) থেকে `PaletteGenerator` দিয়ে dominant color
-///      extract।
-///   2. **সরাসরি সেই dominant color ব্যবহার করা হয় না** — কিছু album
-///      art থেকে dirty brown/mud green/washed yellow/gray এর মতো
-///      unappealing রং বের হতে পারে। তাই extracted color-কে
-///      `AppColors.curatedAccents` তালিকার সবচেয়ে কাছেরটাতে (HSL
-///      distance দিয়ে) map করা হয় — curated value-ই আসলে UI-তে
-///      ব্যবহৃত হয়।
-///   3. Contrast validation — curated palette আগে থেকেই যাচাই করা
-///      (lightness/saturation বাউন্ডারির মধ্যে), তাই সাধারণত extra
-///      normalize লাগে না, কিন্তু defensive হিসেবে চূড়ান্ত রং-এর
-///      lightness একটা ব্যবহারযোগ্য রেঞ্জে (০.৩৫–০.৭৫) clamp করা হয় —
-///      দেখো `_ensureUsableLightness()`।
+///   1. Extract dominant color from album artwork (local file — path previously
+///      resolved via CachedArtwork/CacheService) using `PaletteGenerator`.
+///   2. **The raw dominant color is not used directly** — some album art
+///      can produce unappealing colors such as dirty brown, mud green,
+///      washed-out yellow, or dull gray. Hence, the extracted color is mapped
+///      (via HSL distance) to the closest match in `AppColors.curatedAccents` —
+///      it is this curated value that is actually applied in the UI.
+///   3. Contrast validation — the curated palette is pre-validated (within
+///      lightness/saturation boundaries), so extra normalization is generally
+///      unnecessary. However, as a defensive measure, the final color's
+///      lightness is clamped to a usable range (0.35–0.75) — see
+///      `_ensureUsableLightness()`.
 ///
-/// **Performance:** প্রতি track change-এ একবারই extract হয় (per-trackId
-/// cache), rebuild-এ recompute হয় না। Low RAM mode-এ blur বন্ধ থাকে
-/// (এই ক্লাসের দায়িত্ব না — `CachedArtwork`/player background widget
-/// নিজে `PerformanceService.isLowRamMode` চেক করবে) কিন্তু color
-/// extraction তখনও চলবে (হালকা, image resize করেই করা হয়)।
+/// **Performance:** Extracted only once per track change (cached per trackId),
+/// not recomputed on widget rebuilds. In Low RAM mode, blur is disabled
+/// (handled externally — `CachedArtwork`/player background widget inspects
+/// `PerformanceService.isLowRamMode`), but color extraction still runs
+/// (lightweight, performed by resizing the image).
 class ColorExtractor {
   ColorExtractor._();
 
   static final _cache = <String, Color>{};
 
-  /// [trackId] দিয়ে cache key — stream/thumbnail URL বদলে গেলেও track
-  /// একই থাকলে পুনরায় extract করার দরকার নেই।
+  /// Cache key using [trackId] — no need to re-extract if the track remains
+  /// the same, even if stream/thumbnail URLs change.
   static Future<Color?> extractForTrack({
     required String trackId,
     required String localImagePath,
@@ -55,9 +53,9 @@ class ColorExtractor {
     try {
       final imageProvider = FileImage(File(localImagePath));
 
-      // ⚠️ পুরো resolution না, ছোট region-count দিয়ে PaletteGenerator
-      // চালানো হচ্ছে — extraction দ্রুত রাখতে (per-track একবারই হলেও,
-      // large artwork-এ unnecessary CPU/memory এড়ানো ভালো)।
+      // ⚠️ PaletteGenerator runs with a reduced color count instead of full
+      // resolution to keep extraction fast (even though it's once per track,
+      // avoiding unnecessary CPU/memory overhead on large artwork is desirable).
       final palette = await PaletteGenerator.fromImageProvider(
         imageProvider,
         maximumColorCount: 12,
@@ -75,19 +73,18 @@ class ColorExtractor {
       _cache[trackId] = safe;
       return safe;
     } catch (e) {
-      // ⚠️ Extraction ব্যর্থ হলে (corrupt file, decode error) exception
-      // propagate করা হয় না — accent শুধু UI enhancement, ব্যর্থ হলে
-      // caller গ্র্যাসফুলি `AuroraColors.primary`-তে fallback করবে
-      // (দেখো AuroraColors.effectiveAccent)।
+      // ⚠️ If extraction fails (corrupt file, decode error), exceptions are
+      // not propagated — accent is purely a UI enhancement; on failure,
+      // the caller gracefully falls back to `AuroraColors.primary`
+      // (see AuroraColors.effectiveAccent).
       AppLogger.error('Album color extraction failed for $trackId', e);
       return null;
     }
   }
 
-  /// Track বদলে গেলে/logout ইত্যাদিতে cache বড় হতে থাকলে periodic
-  /// cleanup — এই মুহূর্তে explicit call কোথাও লাগানো হয়নি (cache ছোট
-  /// Color value-এর map, memory pressure নগণ্য), কিন্তু ভবিষ্যতে
-  /// history বড় হলে ব্যবহারযোগ্য।
+  /// Periodic cleanup when cache grows large on track changes/logout, etc. —
+  /// currently not explicitly called anywhere (the cache is a small map of
+  /// Color values, memory pressure is negligible), but available if history grows.
   static void clearCache() => _cache.clear();
 
   static Color _mapToNearestCurated(Color extracted) {
@@ -108,9 +105,9 @@ class ColorExtractor {
     return nearest;
   }
 
-  /// Hue circular distance + saturation/lightness weighted — hue-কে
-  /// বেশি priority দেওয়া হয়েছে কারণ মানুষ "কোন রং" সেটা hue দিয়েই
-  /// প্রথমে বিচার করে, saturation/lightness এখানে tie-breaker।
+  /// Hue circular distance + saturation/lightness weighted — higher priority
+  /// is given to hue because human perception identifies color by hue first,
+  /// while saturation and lightness act as tie-breakers.
   static double _hslDistance(HSLColor a, HSLColor b) {
     final hueDiff = (a.hue - b.hue).abs();
     final circularHueDiff = hueDiff > 180 ? 360 - hueDiff : hueDiff;
@@ -122,11 +119,11 @@ class ColorExtractor {
     return (normalizedHueDiff * 0.7) + (satDiff * 0.15) + (lightDiff * 0.15);
   }
 
-  /// চূড়ান্ত নিরাপত্তা — curated palette নিজেই ব্যবহারযোগ্য lightness
-  /// রেঞ্জে বানানো, কিন্তু defensive clamp রাখা হলো যাতে ভবিষ্যতে কেউ
-  /// `curatedAccents`-এ নতুন রং যোগ করলেও (যেটা হয়তো খুব হালকা/গাঢ়)
-  /// glow/progress-bar-এ ব্যবহারযোগ্য থাকে (dark background-এর উপর
-  /// দৃশ্যমান, কিন্তু চোখ ধাঁধানো উজ্জ্বল না)।
+  /// Ultimate safety clamp — while the curated palette is designed within
+  /// a usable lightness range, this defensive clamp ensures that even if a
+  /// color added to `curatedAccents` is too light or too dark, it remains
+  /// legible on glow and progress bars (visible against dark backgrounds
+  /// without causing eye fatigue).
   static Color _ensureUsableLightness(Color color) {
     final hsl = HSLColor.fromColor(color);
     final clampedLightness = hsl.lightness.clamp(0.35, 0.75);

@@ -1,14 +1,13 @@
 // lib/main_android.dart
 //
-// Android-এর জন্য entry point। এই ফাইলেই শুধু AudioService.init() কল হয়,
-// কারণ audio_service প্যাকেজ Windows-এ officially সাপোর্টেড না
-// (audio_service প্যাকেজ শুধু Android, iOS, web, Linux সাপোর্ট করে)।
+// Entry point for Android. Only this file calls AudioService.init(),
+// because the audio_service package is not officially supported on Windows
+// (audio_service only supports Android, iOS, web, Linux).
 //
-// এভাবে আলাদা entry point রাখার ফলে Windows build কখনো এই ফাইলটা
-// compile করবে না, তাই audio_service-এর কোনো CMake/native resolution
-// সমস্যা Windows build-এ আর আসবে না।
+// By keeping separate entry points, Windows builds will never compile this file,
+// so audio_service's CMake/native resolution issues won't affect Windows builds.
 //
-// রান/বিল্ড করার কমান্ড:
+// Run/build commands:
 //   flutter run -t lib/main_android.dart
 //   flutter build apk -t lib/main_android.dart
 //   flutter build appbundle -t lib/main_android.dart
@@ -24,21 +23,19 @@ import 'main_common.dart';
 void main() async {
   await bootstrapCommon();
 
-  // ⚠️ পরিবর্তন: AudioService.init() এখন runApp()-এর আগে কল হচ্ছে না।
-  // কারণ: manifest, MainActivity (FlutterFragmentActivity), super.
-  // configureFlutterEngine() — সবকিছু সঠিক থাকা সত্ত্বেও
-  // "Activity class declared in AndroidManifest.xml is wrong" crash
-  // হচ্ছিল। এর root cause: AudioService.init()-এর MethodChannel কল
-  // Activity/FlutterEngine সম্পূর্ণ attach হওয়ার আগেই platform-side-এ
-  // পৌঁছাচ্ছিল (race condition), ফলে platform misleadingly এই error
-  // দিচ্ছিল। এটা multi-entry-point (main_android.dart) সেটআপে বেশি
-  // দেখা যায় কারণ Activity lifecycle normal single-main.dart flow-এর
-  // চেয়ে একটু ভিন্নভাবে শুরু হয়।
+  // ⚠️ Change: AudioService.init() is no longer called before runApp().
+  // Reason: Despite having correct manifest, MainActivity (FlutterFragmentActivity),
+  // and super.configureFlutterEngine(), we were getting "Activity class declared
+  // in AndroidManifest.xml is wrong" crash. Root cause: AudioService.init()'s
+  // MethodChannel call was reaching platform-side before Activity/FlutterEngine
+  // was fully attached (race condition), causing platform to misleadingly throw
+  // this error. This is more common in multi-entry-point (main_android.dart)
+  // setups because Activity lifecycle starts slightly differently than the
+  // normal single-main.dart flow.
   //
-  // ফিক্স: প্রথমে runApp() কল করা হচ্ছে, এবং AudioService.init()
-  // WidgetsBinding-এর প্রথম frame render হওয়ার পরে (postFrameCallback)
-  // কল করা হচ্ছে — তখন Activity সম্পূর্ণ তৈরি ও FlutterEngine attach
-  // হয়ে গেছে নিশ্চিতভাবে।
+  // Fix: First call runApp(), then call AudioService.init() after the first
+  // frame is rendered (postFrameCallback) via WidgetsBinding — by then Activity
+  // is fully created and FlutterEngine is attached for certain.
   runApp(
     const ProviderScope(
       child: TeloPlayApp(),
@@ -59,11 +56,11 @@ void main() async {
     } catch (e, st) {
       debugPrint('AudioService.init() failed: $e\n$st');
     } finally {
-      // ⚠️ Bug fix — সফল বা ব্যর্থ, দুই ক্ষেত্রেই complete() করা হচ্ছে
-      // (finally-তে), যাতে AudioService.init() ব্যর্থ হলেও
-      // AndroidPlaybackEngine চিরকাল অপেক্ষা করে আটকে না থাকে —
-      // ব্যর্থ হলে অন্তত engine নিজের মতো session configure করার
-      // চেষ্টা করতে পারবে (গ্রেসফুল ডিগ্রেডেশন)।
+      // ⚠️ Bug fix — complete() is called in both success and failure cases
+      // (in finally block), so that even if AudioService.init() fails,
+      // AndroidPlaybackEngine doesn't wait forever stuck —
+      // on failure, at least the engine can attempt to configure the session
+      // on its own (graceful degradation).
       if (!audioServiceReady.isCompleted) {
         audioServiceReady.complete();
       }
